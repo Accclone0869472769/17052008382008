@@ -1,0 +1,902 @@
+-- ============================================================
+--  StarCrow GUI Library  |  v1.0
+--  Dùng qua loadstring rồi gọi API trả về.
+--
+--  Cách dùng:
+--    local GUI = loadstring(game:HttpGet("RAW_LINK"))()
+--    local GUI = loadstring(game:HttpGet("RAW_LINK"))()
+--
+--    -- Thêm toggle vào tab "Player" (index 1)
+--    GUI:AddToggle(1, "Head Hitbox", function(state)
+--        print("Head Hitbox:", state)
+--    end)
+--
+--    -- Thêm button vào tab "Misc" (index 5)
+--    GUI:AddButton(5, "Teleport Home", function()
+--        print("clicked!")
+--    end)
+--
+--    -- Thêm label vào tab "Setting" (index 9)
+--    GUI:AddLabel(9, "Version: 1.0")
+--
+--    -- Đổi tiêu đề nút mở
+--    GUI:SetTitle("Open MyScript")
+-- ============================================================
+
+local Players           = game:GetService("Players")
+local LocalPlayer       = Players.LocalPlayer
+local UserInputService  = game:GetService("UserInputService")
+local TweenService      = game:GetService("TweenService")
+
+-- ──────────────────────────────────────────────────────────
+--  INTERNAL HELPERS
+-- ──────────────────────────────────────────────────────────
+
+local function _corner(radius, parent)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius)
+    c.Parent = parent
+end
+
+local function _click()
+    local s = Instance.new("Sound")
+    s.SoundId = "rbxassetid://116394299154002"
+    s.Volume  = 0.5
+    s.Parent  = game:GetService("SoundService")
+    s:Play()
+    game:GetService("Debris"):AddItem(s, 2)
+end
+
+local function _tween(obj, info, props)
+    TweenService:Create(obj, info, props):Play()
+end
+
+-- ──────────────────────────────────────────────────────────
+--  SCREEN GUI
+-- ──────────────────────────────────────────────────────────
+
+local old = LocalPlayer.PlayerGui:FindFirstChild("StarCrowGui")
+if old then old:Destroy() end
+
+local gui = Instance.new("ScreenGui")
+gui.Name            = "StarCrowGui"
+gui.ResetOnSpawn    = false
+gui.ZIndexBehavior  = Enum.ZIndexBehavior.Sibling
+gui.DisplayOrder    = 999999
+gui.IgnoreGuiInset  = true
+pcall(function() gui.Parent = game:GetService("CoreGui") end)
+if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+-- ──────────────────────────────────────────────────────────
+--  FLOAT TOGGLE BUTTON  (draggable)
+-- ──────────────────────────────────────────────────────────
+
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Name                   = "OpenMenuButton"
+toggleBtn.Size                   = UDim2.new(0, 190, 0, 38)
+toggleBtn.Position               = UDim2.new(0.5, -95, 0, 72)
+toggleBtn.BackgroundColor3       = Color3.fromRGB(28, 28, 28)
+toggleBtn.BackgroundTransparency = 0.42
+toggleBtn.BorderSizePixel        = 0
+toggleBtn.Text                   = ""
+toggleBtn.ZIndex                 = 5
+toggleBtn.Active                 = true
+toggleBtn.AutoButtonColor        = false
+toggleBtn.Parent                 = gui
+_corner(6, toggleBtn)
+
+do
+    -- Animated stroke border
+    local sf = Instance.new("Frame")
+    sf.Size = UDim2.fromScale(1,1)
+    sf.BackgroundTransparency = 1
+    sf.BorderSizePixel = 0
+    sf.ZIndex = 6
+    sf.Parent = toggleBtn
+    _corner(6, sf)
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness       = 2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent          = sf
+
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(170, 70, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 180, 255)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(170, 70, 255)),
+    })
+    grad.Parent = stroke
+    task.spawn(function()
+        _tween(grad, TweenInfo.new(5, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360})
+    end)
+
+    -- Drag icon
+    local dragIcon = Instance.new("ImageLabel")
+    dragIcon.Size                = UDim2.new(0,17,0,17)
+    dragIcon.Position            = UDim2.new(0,8,0.5,-8)
+    dragIcon.BackgroundTransparency = 1
+    dragIcon.Image               = "rbxassetid://6710235139"
+    dragIcon.ImageTransparency   = 0.12
+    dragIcon.ScaleType           = Enum.ScaleType.Fit
+    dragIcon.ZIndex              = 7
+    dragIcon.Parent              = toggleBtn
+
+    -- Divider
+    local div = Instance.new("Frame")
+    div.Size  = UDim2.new(0,1,1,0)
+    div.Position = UDim2.new(0,32,0,0)
+    div.BackgroundColor3 = Color3.fromRGB(200,200,200)
+    div.BackgroundTransparency = 0.58
+    div.BorderSizePixel = 0
+    div.ZIndex = 7
+    div.Parent = toggleBtn
+
+    -- Side icon
+    local sideIcon = Instance.new("ImageLabel")
+    sideIcon.Size  = UDim2.new(0,22,0,22)
+    sideIcon.Position = UDim2.new(0,35,0.5,-11)
+    sideIcon.BackgroundTransparency = 1
+    sideIcon.Image = "rbxassetid://11400928498"
+    sideIcon.ImageTransparency = 0.04
+    sideIcon.ScaleType = Enum.ScaleType.Fit
+    sideIcon.ZIndex = 8
+    sideIcon.Parent = toggleBtn
+
+    -- Name label  (API có thể đổi qua GUI:SetTitle)
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name  = "NameLabel"
+    nameLabel.Size  = UDim2.new(0,104,1,0)
+    nameLabel.Position = UDim2.new(0,68,0,0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text  = "Open StarCrow"
+    nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+    nameLabel.Font  = Enum.Font.GothamSemibold
+    nameLabel.TextSize = 14
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+    nameLabel.TextYAlignment = Enum.TextYAlignment.Center
+    nameLabel.ZIndex = 8
+    nameLabel.Parent = toggleBtn
+end
+
+-- Drag logic (toggleBtn)
+local _tbDragging, _tbMoved, _tbIsTouch = false, false, false
+local _tbDragInput, _tbDragStart, _tbDragPos
+
+toggleBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        _tbDragging = true; _tbMoved = false; _tbIsTouch = false
+        _tbDragStart = input.Position; _tbDragPos = toggleBtn.Position
+    elseif input.UserInputType == Enum.UserInputType.Touch then
+        _tbDragging = true; _tbMoved = false; _tbIsTouch = true
+        _tbDragInput = input; _tbDragStart = input.Position; _tbDragPos = toggleBtn.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                _tbDragging = false; _tbDragInput = nil
+            end
+        end)
+    end
+end)
+toggleBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        _tbDragging = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if not _tbDragging then return end
+    local delta
+    if not _tbIsTouch and input.UserInputType == Enum.UserInputType.MouseMovement then
+        delta = input.Position - _tbDragStart
+    elseif _tbIsTouch and input == _tbDragInput then
+        delta = input.Position - _tbDragStart
+    end
+    if delta then
+        if delta.Magnitude > 6 then _tbMoved = true end
+        toggleBtn.Position = UDim2.new(
+            _tbDragPos.X.Scale, _tbDragPos.X.Offset + delta.X,
+            _tbDragPos.Y.Scale, _tbDragPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- ──────────────────────────────────────────────────────────
+--  MAIN FRAME
+-- ──────────────────────────────────────────────────────────
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size                   = UDim2.new(0,320,0,380)
+mainFrame.Position               = UDim2.new(0.5,-160,0.5,-190)
+mainFrame.BackgroundColor3       = Color3.fromRGB(40,40,40)
+mainFrame.BackgroundTransparency = 0.7
+mainFrame.BorderSizePixel        = 0
+mainFrame.Visible                = false
+mainFrame.Active                 = true
+mainFrame.Parent                 = gui
+_corner(8, mainFrame)
+
+do  -- animated border + shimmer
+    local mStroke = Instance.new("UIStroke")
+    mStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    mStroke.Thickness       = 2.5
+    mStroke.Parent          = mainFrame
+
+    local mGrad = Instance.new("UIGradient")
+    mGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,    Color3.fromRGB(140,0,255)),
+        ColorSequenceKeypoint.new(0.25, Color3.fromRGB(0,180,255)),
+        ColorSequenceKeypoint.new(0.5,  Color3.fromRGB(140,0,255)),
+        ColorSequenceKeypoint.new(0.75, Color3.fromRGB(0,180,255)),
+        ColorSequenceKeypoint.new(1,    Color3.fromRGB(140,0,255)),
+    })
+    mGrad.Parent = mStroke
+
+    local shimmer = Instance.new("Frame")
+    shimmer.Size                   = UDim2.new(1,0,0,60)
+    shimmer.Position               = UDim2.new(0,0,-0.2,0)
+    shimmer.BackgroundColor3       = Color3.fromRGB(255,255,255)
+    shimmer.BackgroundTransparency = 0.82
+    shimmer.BorderSizePixel        = 0
+    shimmer.ZIndex                 = mainFrame.ZIndex + 1
+    shimmer.Parent                 = mainFrame
+    _corner(8, shimmer)
+
+    local shimGrad = Instance.new("UIGradient")
+    shimGrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.5, 0.7),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    shimGrad.Rotation = 90
+    shimGrad.Parent   = shimmer
+
+    task.spawn(function()
+        _tween(mGrad, TweenInfo.new(5, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360})
+        while true do
+            shimmer.Position               = UDim2.new(0,0,-0.2,0)
+            shimmer.BackgroundTransparency = 0.85
+            _tween(shimmer, TweenInfo.new(1.6, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+                {Position = UDim2.new(0,0,1.1,0), BackgroundTransparency = 0.85})
+            task.wait(3.5)
+        end
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────
+--  TITLE BAR  (draggable, không có nút close/min/max)
+-- ──────────────────────────────────────────────────────────
+
+local titleBar = Instance.new("Frame")
+titleBar.Size                   = UDim2.new(1,0,0,28)
+titleBar.BackgroundColor3       = Color3.fromRGB(20,20,30)
+titleBar.BackgroundTransparency = 0.2
+titleBar.BorderSizePixel        = 0
+titleBar.Active                 = true
+titleBar.Parent                 = mainFrame
+_corner(8, titleBar)
+
+do
+    local tbGrad = Instance.new("UIGradient")
+    tbGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(80,0,140)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,60,120)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(80,0,140)),
+    })
+    tbGrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.5),
+        NumberSequenceKeypoint.new(0.5, 0.3),
+        NumberSequenceKeypoint.new(1, 0.5),
+    })
+    tbGrad.Parent = titleBar
+
+    local tbStroke = Instance.new("UIStroke")
+    tbStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    tbStroke.Thickness = 1
+    tbStroke.Parent    = titleBar
+
+    local tbSGrad = Instance.new("UIGradient")
+    tbSGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(140,0,255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,180,255)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(140,0,255)),
+    })
+    tbSGrad.Parent = tbStroke
+
+    task.spawn(function()
+        _tween(tbSGrad, TweenInfo.new(5, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360})
+        _tween(tbGrad,  TweenInfo.new(5, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360})
+    end)
+
+    -- separator
+    local sep = Instance.new("Frame")
+    sep.Size             = UDim2.new(1,-16,0,1)
+    sep.Position         = UDim2.new(0,8,1,-1)
+    sep.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    sep.BorderSizePixel  = 0
+    sep.ZIndex           = titleBar.ZIndex + 1
+    sep.Parent           = titleBar
+    local sepG = Instance.new("UIGradient")
+    sepG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(140,0,255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,200,255)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(140,0,255)),
+    })
+    sepG.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.15, 0),
+        NumberSequenceKeypoint.new(0.85, 0),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    sepG.Parent = sep
+    task.spawn(function()
+        _tween(sepG, TweenInfo.new(5, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360})
+    end)
+end
+
+-- Title label
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size                   = UDim2.new(1,-8,1,0)
+titleLabel.Position               = UDim2.new(0,8,0,0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text                   = "StarCrow"
+titleLabel.TextColor3             = Color3.fromRGB(255,255,255)
+titleLabel.Font                   = Enum.Font.GothamBold
+titleLabel.TextSize               = 13
+titleLabel.TextXAlignment         = Enum.TextXAlignment.Left
+titleLabel.Parent                 = titleBar
+
+do
+    local tlG = Instance.new("UIGradient")
+    tlG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(200,100,255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,210,255)),
+    })
+    tlG.Parent = titleLabel
+    task.spawn(function()
+        _tween(tlG, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Rotation=90})
+    end)
+end
+
+-- Drag mainFrame bằng titleBar
+do
+    local _mfDragging = false
+    local _mfDragStart, _mfStartPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            _mfDragging  = true
+            _mfDragStart = input.Position
+            _mfStartPos  = mainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then _mfDragging = false end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if _mfDragging and (
+            input.UserInputType == Enum.UserInputType.MouseMovement or
+            input.UserInputType == Enum.UserInputType.Touch
+        ) then
+            local d = input.Position - _mfDragStart
+            mainFrame.Position = UDim2.new(
+                _mfStartPos.X.Scale, _mfStartPos.X.Offset + d.X,
+                _mfStartPos.Y.Scale, _mfStartPos.Y.Offset + d.Y
+            )
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            _mfDragging = false
+        end
+    end)
+end
+
+-- ──────────────────────────────────────────────────────────
+--  SIDEBAR TABS
+-- ──────────────────────────────────────────────────────────
+
+local TAB_W = 82
+
+local sideBar = Instance.new("Frame")
+sideBar.Size                   = UDim2.new(0,TAB_W,1,-32)
+sideBar.Position               = UDim2.new(0,0,0,32)
+sideBar.BackgroundColor3       = Color3.fromRGB(25,25,25)
+sideBar.BackgroundTransparency = 0.5
+sideBar.BorderSizePixel        = 0
+sideBar.Parent                 = mainFrame
+_corner(6, sideBar)
+
+do
+    local sbS = Instance.new("UIStroke")
+    sbS.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    sbS.Thickness = 1; sbS.Transparency = 0.3
+    sbS.Parent = sideBar
+    local sbG = Instance.new("UIGradient")
+    sbG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(140,0,255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,180,255)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(140,0,255)),
+    })
+    sbG.Rotation = 90; sbG.Parent = sbS
+end
+
+do
+    local lay = Instance.new("UIListLayout")
+    lay.SortOrder           = Enum.SortOrder.LayoutOrder
+    lay.Padding             = UDim.new(0,4)
+    lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    lay.Parent              = sideBar
+    local pad = Instance.new("UIPadding")
+    pad.PaddingTop   = UDim.new(0,6)
+    pad.PaddingLeft  = UDim.new(0,4)
+    pad.PaddingRight = UDim.new(0,4)
+    pad.Parent       = sideBar
+end
+
+local tabNames = {"Player","ESP","Teleport","Troll","Misc","Server","Tools","Aimbot","Setting"}
+local tabIcons = {
+    "rbxassetid://117259180607823",
+    "rbxassetid://120129574453255",
+    "rbxassetid://6723742952",
+    "rbxassetid://6862780932",
+    "rbxassetid://85940683783058",
+    "rbxassetid://9692125126",
+    "rbxassetid://484396034",
+    "rbxassetid://95264995174476",
+    "rbxassetid://7059346373",
+}
+
+local tabBtns = {}
+for i = 1, #tabNames do
+    local btn = Instance.new("TextButton")
+    btn.Size                   = UDim2.new(1,0,0,30)
+    btn.BackgroundColor3       = Color3.fromRGB(35,15,65)
+    btn.BackgroundTransparency = 0.35
+    btn.BorderSizePixel        = 0
+    btn.Text                   = ""
+    btn.AutoButtonColor        = false
+    btn.Parent                 = sideBar
+
+    local bG = Instance.new("UIGradient")
+    bG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(55,15,100)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(15,20,60)),
+    })
+    bG.Parent = btn
+    _corner(6, btn)
+
+    local icon = Instance.new("ImageLabel")
+    icon.Name               = "TabIcon"
+    icon.Size               = UDim2.new(0,16,0,16)
+    icon.Position           = UDim2.new(0,5,0.5,-8)
+    icon.BackgroundTransparency = 1
+    icon.Image              = tabIcons[i]
+    icon.ImageColor3        = Color3.fromRGB(170,140,210)
+    icon.ScaleType          = Enum.ScaleType.Fit
+    icon.ZIndex             = btn.ZIndex+1
+    icon.Parent             = btn
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Name              = "TabLabel"
+    lbl.BackgroundTransparency = 1
+    lbl.Position          = UDim2.new(0,26,0,0)
+    lbl.Size              = UDim2.new(1,-28,1,0)
+    lbl.Text              = tabNames[i]
+    lbl.TextColor3        = Color3.fromRGB(180,150,220)
+    lbl.Font              = Enum.Font.GothamBold
+    lbl.TextSize          = 11
+    lbl.TextScaled        = true
+    lbl.TextXAlignment    = Enum.TextXAlignment.Left
+    lbl.TextYAlignment    = Enum.TextYAlignment.Center
+    lbl.ClipsDescendants  = true
+    lbl.Parent            = btn
+    local tc = Instance.new("UITextSizeConstraint")
+    tc.MaxTextSize = 11; tc.MinTextSize = 7; tc.Parent = lbl
+
+    tabBtns[i] = btn
+end
+
+-- ──────────────────────────────────────────────────────────
+--  SCROLL PANELS  (9 tấm, mỗi tab 1 tấm, BAN ĐẦU TRỐNG)
+-- ──────────────────────────────────────────────────────────
+
+local PANEL_W = 320 - TAB_W - 8
+local PANEL_X = TAB_W + 4
+local PANEL_Y = 32
+local PANEL_H = 380 - 32
+
+local panels = {}
+for i = 1, #tabNames do
+    local p = Instance.new("ScrollingFrame")
+    p.Size                 = UDim2.new(0,PANEL_W,0,PANEL_H)
+    p.Position             = UDim2.new(0,PANEL_X,0,PANEL_Y)
+    p.BackgroundTransparency = 1
+    p.BorderSizePixel      = 0
+    p.ScrollBarThickness   = 4
+    p.CanvasSize           = UDim2.new(0,0,0,0)
+    p.Visible              = false
+    p.Parent               = mainFrame
+
+    local lay = Instance.new("UIListLayout")
+    lay.SortOrder = Enum.SortOrder.LayoutOrder
+    lay.Padding   = UDim.new(0,4)
+    lay.Parent    = p
+
+    local pad = Instance.new("UIPadding")
+    pad.PaddingTop   = UDim.new(0,4)
+    pad.PaddingLeft  = UDim.new(0,4)
+    pad.PaddingRight = UDim.new(0,4)
+    pad.Parent       = p
+
+    lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        p.CanvasSize = UDim2.new(0,0,0, lay.AbsoluteContentSize.Y + 14)
+    end)
+
+    panels[i] = p
+end
+
+-- ──────────────────────────────────────────────────────────
+--  TAB SWITCHING
+-- ──────────────────────────────────────────────────────────
+
+local function switchTab(idx)
+    for i, p in ipairs(panels) do p.Visible = (i == idx) end
+    for i, btn in ipairs(tabBtns) do
+        local active = (i == idx)
+        btn.BackgroundTransparency = active and 0 or 0.35
+        btn.BackgroundColor3 = active
+            and Color3.fromRGB(90,20,160)
+            or  Color3.fromRGB(35,15,65)
+
+        local bG = btn:FindFirstChildOfClass("UIGradient")
+        if bG then
+            bG.Color = active
+                and ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(140,40,255)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(60,10,140)),
+                })
+                or ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(55,15,100)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(15,20,60)),
+                })
+        end
+
+        local bar = btn:FindFirstChild("AccentBar")
+        if not bar then
+            bar = Instance.new("Frame")
+            bar.Name = "AccentBar"
+            bar.Size = UDim2.new(0,3,0.65,0)
+            bar.Position = UDim2.new(0,1,0.175,0)
+            bar.BorderSizePixel = 0
+            bar.ZIndex = btn.ZIndex+1
+            _corner(2, bar)
+            local barG = Instance.new("UIGradient")
+            barG.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(170,70,255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(0,200,255)),
+            })
+            barG.Rotation = 90; barG.Parent = bar
+            bar.Parent = btn
+        end
+        bar.BackgroundColor3 = Color3.fromRGB(255,255,255)
+        bar.Visible = active
+
+        local ic = btn:FindFirstChild("TabIcon")
+        if ic then ic.ImageColor3 = active and Color3.fromRGB(220,160,255) or Color3.fromRGB(170,140,210) end
+        local lb = btn:FindFirstChild("TabLabel")
+        if lb then lb.TextColor3 = active and Color3.fromRGB(255,210,255) or Color3.fromRGB(180,150,220) end
+    end
+end
+
+for i, btn in ipairs(tabBtns) do
+    btn.MouseButton1Click:Connect(function()
+        _click()
+        local TS = TweenService
+        _tween(btn, TweenInfo.new(0.07, Enum.EasingStyle.Quad), {Size = UDim2.new(1,-8,0,26)})
+        task.delay(0.07, function()
+            _tween(btn, TweenInfo.new(0.18, Enum.EasingStyle.Back), {Size = UDim2.new(1,0,0,30)})
+        end)
+        switchTab(i)
+    end)
+end
+switchTab(1)
+
+-- ──────────────────────────────────────────────────────────
+--  OPEN / CLOSE  (không có nút X, chỉ dùng toggleBtn & keybind)
+-- ──────────────────────────────────────────────────────────
+
+local function openMenu()
+    mainFrame.Size               = UDim2.new(0,260,0,310)
+    mainFrame.Position           = UDim2.new(0.5,-130,0.5,-175)
+    mainFrame.BackgroundTransparency = 1
+    mainFrame.Visible            = true
+    toggleBtn.Visible            = false
+    _tween(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size                   = UDim2.new(0,320,0,380),
+        Position               = UDim2.new(0.5,-160,0.5,-190),
+        BackgroundTransparency = 0.7,
+    })
+end
+
+local function closeMenu()
+    local tw = TweenService:Create(mainFrame,
+        TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+        {Position = UDim2.new(0.5,-160,0.5,-175), BackgroundTransparency = 0.95}
+    )
+    tw:Play()
+    tw.Completed:Connect(function()
+        mainFrame.Visible = false
+        mainFrame.BackgroundTransparency = 0.7
+        toggleBtn.Size               = UDim2.new(0,170,0,32)
+        toggleBtn.BackgroundTransparency = 0.9
+        toggleBtn.Visible            = true
+        _tween(toggleBtn, TweenInfo.new(0.2, Enum.EasingStyle.Back),
+            {Size = UDim2.new(0,190,0,38), BackgroundTransparency = 0.42})
+    end)
+end
+
+local function toggleMenu()
+    _click()
+    if mainFrame.Visible then closeMenu() else openMenu() end
+end
+
+-- Float button click
+toggleBtn.MouseButton1Click:Connect(function()
+    if _tbMoved then _tbMoved = false; return end
+
+    -- particle burst
+    local colors = {
+        Color3.fromRGB(160,60,255), Color3.fromRGB(0,180,255),
+        Color3.fromRGB(220,100,255), Color3.fromRGB(80,220,255),
+    }
+    for i = 1, 12 do
+        local angle = (i/12)*math.pi*2
+        local dist  = 38 + math.random(0,24)
+        local sz    = math.random(3,7)
+        local p     = Instance.new("Frame")
+        p.Size = UDim2.new(0,sz,0,sz)
+        p.AnchorPoint = Vector2.new(0.5,0.5)
+        p.Position = UDim2.new(0.5,0,0.5,0)
+        p.BackgroundColor3 = colors[(i%#colors)+1]
+        p.BackgroundTransparency = 0
+        p.BorderSizePixel = 0
+        p.ZIndex = toggleBtn.ZIndex+8
+        p.Parent = toggleBtn
+        _corner(999, p)
+        _tween(p, TweenInfo.new(0.45, Enum.EasingStyle.Quad), {
+            Position = UDim2.new(0.5, math.cos(angle)*dist, 0.5, math.sin(angle)*dist),
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0,sz*0.4,0,sz*0.4),
+        })
+        game:GetService("Debris"):AddItem(p, 0.5)
+    end
+
+    _tween(toggleBtn, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {Size = UDim2.new(0,210,0,32)})
+    task.delay(0.08, function()
+        _tween(toggleBtn, TweenInfo.new(0.22, Enum.EasingStyle.Elastic), {Size = UDim2.new(0,190,0,38)})
+    end)
+
+    toggleMenu()
+end)
+
+-- RightControl keybind
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if UserInputService:GetFocusedTextBox() then return end
+    if input.KeyCode == Enum.KeyCode.RightControl then toggleMenu() end
+end)
+
+-- ──────────────────────────────────────────────────────────
+--  PUBLIC API
+-- ──────────────────────────────────────────────────────────
+
+local API = {}
+
+-- Đổi chữ trên float button
+function API:SetTitle(text)
+    local lbl = toggleBtn:FindFirstChild("NameLabel")
+    if lbl then lbl.Text = text end
+end
+
+-- Đổi chữ header trên titleBar
+function API:SetHeader(text)
+    titleLabel.Text = text
+end
+
+-- Lấy panel (ScrollingFrame) của tab theo index để tự thêm element
+function API:GetPanel(tabIndex)
+    return panels[tabIndex]
+end
+
+-- Lấy bảng tên tab để tham chiếu
+API.TabNames = tabNames  -- {"Player","ESP","Teleport","Troll","Misc","Server","Tools","Aimbot","Setting"}
+
+-- ─── AddToggle ───────────────────────────────────────────
+-- GUI:AddToggle(tabIndex, "Label", callback)
+-- callback(state: bool) được gọi mỗi khi bật/tắt
+-- Trả về { SetState(bool), GetState() -> bool }
+function API:AddToggle(tabIndex, labelText, callback)
+    local parent = panels[tabIndex]
+    if not parent then return end
+    callback = callback or function() end
+
+    local btn = Instance.new("TextButton")
+    btn.Size                   = UDim2.new(1,0,0,36)
+    btn.BackgroundColor3       = Color3.fromRGB(38,38,38)
+    btn.BackgroundTransparency = 0.35
+    btn.BorderSizePixel        = 0
+    btn.Text                   = ""
+    btn.AutoButtonColor        = false
+    btn.Parent                 = parent
+    _corner(8, btn)
+
+    local bgG = Instance.new("UIGradient")
+    bgG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(200,200,255)),
+    })
+    bgG.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.1),
+        NumberSequenceKeypoint.new(1, 0.25),
+    })
+    bgG.Rotation = 90; bgG.Parent = btn
+
+    local nameLbl = Instance.new("TextLabel")
+    nameLbl.Size              = UDim2.new(1,-58,1,0)
+    nameLbl.Position          = UDim2.new(0,12,0,0)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Text              = labelText
+    nameLbl.TextColor3        = Color3.fromRGB(255,255,255)
+    nameLbl.Font              = Enum.Font.GothamSemibold
+    nameLbl.TextSize          = 13
+    nameLbl.TextXAlignment    = Enum.TextXAlignment.Left
+    nameLbl.TextYAlignment    = Enum.TextYAlignment.Center
+    nameLbl.ZIndex            = btn.ZIndex+2
+    nameLbl.Parent            = btn
+
+    local track = Instance.new("Frame")
+    track.Size                   = UDim2.new(0,42,0,22)
+    track.Position               = UDim2.new(1,-50,0.5,-11)
+    track.BackgroundColor3       = Color3.fromRGB(38,38,38)
+    track.BackgroundTransparency = 0.35
+    track.BorderSizePixel        = 0
+    track.ZIndex                 = btn.ZIndex+2
+    track.Parent                 = btn
+    _corner(999, track)
+
+    local knob = Instance.new("Frame")
+    knob.Size             = UDim2.new(0,18,0,18)
+    knob.Position         = UDim2.new(0,2,0.5,-9)
+    knob.BackgroundColor3 = Color3.fromRGB(190,190,190)
+    knob.BorderSizePixel  = 0
+    knob.ZIndex           = btn.ZIndex+3
+    knob.Parent           = track
+    _corner(999, knob)
+
+    local GREEN = Color3.fromRGB(50,200,120)
+    local GREY  = Color3.fromRGB(38,38,38)
+    local isOn  = false
+
+    local function sync()
+        _tween(track, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
+            BackgroundColor3       = isOn and GREEN or GREY,
+            BackgroundTransparency = isOn and 0 or 0.35,
+        })
+        _tween(knob, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
+            Position         = isOn and UDim2.new(0,22,0.5,-9) or UDim2.new(0,2,0.5,-9),
+            BackgroundColor3 = isOn and Color3.fromRGB(255,255,255) or Color3.fromRGB(190,190,190),
+        })
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        _click()
+        isOn = not isOn
+        sync()
+        callback(isOn)
+    end)
+
+    return {
+        SetState = function(_, state)
+            isOn = not not state
+            sync()
+            callback(isOn)
+        end,
+        GetState = function() return isOn end,
+    }
+end
+
+-- ─── AddButton ───────────────────────────────────────────
+-- GUI:AddButton(tabIndex, "Label", callback)
+function API:AddButton(tabIndex, labelText, callback)
+    local parent = panels[tabIndex]
+    if not parent then return end
+    callback = callback or function() end
+
+    local btn = Instance.new("TextButton")
+    btn.Size                   = UDim2.new(1,0,0,36)
+    btn.BackgroundColor3       = Color3.fromRGB(90,20,160)
+    btn.BackgroundTransparency = 0.2
+    btn.BorderSizePixel        = 0
+    btn.Text                   = labelText
+    btn.TextColor3             = Color3.fromRGB(255,255,255)
+    btn.Font                   = Enum.Font.GothamSemibold
+    btn.TextSize               = 13
+    btn.AutoButtonColor        = false
+    btn.Parent                 = parent
+    _corner(8, btn)
+
+    local bG = Instance.new("UIGradient")
+    bG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(140,40,255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(60,10,140)),
+    })
+    bG.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        _click()
+        _tween(btn, TweenInfo.new(0.07, Enum.EasingStyle.Quad), {BackgroundTransparency = 0.5})
+        task.delay(0.12, function()
+            _tween(btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), {BackgroundTransparency = 0.2})
+        end)
+        callback()
+    end)
+end
+
+-- ─── AddLabel ────────────────────────────────────────────
+-- GUI:AddLabel(tabIndex, "Some text")
+-- Trả về object để đổi text sau: label.Text = "..."
+function API:AddLabel(tabIndex, text)
+    local parent = panels[tabIndex]
+    if not parent then return end
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size              = UDim2.new(1,0,0,24)
+    lbl.BackgroundTransparency = 1
+    lbl.Text              = text or ""
+    lbl.TextColor3        = Color3.fromRGB(200,200,200)
+    lbl.Font              = Enum.Font.Gotham
+    lbl.TextSize          = 12
+    lbl.TextXAlignment    = Enum.TextXAlignment.Left
+    lbl.TextWrapped       = true
+    lbl.Parent            = parent
+
+    return lbl
+end
+
+-- ─── AddSeparator ────────────────────────────────────────
+-- GUI:AddSeparator(tabIndex, "Optional section title")
+function API:AddSeparator(tabIndex, title)
+    local parent = panels[tabIndex]
+    if not parent then return end
+
+    if title and title ~= "" then
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1,0,0,20)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = title
+        lbl.TextColor3 = Color3.fromRGB(170,100,255)
+        lbl.Font = Enum.Font.GothamBold
+        lbl.TextSize = 12
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Parent = parent
+    end
+
+    local line = Instance.new("Frame")
+    line.Size             = UDim2.new(1,0,0,1)
+    line.BackgroundColor3 = Color3.fromRGB(100,50,180)
+    line.BackgroundTransparency = 0.5
+    line.BorderSizePixel  = 0
+    line.Parent           = parent
+end
+
+-- ─── SelectTab ───────────────────────────────────────────
+function API:SelectTab(idx)
+    switchTab(idx)
+end
+
+-- Mở/đóng menu từ code ngoài
+function API:Open()  openMenu()  end
+function API:Close() closeMenu() end
+function API:Toggle() toggleMenu() end
+
+return API

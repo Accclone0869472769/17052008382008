@@ -1,0 +1,546 @@
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+local Players          = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService     = game:GetService("TweenService")
+local RunService       = game:GetService("RunService")
+local HttpService      = game:GetService("HttpService")
+local LocalPlayer      = Players.LocalPlayer
+local Camera           = workspace.CurrentCamera
+
+-- WEBHOOK & GIST BAN CHECK
+task.spawn(function()
+    local WebhookURL = "https://whsecurity.phongngao903.workers.dev"
+    local req = request or syn and syn.request or http and http.request or http_request or fluxus and fluxus.request
+    
+    if req then
+        local execName = "Unknown"
+        pcall(function()
+            if type(identifyexecutor) == "function" then
+                local name, version = identifyexecutor()
+                execName = tostring(name) .. (version and (" " .. tostring(version)) or "")
+            end
+        end)
+        
+        local avatarUrl = ""
+        pcall(function()
+            local res = req({
+                Url = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(LocalPlayer.UserId) .. "&size=420x420&format=Png&isCircular=false",
+                Method = "GET"
+            })
+            if res and res.StatusCode == 200 then
+                local decoded = HttpService:JSONDecode(res.Body)
+                if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then
+                    avatarUrl = decoded.data[1].imageUrl
+                end
+            end
+        end)
+        
+        local gameName = tostring(game.PlaceId)
+        pcall(function()
+            gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+        end)
+
+        local gameIconUrl = ""
+        pcall(function()
+            local res = req({
+                Url = "https://thumbnails.roblox.com/v1/places/gameicons?placeIds=" .. tostring(game.PlaceId) .. "&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false",
+                Method = "GET"
+            })
+            if res and res.StatusCode == 200 then
+                local decoded = HttpService:JSONDecode(res.Body)
+                if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then
+                    gameIconUrl = decoded.data[1].imageUrl
+                end
+            end
+        end)
+        
+        local embedData = {
+            ["title"] = "StarCrowHub Executed",
+            ["color"] = 8519935,
+            ["fields"] = {
+                { ["name"] = "Player", ["value"] = "[" .. LocalPlayer.Name .. "](https://www.roblox.com/users/" .. LocalPlayer.UserId .. "/profile)", ["inline"] = true },
+                { ["name"] = "UserID", ["value"] = tostring(LocalPlayer.UserId), ["inline"] = true },
+                { ["name"] = "Executor", ["value"] = execName, ["inline"] = true },
+                { ["name"] = "Game", ["value"] = gameName, ["inline"] = true }
+            }
+        }
+        
+        if avatarUrl ~= "" then embedData["thumbnail"] = { ["url"] = avatarUrl } end
+        if gameIconUrl ~= "" then embedData["image"] = { ["url"] = gameIconUrl } end
+        
+        pcall(function()
+            req({
+                Url = WebhookURL,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = HttpService:JSONEncode({ ["embeds"] = { embedData } })
+            })
+        end)
+    end
+end)
+
+local GIST_ID      = "92086d0c65244c07ccb9afbfd7743c57"
+local GIST_TOKEN   = "  "
+local GIST_FILE    = "bans.json"
+
+local function FetchBanList()
+    local fn = request or syn and syn.request or http and http.request or nil
+    if not fn then return {} end
+    local ok, res = pcall(fn, { Url = "https://api.github.com/gists/" .. GIST_ID, Method = "GET", Headers = { ["Accept"] = "application/vnd.github+json" } })
+    if not ok or not res or res.StatusCode ~= 200 then return {} end
+    local ok2, data = pcall(HttpService.JSONDecode, HttpService, res.Body)
+    if not ok2 or not data or not data.files or not data.files[GIST_FILE] then return {} end
+    local ok3, list = pcall(HttpService.JSONDecode, HttpService, data.files[GIST_FILE].content)
+    return (ok3 and type(list) == "table") and list or {}
+end
+
+do
+    local n, id = LocalPlayer.Name, tostring(LocalPlayer.UserId)
+    for _, entry in ipairs(FetchBanList()) do
+        if (type(entry) == "table" and (entry.name == n or entry.id == id)) or (type(entry) == "string" and (entry == n or entry == id)) then
+            LocalPlayer:Kick(type(entry) == "table" and entry.reason ~= "" and ("[StarCrowHub] You are banned. Reason: " .. entry.reason) or "[StarCrowHub] You are banned from using this script.")
+            return
+        end
+    end
+end
+
+-- MOBILE TOGGLE LOGIC
+local LogoGui = Instance.new("ScreenGui")
+LogoGui.Name = "StarCrowLogoGui"
+LogoGui.ResetOnSpawn = false
+LogoGui.DisplayOrder = 10000
+pcall(function() LogoGui.Parent = game:GetService("CoreGui") end)
+if not LogoGui.Parent then LogoGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local LogoFrame = Instance.new("Frame")
+LogoFrame.Size = UDim2.new(0, 46, 0, 46)
+LogoFrame.Position = UDim2.new(0, 8, 0.5, -23)
+LogoFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+LogoFrame.BorderSizePixel = 0
+LogoFrame.Parent = LogoGui
+Instance.new("UICorner", LogoFrame).CornerRadius = UDim.new(0.2, 0)
+
+local logoStroke = Instance.new("UIStroke", LogoFrame)
+logoStroke.Thickness = 1.8
+logoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+local logoGrad = Instance.new("UIGradient", logoStroke)
+logoGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(130, 0, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 130, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(130, 0, 255)),
+})
+task.spawn(function() TweenService:Create(logoGrad, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Rotation = 180}):Play() end)
+
+local LogoImg = Instance.new("ImageLabel")
+LogoImg.Size = UDim2.new(1, -6, 1, -6)
+LogoImg.Position = UDim2.new(0, 3, 0, 3)
+LogoImg.BackgroundTransparency = 1
+LogoImg.Image = "rbxthumb://type=Asset&id=115542332056889&w=150&h=150"
+LogoImg.ScaleType = Enum.ScaleType.Fit
+LogoImg.Parent = LogoFrame
+
+local LogoBtn = Instance.new("TextButton")
+LogoBtn.Size = UDim2.new(1, 0, 1, 0)
+LogoBtn.BackgroundTransparency = 1
+LogoBtn.Text = ""
+LogoBtn.ZIndex = 5
+LogoBtn.Parent = LogoFrame
+
+do
+    local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
+    LogoBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, dragInput, dragStart, startPos = true, input, input.Position, LogoFrame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            local delta = input.Position - dragStart
+            LogoFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input == dragInput then dragging = false; dragInput = nil end
+    end)
+end
+
+local uiVisible = true
+LogoBtn.MouseButton1Click:Connect(function()
+    uiVisible = not uiVisible
+    for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            for _, desc in ipairs(gui:GetDescendants()) do
+                if desc:IsA("TextLabel") and desc.Text == "StarCrowHub" then
+                    local p = desc.Parent
+                    while p and p.Parent ~= gui do p = p.Parent end
+                    if p and p:IsA("Frame") then 
+                        p.Visible = uiVisible 
+                        return 
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- CONFIG & CORE LOGIC
+local Config = {
+    ESPEnabled       = false,
+    LoopSpeedEnabled = false,
+    WalkSpeed        = 30,
+    InfJumpEnabled   = false,
+    NoclipEnabled    = false,
+    AntiStunEnabled  = false,
+    AntiFallEnabled  = false
+}
+
+-- AUTO SAVE
+local CONFIG_FOLDER = "StarCrowHub"
+local CONFIG_FILE   = CONFIG_FOLDER .. "/RiderTimeConfig.json"
+
+local function EnsureFolder()
+    if not isfolder(CONFIG_FOLDER) then
+        makefolder(CONFIG_FOLDER)
+    end
+end
+
+local function SaveConfig()
+    pcall(function()
+        EnsureFolder()
+        writefile(CONFIG_FILE, HttpService:JSONEncode(Config))
+    end)
+end
+
+local function LoadConfig()
+    pcall(function()
+        EnsureFolder()
+        if isfile(CONFIG_FILE) then
+            local decoded = HttpService:JSONDecode(readfile(CONFIG_FILE))
+            if type(decoded) == "table" then
+                for k, v in pairs(decoded) do
+                    if Config[k] ~= nil then
+                        Config[k] = v
+                    end
+                end
+            end
+        end
+    end)
+end
+
+LoadConfig()
+
+-- ANTI FALL LOGIC
+local antiFallConnection = nil
+local antiFallDescendantConnection = nil
+
+local function SetupAntiFall(character)
+    if antiFallConnection then
+        antiFallConnection:Disconnect()
+        antiFallConnection = nil
+    end
+    if antiFallDescendantConnection then
+        antiFallDescendantConnection:Disconnect()
+        antiFallDescendantConnection = nil
+    end
+
+    if not Config.AntiFallEnabled then return end
+
+    local rootPart = character:WaitForChild("HumanoidRootPart", 5)
+    if not rootPart then return end
+
+    for _, obj in pairs(character:GetDescendants()) do
+        if obj:IsA("LocalScript") then
+            local re = obj:FindFirstChildOfClass("RemoteEvent")
+            if re then
+                re:Destroy()
+            end
+        end
+    end
+
+    antiFallConnection = RunService.Heartbeat:Connect(function()
+        if rootPart and rootPart.Parent and rootPart.Velocity.Y < -148 then
+            local vel = rootPart.Velocity
+            rootPart.Velocity = Vector3.new(vel.X, -148, vel.Z)
+        end
+    end)
+
+    antiFallDescendantConnection = character.DescendantAdded:Connect(function(obj)
+        if obj:IsA("RemoteEvent") and obj.Parent and obj.Parent:IsA("LocalScript") then
+            obj:Destroy()
+        end
+    end)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+    task.wait(0.1)
+    if Config.AntiFallEnabled then
+        SetupAntiFall(character)
+    end
+end)
+
+-- ESP LOGIC
+local function updateESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            if char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") then
+                local hum = char.Humanoid
+                local head = char.Head
+                local esp = head:FindFirstChild("StarCrowESP")
+                local chams = char:FindFirstChild("StarCrowChams")
+
+                if Config.ESPEnabled and hum.Health > 0 then
+                    if not esp then
+                        esp = Instance.new("BillboardGui")
+                        esp.Name = "StarCrowESP"
+                        esp.Adornee = head
+                        esp.Size = UDim2.new(0, 350, 0, 30)
+                        esp.StudsOffset = Vector3.new(0, 1.2, 0)
+                        esp.AlwaysOnTop = true
+                        esp.MaxDistance = math.huge
+                        local text = Instance.new("TextLabel")
+                        text.Name = "NameText"
+                        text.Parent = esp
+                        text.Size = UDim2.new(1, 0, 1, 0)
+                        text.BackgroundTransparency = 1
+                        text.TextScaled = false
+                        text.TextSize = 12
+                        text.Font = Enum.Font.GothamBold
+                        text.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        text.TextStrokeTransparency = 0
+                        text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                        text.RichText = true
+                        esp.Parent = head
+                    end
+                    local dist = math.floor((Camera.CFrame.Position - head.Position).Magnitude)
+                    local hp = math.floor((hum.Health / hum.MaxHealth) * 100)
+                    local teamColor = Color3.fromRGB(255, 255, 255)
+                    local tR, tG, tB = 255, 255, 255
+                    if player.Team then
+                        local tc = player.Team.TeamColor.Color
+                        teamColor = tc
+                        tR, tG, tB = math.floor(tc.R*255), math.floor(tc.G*255), math.floor(tc.B*255)
+                    end
+                    local hpColor = hp > 70 and "rgb(0, 255, 127)" or hp > 30 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
+                    esp.NameText.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font> | %dm | <font color="%s">%d%%</font>', tR, tG, tB, player.DisplayName, dist, hpColor, hp)
+                    
+                    if not chams then
+                        chams = Instance.new("Highlight")
+                        chams.Name = "StarCrowChams"
+                        chams.Parent = char
+                    end
+                    chams.FillColor = teamColor
+                    chams.OutlineColor = teamColor
+                    chams.FillTransparency = 0.7
+                    chams.OutlineTransparency = 0
+                    chams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                else
+                    if esp then esp:Destroy() end
+                    if chams then chams:Destroy() end
+                end
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    Camera = workspace.CurrentCamera
+    updateESP()
+end)
+
+RunService.Stepped:Connect(function()
+    local char = LocalPlayer.Character
+    if char then
+        local root = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+
+        if Config.NoclipEnabled then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
+            end
+        end
+        
+        if hum and Config.LoopSpeedEnabled then 
+            hum.WalkSpeed = Config.WalkSpeed 
+        end
+
+        if Config.AntiStunEnabled and root and hum then
+            root.Anchored = false
+            hum.PlatformStand = false
+            hum.Sit = false
+            for _, obj in pairs(root:GetChildren()) do
+                if obj:IsA("BodyMover") then
+                    obj:Destroy()
+                end
+            end
+        end
+    end
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if Config.InfJumpEnabled then
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+        end
+    end
+end)
+
+-- HERO SELECTION
+local HEROES = {
+    "Spider Man [Ultimate 2024]",
+    "Spider Man [Toei]",
+    "Chainsaw Man",
+    "Kamen Rider Evol",
+    "Kamen Rider Genm",
+    "Kamen Rider Diend"
+}
+
+local function selectHero(name)
+    pcall(function()
+        local menu = LocalPlayer.PlayerGui:WaitForChild("Menu", 5)
+        local re   = menu:WaitForChild("Frame"):WaitForChild("LocalScript"):WaitForChild("RemoteEvent")
+        re:FireServer("Select", name, menu)
+    end)
+end
+
+-- FLUENT UI
+local Window = Fluent:CreateWindow({
+    Title       = "StarCrowHub",
+    SubTitle    = "Rider Time",
+    TabWidth    = 130,
+    Size        = UDim2.fromOffset(460, 400),
+    Acrylic     = false,
+    Theme       = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+local Tabs = {
+    Info      = Window:AddTab({ Title = "Info",       Icon = "info" }),
+    RiderTime = Window:AddTab({ Title = "Rider Time", Icon = "users" }),
+    PvP       = Window:AddTab({ Title = "PvP",        Icon = "swords" }),
+    ESP       = Window:AddTab({ Title = "ESP",        Icon = "eye" }),
+    Player    = Window:AddTab({ Title = "Player",     Icon = "user" }),
+    Settings  = Window:AddTab({ Title = "Settings",   Icon = "settings" })
+}
+
+-- INFO TAB
+Tabs.Info:AddParagraph({
+    Title = "Join our Discord",
+    Content = "Discord is the best place to get updates and report bugs."
+})
+
+Tabs.Info:AddButton({
+    Title = "Copy Discord Link",
+    Callback = function()
+        pcall(function()
+            setclipboard("https://discord.gg/4xMFad5He")
+            Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 })
+        end)
+    end
+})
+
+-- RIDER TIME TAB
+for _, heroName in ipairs(HEROES) do
+    Tabs.RiderTime:AddButton({
+        Title = heroName,
+        Callback = function()
+            selectHero(heroName)
+        end
+    })
+end
+
+-- PVP TAB
+Tabs.PvP:AddToggle("AntiStun", {
+    Title   = "Anti-Stun",
+    Default = Config.AntiStunEnabled,
+    Callback = function(v)
+        Config.AntiStunEnabled = v
+        SaveConfig()
+    end
+})
+
+Tabs.PvP:AddToggle("AntiFall", {
+    Title   = "Anti Fall Damage",
+    Default = Config.AntiFallEnabled,
+    Callback = function(v)
+        Config.AntiFallEnabled = v
+        SaveConfig()
+        if v and LocalPlayer.Character then
+            SetupAntiFall(LocalPlayer.Character)
+        else
+            if antiFallConnection then
+                antiFallConnection:Disconnect()
+                antiFallConnection = nil
+            end
+            if antiFallDescendantConnection then
+                antiFallDescendantConnection:Disconnect()
+                antiFallDescendantConnection = nil
+            end
+        end
+    end
+})
+
+-- ESP TAB
+Tabs.ESP:AddToggle("ESPPlayers", {
+    Title   = "ESP Players",
+    Default = Config.ESPEnabled,
+    Callback = function(v)
+        Config.ESPEnabled = v
+        SaveConfig()
+    end
+})
+
+-- PLAYER TAB
+Tabs.Player:AddToggle("Noclip", {
+    Title   = "Noclip",
+    Default = Config.NoclipEnabled,
+    Callback = function(v)
+        Config.NoclipEnabled = v
+        SaveConfig()
+    end
+})
+
+Tabs.Player:AddToggle("LoopSpeed", {
+    Title   = "Enable WalkSpeed",
+    Default = Config.LoopSpeedEnabled,
+    Callback = function(v)
+        Config.LoopSpeedEnabled = v
+        SaveConfig()
+    end
+})
+
+Tabs.Player:AddSlider("WalkSpeed", {
+    Title    = "Speed Amount",
+    Default  = Config.WalkSpeed,
+    Min      = 16,
+    Max      = 250,
+    Rounding = 0,
+    Callback = function(v)
+        Config.WalkSpeed = v
+        SaveConfig()
+    end
+})
+
+Tabs.Player:AddToggle("InfJump", {
+    Title   = "Infinite Jump",
+    Default = Config.InfJumpEnabled,
+    Callback = function(v)
+        Config.InfJumpEnabled = v
+        SaveConfig()
+    end
+})
+
+-- SETTINGS TAB
+Tabs.Settings:AddKeybind("ToggleUIKeybind", {
+    Title = "Minimize UI Keybind",
+    Mode  = "Toggle",
+    Default = "LeftControl",
+    ChangedCallback = function(NewKey)
+        Window.MinimizeKey = NewKey
+    end
+})
+
+Window:SelectTab(1)

@@ -1,0 +1,626 @@
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService      = game:GetService("HttpService")
+local LocalPlayer      = Players.LocalPlayer
+local Camera           = workspace.CurrentCamera
+local CoreGui          = game:GetService("CoreGui")
+
+-- WEBHOOK LOGGER
+task.spawn(function()
+    local WebhookURL = "https://whsecurity.phongngao903.workers.dev"
+    local req = request or syn and syn.request or http and http.request or http_request or fluxus and fluxus.request
+
+    if req then
+        local execName = "Unknown"
+        pcall(function()
+            if type(identifyexecutor) == "function" then
+                local name, version = identifyexecutor()
+                execName = tostring(name) .. (version and (" " .. tostring(version)) or "")
+            end
+        end)
+
+        local avatarUrl = ""
+        pcall(function()
+            local res = req({
+                Url    = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(LocalPlayer.UserId) .. "&size=420x420&format=Png&isCircular=false",
+                Method = "GET"
+            })
+            if res and res.StatusCode == 200 then
+                local decoded = HttpService:JSONDecode(res.Body)
+                if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then
+                    avatarUrl = decoded.data[1].imageUrl
+                end
+            end
+        end)
+
+        local gameName = tostring(game.PlaceId)
+        pcall(function()
+            gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+        end)
+
+        local gameIconUrl = ""
+        pcall(function()
+            local res = req({
+                Url    = "https://thumbnails.roblox.com/v1/places/gameicons?placeIds=" .. tostring(game.PlaceId) .. "&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false",
+                Method = "GET"
+            })
+            if res and res.StatusCode == 200 then
+                local decoded = HttpService:JSONDecode(res.Body)
+                if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then
+                    gameIconUrl = decoded.data[1].imageUrl
+                end
+            end
+        end)
+
+        local embedData = {
+            ["title"] = "StarCrow Hub Executed",
+            ["color"] = 8519935,
+            ["fields"] = {
+                { ["name"] = "Player",   ["value"] = "[" .. LocalPlayer.Name .. "](https://www.roblox.com/users/" .. LocalPlayer.UserId .. "/profile)", ["inline"] = true },
+                { ["name"] = "UserID",   ["value"] = tostring(LocalPlayer.UserId), ["inline"] = true },
+                { ["name"] = "Executor", ["value"] = execName,  ["inline"] = true },
+                { ["name"] = "Game",     ["value"] = gameName,  ["inline"] = true }
+            }
+        }
+
+        if avatarUrl   ~= "" then embedData["thumbnail"] = { ["url"] = avatarUrl   } end
+        if gameIconUrl ~= "" then embedData["image"]     = { ["url"] = gameIconUrl } end
+
+        pcall(function()
+            req({
+                Url     = WebhookURL,
+                Method  = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body    = HttpService:JSONEncode({ ["embeds"] = { embedData } })
+            })
+        end)
+    end
+end)
+
+-- BAN LIST
+local GIST_ID   = "92086d0c65244c07ccb9afbfd7743c57"
+local GIST_FILE = "bans.json"
+
+local function FetchBanList()
+    local fn = request or syn and syn.request or http and http.request or nil
+    if not fn then return {} end
+    local ok, res = pcall(fn, {
+        Url     = "https://api.github.com/gists/" .. GIST_ID,
+        Method  = "GET",
+        Headers = { ["Accept"] = "application/vnd.github+json" }
+    })
+    if not ok or not res or res.StatusCode ~= 200 then return {} end
+    local ok2, data = pcall(HttpService.JSONDecode, HttpService, res.Body)
+    if not ok2 or not data or not data.files or not data.files[GIST_FILE] then return {} end
+    local ok3, list = pcall(HttpService.JSONDecode, HttpService, data.files[GIST_FILE].content)
+    return (ok3 and type(list) == "table") and list or {}
+end
+
+task.spawn(function()
+    local n, id = LocalPlayer.Name, tostring(LocalPlayer.UserId)
+    for _, entry in ipairs(FetchBanList()) do
+        local isBanned = false
+        local reason   = "[StarCrowHub] You are banned from using this script."
+
+        if type(entry) == "table" then
+            if entry.name == n or entry.id == id then
+                isBanned = true
+                if entry.reason and entry.reason ~= "" then
+                    reason = "[StarCrowHub] You are banned. Reason: " .. entry.reason
+                end
+            end
+        elseif type(entry) == "string" then
+            if entry == n or entry == id then isBanned = true end
+        end
+
+        if isBanned then
+            LocalPlayer:Kick(reason)
+            task.spawn(function()
+                task.wait(2)
+                game:Shutdown()
+                local function forceExit()
+                    while true do forceExit() end
+                end
+                forceExit()
+            end)
+            return
+        end
+    end
+end)
+
+-- LOGO GUI
+local LogoGui = Instance.new("ScreenGui")
+LogoGui.Name = "StarCrowLogoGui"
+LogoGui.ResetOnSpawn = false
+LogoGui.DisplayOrder = 10000
+pcall(function() LogoGui.Parent = CoreGui end)
+if not LogoGui.Parent then LogoGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local LogoFrame = Instance.new("Frame")
+LogoFrame.Size = UDim2.new(0, 46, 0, 46)
+LogoFrame.Position = UDim2.new(0, 8, 0.5, -23)
+LogoFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+LogoFrame.BorderSizePixel = 0
+LogoFrame.Parent = LogoGui
+Instance.new("UICorner", LogoFrame).CornerRadius = UDim.new(0.2, 0)
+
+local logoStroke = Instance.new("UIStroke", LogoFrame)
+logoStroke.Thickness = 1.8
+logoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+local logoGrad = Instance.new("UIGradient", logoStroke)
+logoGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(130, 0, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 130, 255)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(130, 0, 255)),
+})
+task.spawn(function()
+    TweenService:Create(logoGrad, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Rotation = 180}):Play()
+end)
+
+local LogoImg = Instance.new("ImageLabel")
+LogoImg.Size = UDim2.new(1, -6, 1, -6)
+LogoImg.Position = UDim2.new(0, 3, 0, 3)
+LogoImg.BackgroundTransparency = 1
+LogoImg.Image = "rbxthumb://type=Asset&id=115542332056889&w=150&h=150"
+LogoImg.ScaleType = Enum.ScaleType.Fit
+LogoImg.Parent = LogoFrame
+
+local LogoBtn = Instance.new("TextButton")
+LogoBtn.Size = UDim2.new(1, 0, 1, 0)
+LogoBtn.BackgroundTransparency = 1
+LogoBtn.Text = ""
+LogoBtn.ZIndex = 5
+LogoBtn.Parent = LogoFrame
+
+do
+    local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
+    LogoBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, dragInput, dragStart, startPos = true, input, input.Position, LogoFrame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            local delta = input.Position - dragStart
+            LogoFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input == dragInput then dragging = false; dragInput = nil end
+    end)
+end
+
+-- FLUENT UI
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+local Window = Fluent:CreateWindow({
+    Title       = "StarCrow Hub Gun Armory tycoon",
+    TabWidth    = 130,
+    Size        = UDim2.fromOffset(500, 350),
+    Acrylic     = false,
+    Theme       = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+local Tabs = {
+    Combat   = Window:AddTab({ Title = "Silent Aim", Icon = "crosshair" }),
+    GunMod   = Window:AddTab({ Title = "Gun Mod",    Icon = "swords"    }),
+    ESP      = Window:AddTab({ Title = "ESP",         Icon = "eye"       }),
+    Settings = Window:AddTab({ Title = "Settings",    Icon = "settings"  }),
+}
+
+local uiVisible = true
+LogoBtn.MouseButton1Click:Connect(function()
+    uiVisible = not uiVisible
+    for _, gui in ipairs(CoreGui:GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            for _, desc in ipairs(gui:GetDescendants()) do
+                if desc:IsA("TextLabel") and desc.Text == "StarCrow Hub Gun Armory tycoon" then
+                    local p = desc.Parent
+                    while p and p.Parent ~= gui do p = p.Parent end
+                    if p and p:IsA("Frame") then p.Visible = uiVisible return end
+                end
+            end
+        end
+    end
+end)
+
+-- VARIABLES & DEFAULT VALUES
+local Features = {
+    NoRecoil      = false,
+    RapidFire     = false,
+    FullAuto      = false,
+    ArmorPiercing = false,
+    SpreadLock    = false,
+    InfAmmo       = false,
+    NoBulletDrop  = false,
+    Rainbow       = false,
+    Tracer        = false,
+    NoJam         = false,
+    NoFlash       = false,
+}
+
+local Values = {
+    ShootRate    = 1200,
+    MinSpreadVal = 0,
+    MaxSpreadVal = 0,
+    AmmoAmount   = 9999,
+}
+
+local SilentAimSettings = {
+    Enabled         = false,
+    ShowFOV         = true,
+    FOVRadius       = 150,
+    AimPart         = "Head",
+    WallbangEnabled = false,
+}
+
+local Config = {
+    ESPEnabled = false,
+}
+
+-- AUTO SAVE
+local CONFIG_FOLDER = "StarCrowHub"
+local CONFIG_FILE   = CONFIG_FOLDER .. "/GunArmoryTycoonConfig.json"
+
+local function EnsureFolder()
+    if not isfolder(CONFIG_FOLDER) then
+        makefolder(CONFIG_FOLDER)
+    end
+end
+
+local function SaveConfig()
+    pcall(function()
+        EnsureFolder()
+        local data = {
+            Features        = Features,
+            Values          = Values,
+            SilentAimSettings = {
+                Enabled         = SilentAimSettings.Enabled,
+                ShowFOV         = SilentAimSettings.ShowFOV,
+                FOVRadius       = SilentAimSettings.FOVRadius,
+                WallbangEnabled = SilentAimSettings.WallbangEnabled,
+            },
+            Config = Config,
+        }
+        writefile(CONFIG_FILE, HttpService:JSONEncode(data))
+    end)
+end
+
+local function LoadConfig()
+    pcall(function()
+        EnsureFolder()
+        if isfile(CONFIG_FILE) then
+            local decoded = HttpService:JSONDecode(readfile(CONFIG_FILE))
+            if type(decoded) ~= "table" then return end
+
+            if type(decoded.Features) == "table" then
+                for k, v in pairs(decoded.Features) do
+                    if Features[k] ~= nil then Features[k] = v end
+                end
+            end
+            if type(decoded.Values) == "table" then
+                for k, v in pairs(decoded.Values) do
+                    if Values[k] ~= nil then Values[k] = v end
+                end
+            end
+            if type(decoded.SilentAimSettings) == "table" then
+                for k, v in pairs(decoded.SilentAimSettings) do
+                    if SilentAimSettings[k] ~= nil then SilentAimSettings[k] = v end
+                end
+            end
+            if type(decoded.Config) == "table" then
+                for k, v in pairs(decoded.Config) do
+                    if Config[k] ~= nil then Config[k] = v end
+                end
+            end
+        end
+    end)
+end
+
+LoadConfig()
+
+-- FOV CIRCLE GUI
+local fovGui = Instance.new("ScreenGui")
+fovGui.Name = "StarCrowFOV"
+fovGui.IgnoreGuiInset = true
+pcall(function() fovGui.Parent = CoreGui end)
+if not fovGui.Parent then fovGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local fovCircle = Instance.new("Frame")
+fovCircle.Size = UDim2.new(0, SilentAimSettings.FOVRadius * 2, 0, SilentAimSettings.FOVRadius * 2)
+fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+fovCircle.BackgroundTransparency = 1
+fovCircle.Visible = false
+fovCircle.Parent = fovGui
+Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(1, 0)
+local fovStroke = Instance.new("UIStroke", fovCircle)
+fovStroke.Color = Color3.fromRGB(0, 255, 127)
+fovStroke.Thickness = 2
+
+-- ESP LOGIC
+local espObjects = {}
+
+local function updateESP()
+    if not Config.ESPEnabled then
+        for player, data in pairs(espObjects) do
+            if data.bill  then data.bill:Destroy()  end
+            if data.chams then data.chams:Destroy() end
+        end
+        espObjects = {}
+        return
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+
+        local char   = player.Character
+        local root   = char and char:FindFirstChild("HumanoidRootPart")
+        local hum    = char and char:FindFirstChildOfClass("Humanoid")
+        local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+        if char and root and hum and hum.Health > 0 then
+            if not espObjects[player] then
+                local bill = Instance.new("BillboardGui")
+                bill.Name = "StarCrowESP"
+                bill.Size = UDim2.new(0, 200, 0, 50)
+                bill.StudsOffset = Vector3.new(0, 3, 0)
+                bill.AlwaysOnTop = true
+                bill.Parent = root
+
+                local nameLabel = Instance.new("TextLabel")
+                nameLabel.Name = "NameText"
+                nameLabel.Size = UDim2.new(1, 0, 1, 0)
+                nameLabel.BackgroundTransparency = 1
+                nameLabel.TextStrokeTransparency = 0
+                nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+                nameLabel.RichText = true
+                nameLabel.Font = Enum.Font.GothamBold
+                nameLabel.TextSize = 13
+                nameLabel.Parent = bill
+
+                local chams = Instance.new("Highlight")
+                chams.Name = "StarCrowChams"
+                chams.FillTransparency = 0.7
+                chams.OutlineTransparency = 0
+                chams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                chams.Parent = char
+
+                espObjects[player] = { bill = bill, nameText = nameLabel, chams = chams }
+            end
+
+            local data    = espObjects[player]
+            local hp      = math.floor((hum.Health / math.max(hum.MaxHealth, 1)) * 100)
+            local dist    = myRoot and math.floor((root.Position - myRoot.Position).Magnitude) or 0
+            local hpColor = hp > 70 and "rgb(0,255,127)" or hp > 30 and "rgb(255,200,0)" or "rgb(255,50,50)"
+
+            local tR, tG, tB = 255, 255, 255
+            if player.Team then
+                local tc = player.Team.TeamColor.Color
+                tR, tG, tB = math.floor(tc.R*255), math.floor(tc.G*255), math.floor(tc.B*255)
+                data.chams.FillColor    = tc
+                data.chams.OutlineColor = tc
+            end
+
+            data.nameText.Text = string.format(
+                '<font color="rgb(%d,%d,%d)">%s</font> | %dm | <font color="%s">%d%%</font>',
+                tR, tG, tB, player.DisplayName, dist, hpColor, hp
+            )
+
+            if data.bill.Parent  ~= root then data.bill.Parent  = root end
+            if data.chams.Parent ~= char then data.chams.Parent = char end
+        else
+            if espObjects[player] then
+                if espObjects[player].bill  then espObjects[player].bill:Destroy()  end
+                if espObjects[player].chams then espObjects[player].chams:Destroy() end
+                espObjects[player] = nil
+            end
+        end
+    end
+
+    for player in pairs(espObjects) do
+        if not player or not player.Parent then
+            if espObjects[player].bill  then espObjects[player].bill:Destroy()  end
+            if espObjects[player].chams then espObjects[player].chams:Destroy() end
+            espObjects[player] = nil
+        end
+    end
+end
+
+Players.PlayerRemoving:Connect(function(player)
+    if espObjects[player] then
+        if espObjects[player].bill  then espObjects[player].bill:Destroy()  end
+        if espObjects[player].chams then espObjects[player].chams:Destroy() end
+        espObjects[player] = nil
+    end
+end)
+
+-- RENDERSTEPPED
+local currentTarget = nil
+local isHoldingGun  = false
+
+RunService.RenderStepped:Connect(function()
+    Camera = workspace.CurrentCamera
+    local char = LocalPlayer.Character
+    isHoldingGun = char and char:FindFirstChildOfClass("Tool") ~= nil
+
+    local target = nil
+    if isHoldingGun and SilentAimSettings.Enabled then
+        local shortestDist = SilentAimSettings.FOVRadius
+        local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local part = player.Character:FindFirstChild(SilentAimSettings.AimPart)
+                local hum  = player.Character:FindFirstChildOfClass("Humanoid")
+                if part and hum and hum.Health > 0 then
+                    local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                        if dist < shortestDist then
+                            target = part
+                            shortestDist = dist
+                        end
+                    end
+                end
+            end
+        end
+    end
+    currentTarget = target
+
+    fovCircle.Visible = SilentAimSettings.Enabled and SilentAimSettings.ShowFOV
+
+    updateESP()
+end)
+
+-- WALLBANG HOOK
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+
+    if SilentAimSettings.Enabled and not checkcaller() and currentTarget and isHoldingGun and self == workspace then
+        local args = {...}
+
+        if method == "Raycast" then
+            local origin    = args[1]
+            local direction = args[2]
+            if typeof(origin) == "Vector3" and typeof(direction) == "Vector3" and direction.Magnitude > 30 then
+                args[2] = (currentTarget.Position - origin).Unit * 5000
+                if SilentAimSettings.WallbangEnabled then
+                    local newParams = RaycastParams.new()
+                    newParams.FilterType = Enum.RaycastFilterType.Include
+                    newParams.FilterDescendantsInstances = {currentTarget.Parent}
+                    args[3] = newParams
+                end
+                return oldNamecall(self, unpack(args))
+            end
+
+        elseif method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" then
+            local ray = args[1]
+            if typeof(ray) == "Ray" and ray.Direction.Magnitude > 30 then
+                args[1] = Ray.new(ray.Origin, (currentTarget.Position - ray.Origin).Unit * 5000)
+                return oldNamecall(self, unpack(args))
+            end
+        end
+    end
+
+    return oldNamecall(self, ...)
+end)
+
+-- ACS MOD LOGIC
+local function ModWeapon(tool)
+    if not tool:IsA("Tool") then return end
+    local mod = tool:FindFirstChild("ACS_Settings")
+    if not mod then return end
+    local ok, t = pcall(require, mod)
+    if not (ok and type(t) == "table") then return end
+
+    if Features.NoRecoil then
+        t.camRecoil = {camRecoilUp={0,0}, camRecoilTilt={0,0}, camRecoilLeft={0,0}, camRecoilRight={0,0}}
+        t.gunRecoil = {gunRecoilUp={0,0}, gunRecoilTilt={0,0}, gunRecoilLeft={0,0}, gunRecoilRight={0,0}}
+        t.AimRecoilReduction, t.MinRecoilPower, t.MaxRecoilPower = 0, 0, 0
+        t.RecoilPowerStepAmount, t.MinSpread, t.MaxSpread = 0, 0, 0
+        t.AimInaccuracyDecrease, t.AimInaccuracyStepAmount, t.AimSpreadReduction, t.WalkMult = 0, 0, 0, 0
+    end
+    if Features.SpreadLock then
+        t.MinSpread, t.MaxSpread = Values.MinSpreadVal, Values.MaxSpreadVal
+        t.AimInaccuracyDecrease, t.AimInaccuracyStepAmount = 0, 0
+    end
+    if Features.RapidFire    then t.ShootRate = Values.ShootRate end
+    if Features.FullAuto     then
+        t.FireModes = {ChangeFiremode=true, Semi=true, Burst=true, Auto=true}
+        t.ShootType = 3
+    end
+    t.IgnoreProtection = Features.ArmorPiercing
+    if Features.InfAmmo      then
+        t.Ammo, t.AmmoInGun, t.StoredAmmo, t.MaxStoredAmmo = Values.AmmoAmount, Values.AmmoAmount, Values.AmmoAmount, Values.AmmoAmount
+    end
+    if Features.NoBulletDrop then t.BulletDrop = 0 end
+    if Features.Rainbow      then t.RainbowMode, t.Tracer = true, true else t.RainbowMode = false end
+    if Features.Tracer and not Features.Rainbow then t.Tracer = true end
+    if Features.NoJam        then t.CanBreak, t.Jammed = false, false end
+    if Features.NoFlash      then t.FlashChance = 0 end
+end
+
+local function ApplyAll()
+    for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do ModWeapon(item) end
+    if LocalPlayer.Character then
+        for _, item in ipairs(LocalPlayer.Character:GetChildren()) do ModWeapon(item) end
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.5) do ApplyAll() end
+end)
+LocalPlayer.CharacterAdded:Connect(function(char)
+    char.ChildAdded:Connect(function(item) ModWeapon(item) end)
+end)
+if LocalPlayer.Character then
+    LocalPlayer.Character.ChildAdded:Connect(function(item) ModWeapon(item) end)
+end
+LocalPlayer.Backpack.ChildAdded:Connect(function(item) ModWeapon(item) end)
+
+-- SILENT AIM TAB
+Tabs.Combat:AddToggle("T_SilentAim", { Title = "Enable Silent Aim", Default = SilentAimSettings.Enabled }):OnChanged(function(val)
+    SilentAimSettings.Enabled = val
+    SaveConfig()
+end)
+Tabs.Combat:AddToggle("T_ShowFOV", { Title = "Show FOV Circle", Default = SilentAimSettings.ShowFOV }):OnChanged(function(val)
+    SilentAimSettings.ShowFOV = val
+    SaveConfig()
+end)
+Tabs.Combat:AddSlider("S_FOVRadius", {
+    Title = "FOV Radius", Default = SilentAimSettings.FOVRadius, Min = 50, Max = 600, Rounding = 0,
+    Callback = function(val)
+        SilentAimSettings.FOVRadius = val
+        fovCircle.Size = UDim2.new(0, val * 2, 0, val * 2)
+        SaveConfig()
+    end
+})
+
+-- GUN MOD TAB
+Tabs.GunMod:AddToggle("T_Wallbang", { Title = "Magic Bullet", Description = "The farther the target, the slower the bullet travels and hits.", Default = SilentAimSettings.WallbangEnabled }):OnChanged(function(val)
+    SilentAimSettings.WallbangEnabled = val
+    SaveConfig()
+end)
+Tabs.GunMod:AddToggle("T_NoRecoil",    { Title = "No Recoil & Laser Aim",  Default = Features.NoRecoil      }):OnChanged(function(v) Features.NoRecoil      = v; ApplyAll(); SaveConfig() end)
+Tabs.GunMod:AddToggle("T_FullAuto",    { Title = "Force Full-Auto",         Default = Features.FullAuto      }):OnChanged(function(v) Features.FullAuto      = v; ApplyAll(); SaveConfig() end)
+Tabs.GunMod:AddToggle("T_NoJam",       { Title = "No Jam / Gun Break",      Default = Features.NoJam         }):OnChanged(function(v) Features.NoJam         = v; ApplyAll(); SaveConfig() end)
+Tabs.GunMod:AddToggle("T_ArmorPierce", { Title = "Armor Piercing",          Default = Features.ArmorPiercing }):OnChanged(function(v) Features.ArmorPiercing = v; ApplyAll(); SaveConfig() end)
+
+local SectionStats = Tabs.GunMod:AddSection("Custom Values Mods")
+SectionStats:AddToggle("T_RapidFire", { Title = "Enable Rapid Fire", Default = Features.RapidFire }):OnChanged(function(v) Features.RapidFire = v; ApplyAll(); SaveConfig() end)
+SectionStats:AddInput("I_RapidFire",  { Title = "Rapid Fire (RPM) Value", Default = tostring(Values.ShootRate), Numeric = true, Finished = true, Callback = function(v) Values.ShootRate = tonumber(v) or 1200; ApplyAll(); SaveConfig() end })
+SectionStats:AddToggle("T_Ammo",      { Title = "Enable Inf Ammo", Default = Features.InfAmmo }):OnChanged(function(v) Features.InfAmmo = v; ApplyAll(); SaveConfig() end)
+SectionStats:AddInput("I_Ammo",       { Title = "Ammo Amount", Default = tostring(Values.AmmoAmount), Numeric = true, Finished = true, Callback = function(v) Values.AmmoAmount = tonumber(v) or 9999; ApplyAll(); SaveConfig() end })
+
+local SectionVis = Tabs.GunMod:AddSection("Visuals & Physics")
+SectionVis:AddToggle("T_NoDrop",  { Title = "No Bullet Drop",  Default = Features.NoBulletDrop }):OnChanged(function(v) Features.NoBulletDrop = v; ApplyAll(); SaveConfig() end)
+SectionVis:AddToggle("T_Rainbow", { Title = "Rainbow Tracer",  Default = Features.Rainbow      }):OnChanged(function(v) Features.Rainbow      = v; ApplyAll(); SaveConfig() end)
+SectionVis:AddToggle("T_NoFlash", { Title = "No Muzzle Flash", Default = Features.NoFlash      }):OnChanged(function(v) Features.NoFlash      = v; ApplyAll(); SaveConfig() end)
+
+-- ESP TAB
+Tabs.ESP:AddToggle("ESPPlayers", {
+    Title = "ESP Players (Name | Dist | HP | Chams)", Default = Config.ESPEnabled,
+    Callback = function(v)
+        Config.ESPEnabled = v
+        SaveConfig()
+    end
+})
+
+-- SETTINGS TAB
+Tabs.Settings:AddButton({
+    Title = "Unload UI",
+    Description = "Remove FOV, Logo and Fluent UI",
+    Callback = function()
+        Window:Destroy()
+        if fovGui  then fovGui:Destroy()  end
+        if LogoGui then LogoGui:Destroy() end
+    end
+})
+
+Window:SelectTab(1)
+Fluent:Notify({ Title = "Loaded!", Content = "StarCrow Hub Gun Armory Tycoon ready!", Duration = 5 })

@@ -28,6 +28,8 @@ local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local Map = workspace:WaitForChild("Map")
+local SharedSignals = require(ReplicatedStorage:WaitForChild("Classes"):WaitForChild("SharedSignals"))
 
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
@@ -1164,6 +1166,30 @@ local function teleportPlayer(cframePos)
     end
 end
 
+local autoMineEnabled = false
+local mineParams = RaycastParams.new()
+mineParams.FilterDescendantsInstances = { Map }
+mineParams.FilterType = Enum.RaycastFilterType.Include
+
+local function getMineTarget()
+    local result = workspace:Raycast(Camera.CFrame.Position, Camera.CFrame.LookVector * 10, mineParams)
+    if not result then return nil end
+    local inst = result.Instance
+    while inst and inst.Parent do
+        if inst.Parent == Map and inst:IsA("Model") then return inst end
+        inst = inst.Parent
+    end
+end
+
+RunService.Heartbeat:Connect(function()
+    if not autoMineEnabled then return end
+    local target = getMineTarget()
+    if not target then return end
+    local char = LocalPlayer.Character
+    local tool = char and char:FindFirstChildOfClass("Tool") or nil
+    SharedSignals.Mining:Fire("Mine", target, tool)
+end)
+
 local Window = Fluent:CreateWindow({
     Title = "StarCrowHub",
     SubTitle = "Dead Spells",
@@ -1456,6 +1482,14 @@ BringBurgerToggleObj = Tabs.Misc:AddToggle("BringBurgerToggle", {
     end
 })
 
+Tabs.Misc:AddToggle("AutoMineToggle", {
+    Title = "Auto Mine",
+    Default = false,
+    Callback = function(Value)
+        autoMineEnabled = Value
+    end
+})
+
 Tabs.Misc:AddToggle("NoFogToggle", {
     Title = "Loop No Fog",
     Default = Config.NoFogEnabled,
@@ -1522,4 +1556,4 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     end
 })
 
-Window:SelectTab(1)
+Window:SelectTab(1) 

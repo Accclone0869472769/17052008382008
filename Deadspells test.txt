@@ -439,12 +439,8 @@ local function startAutoClick()
     autoFarmStartTime = tick()
     task.spawn(function()
         while autoClickRunning do
-            if uiVisible then
-                task.wait(0.1)
-            else
-                local usedTool = activateHeldTool()
-                task.wait(usedTool and 0.08 or 0.15)
-            end
+            local usedTool = activateHeldTool()
+            task.wait(1)
         end
     end)
 end

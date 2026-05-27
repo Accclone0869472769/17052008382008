@@ -1227,10 +1227,9 @@ Tabs.Info:AddButton({
     end
 })
 
-Tabs.Main:AddSection("Auto Farm")
 Tabs.Main:AddParagraph({
     Title = "Auto Farm",
-    Content = "You need a class that has a sword or any melee weapon to use Auto Farm Magic staves do not work"
+    Content = "You need a class that has a sword or any melee weapon to use Auto Farm.\nMagic staves do not work.\nIf Auto Farm gets bugged during reset, just stay AFK.\nIt will keep resetting whenever it reaches the time you set until you die."
 })
 
 Tabs.Main:AddToggle("AutoFarmToggle", {
@@ -1556,4 +1555,4 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     end
 })
 
-Window:SelectTab(1) 
+Window:SelectTab(1)

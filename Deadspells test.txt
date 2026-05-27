@@ -150,7 +150,8 @@ local Config = {
     NPCHitboxSize = 4,
     NPCESPEnabled = false,
     AutoFarmEnabled = false,
-    AutoResetMinutes = 5
+    AutoResetMinutes = 5,
+    AutoMineEnabled = false
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -1165,7 +1166,6 @@ local function teleportPlayer(cframePos)
     end
 end
 
-local autoMineEnabled = false
 local mineParams = RaycastParams.new()
 mineParams.FilterType = Enum.RaycastFilterType.Include
 
@@ -1183,7 +1183,7 @@ local function getMineTarget()
 end
 
 RunService.Heartbeat:Connect(function()
-    if not autoMineEnabled then return end
+    if not Config.AutoMineEnabled then return end
     local target = getMineTarget()
     if not target then return end
     local char = LocalPlayer.Character
@@ -1484,9 +1484,10 @@ BringBurgerToggleObj = Tabs.Misc:AddToggle("BringBurgerToggle", {
 
 Tabs.Misc:AddToggle("AutoMineToggle", {
     Title = "Auto Mine",
-    Default = false,
+    Default = Config.AutoMineEnabled,
     Callback = function(Value)
-        autoMineEnabled = Value
+        Config.AutoMineEnabled = Value
+        SaveConfig()
     end
 })
 

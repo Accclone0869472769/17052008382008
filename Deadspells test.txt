@@ -28,7 +28,6 @@ local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local Map = workspace:WaitForChild("Map")
 local SharedSignals = require(ReplicatedStorage:WaitForChild("Classes"):WaitForChild("SharedSignals"))
 
 LocalPlayer.Idled:Connect(function()
@@ -1168,15 +1167,17 @@ end
 
 local autoMineEnabled = false
 local mineParams = RaycastParams.new()
-mineParams.FilterDescendantsInstances = { Map }
 mineParams.FilterType = Enum.RaycastFilterType.Include
 
 local function getMineTarget()
+    local map = workspace:FindFirstChild("Map")
+    if not map then return nil end
+    mineParams.FilterDescendantsInstances = { map }
     local result = workspace:Raycast(Camera.CFrame.Position, Camera.CFrame.LookVector * 10, mineParams)
     if not result then return nil end
     local inst = result.Instance
     while inst and inst.Parent do
-        if inst.Parent == Map and inst:IsA("Model") then return inst end
+        if inst.Parent == map and inst:IsA("Model") then return inst end
         inst = inst.Parent
     end
 end

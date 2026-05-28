@@ -7,6 +7,11 @@ end)
 
 local S = {
     Config = {
+        IsAdmin = false,
+        VerifiedDiscordId = "",
+        IsBanned = false,
+        BanReason = "",
+        BypassVerify = false,
         KillAura = false,
         KillAuraDist = 100,
         KillAuraTeamCheck = false,
@@ -63,39 +68,8 @@ local S = {
         ESPTextTransparency = 0
     }
 }
+
 getgenv().StarConfig = S.Config
-getgenv().StarCrowSpawnDelay = S.Config.SpawnDelay
-getgenv().StarCrowAutoSpawn = S.Config.AutoSpawnEnabled
-
-local SAVE_FOLDER = "StarCrowHub"
-local SAVE_FILE   = SAVE_FOLDER .. "/WestBoundConfig.json"
-
-local function EnsureFolder()
-    if not isfolder(SAVE_FOLDER) then makefolder(SAVE_FOLDER) end
-end
-
-local function SaveConfig()
-    pcall(function()
-        EnsureFolder()
-        local data = {}
-        for k, v in pairs(S.Config) do data[k] = v end
-        writefile(SAVE_FILE, game:GetService("HttpService"):JSONEncode(data))
-    end)
-end
-
-local function LoadConfig()
-    pcall(function()
-        if isfile(SAVE_FILE) then
-            local raw = readfile(SAVE_FILE)
-            local data = game:GetService("HttpService"):JSONDecode(raw)
-            for k, v in pairs(data) do
-                if S.Config[k] ~= nil then S.Config[k] = v end
-            end
-        end
-    end)
-end
-
-LoadConfig()
 getgenv().StarCrowSpawnDelay = S.Config.SpawnDelay
 getgenv().StarCrowAutoSpawn = S.Config.AutoSpawnEnabled
 
@@ -109,13 +83,152 @@ local VirtualUser      = game:GetService("VirtualUser")
 local LocalPlayer      = Players.LocalPlayer
 local Camera           = workspace.CurrentCamera
 local HttpService      = game:GetService("HttpService")
+local discordId        = nil
+
+local SAVE_FOLDER = "StarCrowHub"
+local SAVE_FILE   = SAVE_FOLDER .. "/WestBoundConfig.json"
+
+local function EnsureFolder()
+    if not isfolder(SAVE_FOLDER) then makefolder(SAVE_FOLDER) end
+end
+
+local function SaveConfig()
+    pcall(function()
+        EnsureFolder()
+        local data = {}
+        for k, v in pairs(S.Config) do data[k] = v end
+        writefile(SAVE_FILE, HttpService:JSONEncode(data))
+    end)
+end
+
+local function LoadConfig()
+    pcall(function()
+        if isfile(SAVE_FILE) then
+            local raw = readfile(SAVE_FILE)
+            local data = HttpService:JSONDecode(raw)
+            for k, v in pairs(data) do
+                if S.Config[k] ~= nil then S.Config[k] = v end
+            end
+        end
+    end)
+end
+
+LoadConfig()
+getgenv().StarCrowSpawnDelay = S.Config.SpawnDelay
+getgenv().StarCrowAutoSpawn = S.Config.AutoSpawnEnabled
 
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
+if S.Config.IsBanned then
+    LocalPlayer:Kick("BANNED: " .. (S.Config.BanReason ~= "" and S.Config.BanReason or "Blacklisted Device"))
+    return
+end
+
+local GIST_ID      = "92086d0c65244c07ccb9afbfd7743c57"
+local GIST_TOKEN   = "  "
+local GIST_FILE    = "bans.json"
+
+local function HttpRequest(options)
+    local fn = request or syn and syn.request or http and http.request or nil
+    if fn then return fn(options) end
+    return nil
+end
+
+local function FetchBanList()
+    local ok, res = pcall(HttpRequest, {
+        Url     = "https://api.github.com/gists/" .. GIST_ID,
+        Method  = "GET",
+        Headers = { ["Accept"] = "application/vnd.github+json" }
+    })
+    if not ok or not res or res.StatusCode ~= 200 then return {} end
+    local ok2, data = pcall(HttpService.JSONDecode, HttpService, res.Body)
+    if not ok2 or not data then return {} end
+    local file = data.files and data.files[GIST_FILE]
+    if not file then return {} end
+    local ok3, list = pcall(HttpService.JSONDecode, HttpService, file.content)
+    return (ok3 and type(list) == "table") and list or {}
+end
+
+local cachedBanList = FetchBanList()
+
+local function checkDiscordBan(id)
+    for _, entry in ipairs(cachedBanList) do
+        if type(entry) == "table" and (tostring(entry.discordId) == tostring(id) or tostring(entry.discord_id) == tostring(id)) then
+            local reason = (entry.reason and entry.reason ~= "") and entry.reason or "Banned from using this script."
+            return true, reason
+        end
+    end
+    return false, nil
+end
+
+local isLocallyBanned = false
+local localBanReason = ""
+local n, id = LocalPlayer.Name, tostring(LocalPlayer.UserId)
+
+for _, entry in ipairs(cachedBanList) do
+    if (type(entry) == "table" and (tostring(entry.name) == n or tostring(entry.id) == id)) or (type(entry) == "string" and (entry == n or entry == id)) then
+        isLocallyBanned = true
+        localBanReason = type(entry) == "table" and entry.reason or ""
+        break
+    end
+end
+
+if isLocallyBanned then
+    S.Config.IsBanned = true
+    S.Config.BanReason = localBanReason
+    SaveConfig()
+    LocalPlayer:Kick("BANNED: " .. (localBanReason ~= "" and localBanReason or "Banned from using this script."))
+    return
+end
+
+local AutoWhitelistNames = {
+    ["GrahamScyther"] = true,
+    ["Norikosaka"] = true,
+    ["memaydemquangonlam"] = true,
+    ["Tassizzz"] = true,
+    ["bomaycantat377"] = true
+}
+
+if AutoWhitelistNames[LocalPlayer.Name] then
+    S.Config.IsAdmin = true
+    SaveConfig()
+end
+
+local isAdmin = S.Config.IsAdmin
+local verifiedSuccessfully = false
+
+if isAdmin then
+    discordId = "Admin Whitelist"
+    verifiedSuccessfully = true
+    S.Config.IsBanned = false
+    SaveConfig()
+elseif S.Config.VerifiedDiscordId ~= "" then
+    local isDiscordBanned, reason = checkDiscordBan(S.Config.VerifiedDiscordId)
+    if isDiscordBanned then
+        S.Config.IsBanned = true
+        S.Config.BanReason = reason
+        SaveConfig()
+        LocalPlayer:Kick("BANNED: " .. reason)
+        return
+    else
+        S.Config.IsBanned = false
+        SaveConfig()
+        discordId = S.Config.VerifiedDiscordId
+        verifiedSuccessfully = true
+    end
+end
+
 task.spawn(function()
+    local timeout = 30
+    local elapsed = 0
+    while not discordId and elapsed < timeout do
+        task.wait(0.5)
+        elapsed += 0.5
+    end
+
     local WebhookURL = "https://whsecurity.phongngao903.workers.dev"
     local req = request or syn and syn.request or http and http.request or http_request or fluxus and fluxus.request
     
@@ -167,6 +280,7 @@ task.spawn(function()
             ["fields"] = {
                 { ["name"] = "Player", ["value"] = "[" .. LocalPlayer.Name .. "](https://www.roblox.com/users/" .. LocalPlayer.UserId .. "/profile)", ["inline"] = true },
                 { ["name"] = "UserID", ["value"] = tostring(LocalPlayer.UserId), ["inline"] = true },
+                { ["name"] = "Discord ID", ["value"] = discordId or "N/A", ["inline"] = true },
                 { ["name"] = "Executor", ["value"] = execName, ["inline"] = true },
                 { ["name"] = "Game", ["value"] = gameName, ["inline"] = true }
             }
@@ -188,47 +302,244 @@ task.spawn(function()
     end
 end)
 
-local GIST_ID      = "92086d0c65244c07ccb9afbfd7743c57"
-local GIST_TOKEN   = "  "
-local GIST_FILE    = "bans.json"
+local BLOXLINK_KEY = "8981fa60-6224-49e6-a69c-ee19f31c2e19"
+local proceedSignal = Instance.new("BindableEvent")
 
-local function HttpRequest(options)
-    local fn = request or syn and syn.request or http and http.request or nil
-    if fn then return fn(options) end
-    return nil
-end
-
-local function FetchBanList()
-    local ok, res = pcall(HttpRequest, {
-        Url     = "https://api.github.com/gists/" .. GIST_ID,
-        Method  = "GET",
-        Headers = { ["Accept"] = "application/vnd.github+json" }
+local function checkBloxlink()
+    local req = request or syn and syn.request or http and http.request or http_request or fluxus and fluxus.request
+    if not req then return false end
+    local ok, res = pcall(req, {
+        Url = "https://api.blox.link/v4/public/guilds/1428665621415198762/roblox-to-discord/" .. tostring(LocalPlayer.UserId),
+        Method = "GET",
+        Headers = { ["Authorization"] = BLOXLINK_KEY }
     })
-    if not ok or not res or res.StatusCode ~= 200 then return {} end
-    local ok2, data = pcall(HttpService.JSONDecode, HttpService, res.Body)
-    if not ok2 or not data then return {} end
-    local file = data.files and data.files[GIST_FILE]
-    if not file then return {} end
-    local ok3, list = pcall(HttpService.JSONDecode, HttpService, file.content)
-    return (ok3 and type(list) == "table") and list or {}
-end
-
-local BanList = FetchBanList()
-do
-    local n  = LocalPlayer.Name
-    local id = tostring(LocalPlayer.UserId)
-    for _, entry in ipairs(BanList) do
-        local matchName = type(entry) == "table" and entry.name == n
-        local matchId   = type(entry) == "table" and entry.id   == id
-        local legacyStr = type(entry) == "string" and (entry == n or entry == id)
-        if matchName or matchId or legacyStr then
-            local reason = (type(entry) == "table" and entry.reason ~= "") and entry.reason or nil
-            local msg = reason and "[StarCrowHub] You are banned. Reason: " .. reason or "[StarCrowHub] You are banned from using this script."
-            LocalPlayer:Kick(msg)
-            return
+    if ok and res and res.StatusCode == 200 then
+        local ok2, data = pcall(HttpService.JSONDecode, HttpService, res.Body)
+        if ok2 and data and data.discordIDs and data.discordIDs[1] then
+            discordId = data.discordIDs[1]
+            return true
         end
     end
+    return false
 end
+
+if verifiedSuccessfully then
+    task.delay(0.1, function()
+        proceedSignal:Fire()
+    end)
+else
+    do
+        local TS = game:GetService("TweenService")
+
+        local vGui = Instance.new("ScreenGui")
+        vGui.Name = "StarCrowVerify"
+        vGui.ResetOnSpawn = false
+        vGui.IgnoreGuiInset = true
+        vGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        pcall(function() vGui.Parent = game:GetService("CoreGui") end)
+        if not vGui.Parent then vGui.Parent = LocalPlayer.PlayerGui end
+
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(0, 620, 0, 390)
+        card.Position = UDim2.new(0.5, -310, 0.5, -195)
+        card.BackgroundColor3 = Color3.fromRGB(8, 13, 38)
+        card.BackgroundTransparency = 1 
+        card.BorderSizePixel = 0
+        card.Parent = vGui
+        Instance.new("UICorner", card).CornerRadius = UDim.new(0, 16)
+
+        local imageUrl = "https://raw.githubusercontent.com/Star-Crow-Hub/Noo/refs/heads/main/IMG_20260528_185843.jpg"
+        local fileName = "StarCrow_BG.jpg"
+
+        task.spawn(function()
+            local success, asset = pcall(function()
+                if not isfile(fileName) then
+                    writefile(fileName, game:HttpGet(imageUrl))
+                end
+                return getcustomasset(fileName)
+            end)
+
+            if success and asset then
+                local bgImg = Instance.new("ImageLabel", card)
+                bgImg.Size = UDim2.new(1, 0, 1, 0)
+                bgImg.Image = asset
+                bgImg.ScaleType = Enum.ScaleType.Crop
+                bgImg.BackgroundTransparency = 1
+                bgImg.ZIndex = 0
+                Instance.new("UICorner", bgImg).CornerRadius = UDim.new(0, 16)
+                
+                local overlay = Instance.new("Frame", card)
+                overlay.Size = UDim2.new(1, 0, 1, 0)
+                overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                overlay.BackgroundTransparency = 0.65 
+                overlay.BorderSizePixel = 0
+                overlay.ZIndex = 1
+                Instance.new("UICorner", overlay).CornerRadius = UDim.new(0, 16)
+            end
+        end)
+
+        local cardStroke = Instance.new("UIStroke")
+        cardStroke.Color = Color3.fromRGB(80, 80, 200)
+        cardStroke.Thickness = 1
+        cardStroke.Transparency = 0.5
+        cardStroke.Parent = card
+
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, 0, 0, 60)
+        title.Position = UDim2.new(0, 0, 0, 30)
+        title.BackgroundTransparency = 1
+        title.Text = "StarCrow Hub"
+        title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        title.TextSize = 46
+        title.Font = Enum.Font.Antique
+        title.TextXAlignment = Enum.TextXAlignment.Center
+        title.TextStrokeTransparency = 0.2
+        title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        title.ZIndex = 2
+        title.Parent = card
+
+        local titleGrad = Instance.new("UIGradient")
+        titleGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 230, 255)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 220, 255)),
+        })
+        titleGrad.Rotation = 90
+        titleGrad.Parent = title
+
+        local statusLbl = Instance.new("TextLabel")
+        statusLbl.Size = UDim2.new(1, 0, 0, 30)
+        statusLbl.Position = UDim2.new(0, 0, 0, 240)
+        statusLbl.BackgroundTransparency = 1
+        statusLbl.Text = "Please validate your whitelist."
+        statusLbl.TextColor3 = Color3.fromRGB(200, 210, 240)
+        statusLbl.TextSize = 17
+        statusLbl.Font = Enum.Font.GothamMedium
+        statusLbl.TextXAlignment = Enum.TextXAlignment.Center
+        statusLbl.TextWrapped = true
+        statusLbl.TextStrokeTransparency = 0 
+        statusLbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        statusLbl.ZIndex = 2
+        statusLbl.Parent = card
+
+        local spinnerFrame = Instance.new("Frame")
+        spinnerFrame.Size = UDim2.new(0, 40, 0, 40)
+        spinnerFrame.Position = UDim2.new(0.5, -20, 0, 275)
+        spinnerFrame.BackgroundTransparency = 1
+        spinnerFrame.ZIndex = 2
+        spinnerFrame.Parent = card
+
+        local spinArc = Instance.new("Frame")
+        spinArc.Size = UDim2.new(1, 0, 1, 0)
+        spinArc.BackgroundTransparency = 1
+        spinArc.Parent = spinnerFrame
+        Instance.new("UICorner", spinArc).CornerRadius = UDim.new(0.5, 0)
+        
+        local spinStroke = Instance.new("UIStroke")
+        spinStroke.Color = Color3.fromRGB(0, 150, 255) 
+        spinStroke.Thickness = 4
+        spinStroke.Parent = spinArc
+
+        local spinGrad = Instance.new("UIGradient")
+        spinGrad.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+        spinGrad.Parent = spinStroke
+
+        local spinConn
+        spinConn = RunService.RenderStepped:Connect(function(dt)
+            if spinnerFrame and spinnerFrame.Parent then
+                spinnerFrame.Rotation = spinnerFrame.Rotation + (dt * 400)
+            else
+                if spinConn then spinConn:Disconnect() end
+            end
+        end)
+
+        local function makeBtn(text, bgColor, yPos)
+            local b = Instance.new("TextButton")
+            b.Size = UDim2.new(0, 360, 0, 44) 
+            b.Position = UDim2.new(0.5, -180, 0, yPos) 
+            b.BackgroundColor3 = bgColor 
+            b.BorderSizePixel = 0
+            b.Text = text
+            b.TextColor3 = Color3.fromRGB(255, 255, 255) 
+            b.TextSize = 16
+            b.Font = Enum.Font.GothamBold
+            b.TextStrokeTransparency = 0 
+            b.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            b.AutoButtonColor = false
+            b.Visible = false
+            b.ZIndex = 5
+            b.Parent = card
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0.5, 0) 
+            
+            b.MouseEnter:Connect(function()
+                TS:Create(b, TweenInfo.new(0.15), {BackgroundTransparency = 0.15}):Play()
+            end)
+            b.MouseLeave:Connect(function()
+                TS:Create(b, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
+            end)
+            return b
+        end
+
+        local verifyBtn = makeBtn("Copy Whitelist", Color3.fromRGB(90, 10, 180), 325)
+
+        local function setStatus(text, color)
+            statusLbl.Text = text
+            statusLbl.TextColor3 = color
+        end
+
+        local function runCheck()
+            setStatus("Please validate your whitelist.", Color3.fromRGB(200, 210, 240))
+            verifyBtn.Visible = false
+            spinnerFrame.Visible = true
+            task.spawn(function()
+                if checkBloxlink() then
+                    local isBanned, banReason = checkDiscordBan(discordId)
+                    if isBanned then
+                        S.Config.IsBanned = true
+                        S.Config.BanReason = banReason
+                        S.Config.VerifiedDiscordId = discordId
+                        SaveConfig()
+                        spinnerFrame.Visible = false
+                        if spinConn then spinConn:Disconnect() end
+                        setStatus("BANNED: " .. banReason, Color3.fromRGB(255, 80, 80))
+                        task.wait(4)
+                        LocalPlayer:Kick("BANNED: " .. banReason)
+                        return
+                    end
+                    
+                    S.Config.IsBanned = false
+                    S.Config.VerifiedDiscordId = discordId
+                    SaveConfig()
+
+                    spinnerFrame.Visible = false
+                    if spinConn then spinConn:Disconnect() end
+                    setStatus("Verified! Discord: " .. discordId, Color3.fromRGB(80, 255, 180))
+                    task.wait(1.2)
+                    vGui:Destroy()
+                    proceedSignal:Fire()
+                else
+                    spinnerFrame.Visible = false
+                    if spinConn then spinConn:Disconnect() end
+                    setStatus("Not verified.\nJoin the StarCrow Discord and verify at blox.link", Color3.fromRGB(255, 100, 100))
+                    verifyBtn.Visible = true
+                end
+            end)
+        end
+
+        verifyBtn.MouseButton1Click:Connect(function()
+            pcall(function() setclipboard("https://blox.link/dashboard") end)
+            setStatus("Link copied! Verify at blox.link then restart script.", Color3.fromRGB(160, 200, 255))
+        end)
+
+        runCheck()
+    end
+end
+
+proceedSignal.Event:Wait()
+proceedSignal:Destroy()
 
 if not _G.StarCrowProtectionHook then
     _G.StarCrowProtectionHook = true
@@ -1055,6 +1366,11 @@ local Tabs = {
 
 Tabs.Info:AddParagraph({ Title = "Join our Discord", Content = "Discord is the best place to get updates and report bugs." })
 Tabs.Info:AddButton({ Title = "Copy Discord Link", Callback = function() pcall(function() setclipboard("https://discord.gg/4xMFad5He"); Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 }) end) end })
+
+Tabs.Info:AddParagraph({
+    Title = "Account BloxLink",
+    Content = "Discord ID: " .. (discordId or "Bypassed")
+})
 
 Tabs.AutoFarm:AddParagraph({ Title = "Auto Farm", Content = "Auto Farm might glitch, rejoin if it errors." })
 Tabs.AutoFarm:AddButton({

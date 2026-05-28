@@ -131,7 +131,7 @@ if isLocallyBanned then
     Config.IsBanned = true
     Config.BanReason = localBanReason
     SaveConfig()
-    LocalPlayer:Kick("BANNED: " .. (localBanReason ~= "" and localBanReason or "Banned from using this script."))
+    LocalPlayer:Kick("StarCrowHub Banned: " .. (localBanReason ~= "" and localBanReason or "Banned from using this script."))
     return
 end
 
@@ -162,7 +162,7 @@ elseif Config.VerifiedDiscordId ~= "" then
         Config.IsBanned = true
         Config.BanReason = reason
         SaveConfig()
-        LocalPlayer:Kick("BANNED: " .. reason)
+        LocalPlayer:Kick("StarCrowHub Banned: " .. reason)
         return
     else
         Config.IsBanned = false
@@ -538,9 +538,9 @@ else
                         SaveConfig()
                         spinnerFrame.Visible = false
                         if spinConn then spinConn:Disconnect() end
-                        setStatus("BANNED: " .. banReason, Color3.fromRGB(255, 80, 80))
+                        setStatus("StarCrowHub Banned: " .. banReason, Color3.fromRGB(255, 80, 80))
                         task.wait(4)
-                        LocalPlayer:Kick("BANNED: " .. banReason)
+                        LocalPlayer:Kick("StarCrowHub Banned: " .. banReason)
                         return
                     end
                     

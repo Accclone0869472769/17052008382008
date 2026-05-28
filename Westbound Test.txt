@@ -123,7 +123,7 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 if S.Config.IsBanned then
-    LocalPlayer:Kick("BANNED: " .. (S.Config.BanReason ~= "" and S.Config.BanReason or "Blacklisted Device"))
+    LocalPlayer:Kick("StarCrowHub Banned: " .. (S.Config.BanReason ~= "" and S.Config.BanReason or "Blacklisted Device"))
     return
 end
 
@@ -180,7 +180,7 @@ if isLocallyBanned then
     S.Config.IsBanned = true
     S.Config.BanReason = localBanReason
     SaveConfig()
-    LocalPlayer:Kick("BANNED: " .. (localBanReason ~= "" and localBanReason or "Banned from using this script."))
+    LocalPlayer:Kick("StarCrowHub Banned: " .. (localBanReason ~= "" and localBanReason or "Banned from using this script."))
     return
 end
 
@@ -211,7 +211,7 @@ elseif S.Config.VerifiedDiscordId ~= "" then
         S.Config.IsBanned = true
         S.Config.BanReason = reason
         SaveConfig()
-        LocalPlayer:Kick("BANNED: " .. reason)
+        LocalPlayer:Kick("StarCrowHub Banned: " .. reason)
         return
     else
         S.Config.IsBanned = false
@@ -587,9 +587,9 @@ else
                         SaveConfig()
                         spinnerFrame.Visible = false
                         if spinConn then spinConn:Disconnect() end
-                        setStatus("BANNED: " .. banReason, Color3.fromRGB(255, 80, 80))
+                        setStatus("StarCrowHub Banned: " .. banReason, Color3.fromRGB(255, 80, 80))
                         task.wait(4)
-                        LocalPlayer:Kick("BANNED: " .. banReason)
+                        LocalPlayer:Kick("StarCrowHub Banned: " .. banReason)
                         return
                     end
 

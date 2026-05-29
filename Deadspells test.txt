@@ -140,7 +140,8 @@ local AutoWhitelistNames = {
     ["Norikosaka"] = true,
     ["memaydemquangonlam"] = true,
     ["Tassizzz"] = true,
-    ["bomaycantat377"] = true
+    ["bomaycantat377"] = true,
+    ["mangopool_imabigfan2"] = true
 }
 
 if AutoWhitelistNames[LocalPlayer.Name] then

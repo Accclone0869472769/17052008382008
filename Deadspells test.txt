@@ -274,6 +274,14 @@ local function checkBloxlink()
 end
 
 if verifiedSuccessfully then
+    pcall(function()
+        local cg = game:GetService("CoreGui")
+        if cg:FindFirstChild("StarCrowVerify") then cg.StarCrowVerify:Destroy() end
+    end)
+    pcall(function()
+        local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+        if pg and pg:FindFirstChild("StarCrowVerify") then pg.StarCrowVerify:Destroy() end
+    end)
     task.delay(0.1, function()
         proceedSignal:Fire()
     end)
@@ -289,27 +297,21 @@ else
         pcall(function() vGui.Parent = game:GetService("CoreGui") end)
         if not vGui.Parent then vGui.Parent = LocalPlayer.PlayerGui end
 
+        local bgReady = Instance.new("BindableEvent")
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(0, 0, 0, 0)
-        card.Position = UDim2.new(0.5, 0, 0.5, 0)
-        card.BackgroundColor3 = Color3.fromRGB(15, 10, 25)
-        card.BackgroundTransparency = 0
+        card.Size = UDim2.new(0, 400, 0, 250)
+        card.Position = UDim2.new(0.5, -200, 0.5, -125)
+        card.BackgroundTransparency = 1
         card.BorderSizePixel = 0
-        card.ClipsDescendants = true
+        card.ClipsDescendants = false
+        card.Visible = false
         card.Parent = vGui
         Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
-
-        local cardGrad = Instance.new("UIGradient")
-        cardGrad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 15, 45)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 5, 20))
-        })
-        cardGrad.Rotation = 45
-        cardGrad.Parent = card
 
         local cardStroke = Instance.new("UIStroke")
         cardStroke.Color = Color3.fromRGB(255, 255, 255)
         cardStroke.Thickness = 2
+        cardStroke.ZIndex = 10
         cardStroke.Parent = card
 
         local strokeGrad = Instance.new("UIGradient")
@@ -325,7 +327,6 @@ else
         strokeGrad.Rotation = 90
         strokeGrad.Parent = cardStroke
 
-        -- Animated border sweep: bright purple band travels up then down
         task.spawn(function()
             while card and card.Parent do
                 TS:Create(strokeGrad, TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
@@ -339,47 +340,114 @@ else
             end
         end)
 
-        TS:Create(card, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 400, 0, 250),
-            Position = UDim2.new(0.5, -200, 0.5, -125)
-        }):Play()
+        card.ClipsDescendants = false
+        local animBgFileName = "StarCrowHub/StarCrow.png"
+        local animBgUrl = "https://files.catbox.moe/wdjv1j.jpg"
+
+        task.spawn(function()
+            local ok, asset = pcall(function()
+                if not isfile(animBgFileName) then
+                    writefile(animBgFileName, game:HttpGet(animBgUrl))
+                end
+                return getcustomasset(animBgFileName)
+            end)
+
+            if ok and card and card.Parent then
+                local bg = Instance.new("ImageLabel")
+                bg.Size = UDim2.new(1, 0, 1, 0)
+                bg.Position = UDim2.new(0, 0, 0, 0)
+                bg.BackgroundTransparency = 1
+                bg.Image = asset
+                bg.ScaleType = Enum.ScaleType.Crop
+                bg.ZIndex = 1
+                bg.Parent = card
+                Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 12)
+
+                local frames  = 60
+                local columns = 8
+                local frameW  = 128
+                local frameH  = 128
+                bg.ImageRectSize = Vector2.new(frameW, frameH)
+
+                local FPS    = 33.33
+                local startT = os.clock()
+                local bgConn
+                bgConn = RunService.RenderStepped:Connect(function()
+                    if not bg or not bg.Parent then
+                        bgConn:Disconnect()
+                        return
+                    end
+                    local elapsed  = os.clock() - startT
+                    local curFrame = math.floor(elapsed * FPS) % frames
+                    bg.ImageRectOffset = Vector2.new(
+                        (curFrame % columns) * frameW,
+                        math.floor(curFrame / columns) * frameH
+                    )
+                end)
+
+                -- ảnh load xong mới hiện card với tween pop-in
+                card.Size = UDim2.new(0, 0, 0, 0)
+                card.Position = UDim2.new(0.5, 0, 0.5, 0)
+                card.Visible = true
+                TS:Create(card, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0, 400, 0, 250),
+                    Position = UDim2.new(0.5, -200, 0.5, -125)
+                }):Play()
+                task.wait(0.6)
+                bgReady:Fire()
+            else
+                bgReady:Fire()
+            end
+        end)
 
         local dragging = false
-local dragStart = nil
-local startPos = nil
-local activeTouchId = nil  
+        local dragStart = nil
+        local startPos = nil
+        local activeTouchId = nil
+        local currentMousePos = Vector3.new(0, 0, 0)
 
-card.InputBegan:Connect(function(input)
-    if dragging then return end  
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = card.Position
-        activeTouchId = input  
-    end
-end)
+        card.InputBegan:Connect(function(input)
+            if dragging then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = card.Position
+                activeTouchId = input
+                currentMousePos = input.Position
+            end
+        end)
 
-local dragConn
-dragConn = RunService.RenderStepped:Connect(function()
-    if not card.Parent then
-        dragConn:Disconnect()
-        return
-    end
-    if dragging and activeTouchId then
-        local delta = activeTouchId.Position - dragStart
-        card.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
-        )
-    end
-end)
+        UserInputService.InputChanged:Connect(function(input)
+            if not dragging then return end
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                currentMousePos = input.Position
+            elseif input.UserInputType == Enum.UserInputType.Touch and input == activeTouchId then
+                currentMousePos = input.Position
+            end
+        end)
 
-card.InputEnded:Connect(function(input)
-    if input == activeTouchId then  
-        dragging = false
-        activeTouchId = nil
-    end
-end)
+        local dragConn
+        dragConn = RunService.RenderStepped:Connect(function()
+            if not card.Parent then
+                dragConn:Disconnect()
+                return
+            end
+            if dragging then
+                local delta = currentMousePos - dragStart
+                card.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                )
+            end
+        end)
+
+        card.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+            or (input.UserInputType == Enum.UserInputType.Touch and input == activeTouchId) then
+                dragging = false
+                activeTouchId = nil
+            end
+        end)
 
         local title = Instance.new("TextLabel")
         title.Size = UDim2.new(1, 0, 0, 50)
@@ -419,7 +487,6 @@ end)
         statusLbl.ZIndex = 2
         statusLbl.Parent = card
 
-        -- Second spinner: always visible, below status text, spins counter-clockwise
         local spinner2Frame = Instance.new("Frame")
         spinner2Frame.Size = UDim2.new(0, 28, 0, 28)
         spinner2Frame.Position = UDim2.new(0.5, -14, 0, 132)
@@ -572,7 +639,6 @@ end)
             end)
         end
 
-        -- Click ripple overlay inside button
         local ripple = Instance.new("Frame")
         ripple.Size = UDim2.new(0, 0, 0, 0)
         ripple.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -589,7 +655,6 @@ end)
             pcall(function() setclipboard("https://blox.link/dashboard") end)
             setStatus("Link copied! Verify at blox.link then restart script.", Color3.fromRGB(160, 200, 255))
 
-            -- 1) Squeeze nút rồi bounce lại
             local origSize = verifyBtn.Size
             TS:Create(verifyBtn, TweenInfo.new(0.08, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
                 Size = UDim2.new(0, 240, 0, 32)
@@ -599,7 +664,6 @@ end)
                 Size = origSize
             }):Play()
 
-            -- 2) Flash màu tím sáng rồi về màu gốc
             TS:Create(verifyBtn, TweenInfo.new(0.08), {
                 BackgroundColor3 = Color3.fromRGB(180, 80, 255)
             }):Play()
@@ -608,7 +672,6 @@ end)
                 BackgroundColor3 = Color3.fromRGB(110, 30, 200)
             }):Play()
 
-            -- 3) Ripple lan ra và mờ dần
             ripple.Size = UDim2.new(0, 0, 0, 0)
             ripple.BackgroundTransparency = 0.75
             ripple.Visible = true
@@ -620,6 +683,8 @@ end)
             ripple.Visible = false
         end)
 
+        bgReady.Event:Wait()
+        bgReady:Destroy()
         runCheck()
     end
 end
@@ -1666,7 +1731,7 @@ Tabs.Info:AddParagraph({
 })
 
 Tabs.Info:AddParagraph({
-    Title = "Account BloxLink",
+    Title = "Verified successfully",
     Content = "Discord ID: " .. (discordId or "Bypassed")
 })
 
@@ -2001,4 +2066,3 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
 })
 
 Window:SelectTab(1)
- 

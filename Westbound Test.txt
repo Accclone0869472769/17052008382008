@@ -393,34 +393,39 @@ else
             Position = UDim2.new(0.5, -200, 0.5, -125)
         }):Play()
 
-        local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
-        card.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = card.Position
-            end
-        end)
-        UserInputService.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                dragInput = input
-            end
-        end)
-        local dragConn
-        dragConn = RunService.RenderStepped:Connect(function()
-            if not card.Parent then
-                dragConn:Disconnect()
-            elseif dragging and dragInput then
-                local delta = dragInput.Position - dragStart
-                card.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end)
-        card.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
-                dragInput = nil
-            end
-        end)
+
+local dragging = false
+local dragStart = nil
+local startPos = nil
+local activeTouchId = nil
+
+card.InputBegan:Connect(function(input)
+    if dragging then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = card.Position
+        activeTouchId = input
+    end
+end)
+card.InputChanged:Connect(function(input)
+    if not dragging then return end
+    if input ~= activeTouchId then return end
+    local delta = input.Position - dragStart
+    card.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end)
+local dragConn
+dragConn = RunService.RenderStepped:Connect(function()
+    if not card.Parent then dragConn:Disconnect() end
+end)
+card.InputEnded:Connect(function(input)
+    if input == activeTouchId then
+        dragging = false
+        activeTouchId = nil
+        dragStart = nil
+        startPos = nil
+    end
+end)
 
         local title = Instance.new("TextLabel")
         title.Size = UDim2.new(1, 0, 0, 50)
@@ -2674,3 +2679,4 @@ workspace.ChildAdded:Connect(function(v)
 end)
 
 Window:SelectTab(1)
+ 

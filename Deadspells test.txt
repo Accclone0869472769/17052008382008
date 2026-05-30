@@ -29,7 +29,6 @@ local GuiService = game:GetService("GuiService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local SharedSignals = require(ReplicatedStorage:WaitForChild("Classes"):WaitForChild("SharedSignals"))
-local discordId = nil
 
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
@@ -37,8 +36,6 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 local Config = {
-    IsAdmin = false,
-    VerifiedDiscordId = "",
     IsBanned = false,
     BanReason = "",
     ESPEnabled = false,
@@ -105,15 +102,6 @@ end
 
 local cachedBanList = FetchBanList()
 
-local function checkDiscordBan(id)
-    for _, entry in ipairs(cachedBanList) do
-        if type(entry) == "table" and (tostring(entry.discordId) == tostring(id) or tostring(entry.discord_id) == tostring(id)) then
-            local reason = (entry.reason and entry.reason ~= "") and entry.reason or "Banned from using this script."
-            return true, reason
-        end
-    end
-    return false, nil
-end
 
 local isLocallyBanned = false
 local localBanReason = ""
@@ -135,52 +123,10 @@ if isLocallyBanned then
     return
 end
 
-local AutoWhitelistNames = {
-    ["GrahamScyther"] = true,
-    ["Norikosaka"] = true,
-    ["memaydemquangonlam"] = true,
-    ["Tassizzz"] = true,
-    ["bomaycantat377"] = true,
-    ["mangopool_imabigfan2"] = true
-}
 
-if AutoWhitelistNames[LocalPlayer.Name] then
-    Config.IsAdmin = true
-    SaveConfig()
-end
 
-local isAdmin = Config.IsAdmin
-local verifiedSuccessfully = false
-
-if isAdmin then
-    discordId = "Admin Whitelist"
-    verifiedSuccessfully = true
-    Config.IsBanned = false
-    SaveConfig()
-elseif Config.VerifiedDiscordId ~= "" then
-    local isDiscordBanned, reason = checkDiscordBan(Config.VerifiedDiscordId)
-    if isDiscordBanned then
-        Config.IsBanned = true
-        Config.BanReason = reason
-        SaveConfig()
-        LocalPlayer:Kick("StarCrowHub Banned: " .. reason)
-        return
-    else
-        Config.IsBanned = false
-        SaveConfig()
-        discordId = Config.VerifiedDiscordId
-        verifiedSuccessfully = true
-    end
-end
 
 task.spawn(function()
-    local timeout = 30
-    local elapsed = 0
-    while not discordId and elapsed < timeout do
-        task.wait(0.5)
-        elapsed += 0.5
-    end
-
     local WebhookURL = "https://whsecurity.phongngao903.workers.dev"
     local req = request or syn and syn.request or http and http.request or http_request or fluxus and fluxus.request
     
@@ -232,7 +178,6 @@ task.spawn(function()
             ["fields"] = {
                 { ["name"] = "Player", ["value"] = "[" .. LocalPlayer.Name .. "](https://www.roblox.com/users/" .. LocalPlayer.UserId .. "/profile)", ["inline"] = true },
                 { ["name"] = "UserID", ["value"] = tostring(LocalPlayer.UserId), ["inline"] = true },
-                { ["name"] = "Discord ID", ["value"] = discordId or "N/A", ["inline"] = true },
                 { ["name"] = "Executor", ["value"] = execName, ["inline"] = true },
                 { ["name"] = "Game", ["value"] = gameName, ["inline"] = true }
             }
@@ -252,445 +197,6 @@ task.spawn(function()
     end
 end)
 
-local BLOXLINK_KEY = "8981fa60-6224-49e6-a69c-ee19f31c2e19"
-local proceedSignal = Instance.new("BindableEvent")
-
-local function checkBloxlink()
-    local req = request or syn and syn.request or http and http.request or http_request or fluxus and fluxus.request
-    if not req then return false end
-    local ok, res = pcall(req, {
-        Url = "https://api.blox.link/v4/public/guilds/1428665621415198762/roblox-to-discord/" .. tostring(LocalPlayer.UserId),
-        Method = "GET",
-        Headers = { ["Authorization"] = BLOXLINK_KEY }
-    })
-    if ok and res and res.StatusCode == 200 then
-        local ok2, data = pcall(HttpService.JSONDecode, HttpService, res.Body)
-        if ok2 and data and data.discordIDs and data.discordIDs[1] then
-            discordId = data.discordIDs[1]
-            return true
-        end
-    end
-    return false
-end
-
-if verifiedSuccessfully then
-    pcall(function()
-        local cg = game:GetService("CoreGui")
-        if cg:FindFirstChild("StarCrowVerify") then cg.StarCrowVerify:Destroy() end
-    end)
-    pcall(function()
-        local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
-        if pg and pg:FindFirstChild("StarCrowVerify") then pg.StarCrowVerify:Destroy() end
-    end)
-    task.delay(0.1, function()
-        proceedSignal:Fire()
-    end)
-else
-    do
-        local TS = game:GetService("TweenService")
-
-        local vGui = Instance.new("ScreenGui")
-        vGui.Name = "StarCrowVerify"
-        vGui.ResetOnSpawn = false
-        vGui.IgnoreGuiInset = true
-        vGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        pcall(function() vGui.Parent = game:GetService("CoreGui") end)
-        if not vGui.Parent then vGui.Parent = LocalPlayer.PlayerGui end
-
-        local bgReady = Instance.new("BindableEvent")
-        local card = Instance.new("Frame")
-        card.Size = UDim2.new(0, 400, 0, 250)
-        card.Position = UDim2.new(0.5, -200, 0.5, -125)
-        card.BackgroundTransparency = 1
-        card.BorderSizePixel = 0
-        card.ClipsDescendants = false
-        card.Visible = false
-        card.Parent = vGui
-        Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
-
-        local cardStroke = Instance.new("UIStroke")
-        cardStroke.Color = Color3.fromRGB(255, 255, 255)
-        cardStroke.Thickness = 2
-        cardStroke.ZIndex = 10
-        cardStroke.Parent = card
-
-        local strokeGrad = Instance.new("UIGradient")
-        strokeGrad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0,    Color3.fromRGB(5,  0,  20)),
-            ColorSequenceKeypoint.new(0.30, Color3.fromRGB(5,  0,  20)),
-            ColorSequenceKeypoint.new(0.42, Color3.fromRGB(120, 30, 220)),
-            ColorSequenceKeypoint.new(0.50, Color3.fromRGB(210, 80, 255)),
-            ColorSequenceKeypoint.new(0.58, Color3.fromRGB(120, 30, 220)),
-            ColorSequenceKeypoint.new(0.70, Color3.fromRGB(5,  0,  20)),
-            ColorSequenceKeypoint.new(1,    Color3.fromRGB(5,  0,  20))
-        })
-        strokeGrad.Rotation = 90
-        strokeGrad.Parent = cardStroke
-
-        task.spawn(function()
-            while card and card.Parent do
-                TS:Create(strokeGrad, TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    Offset = Vector2.new(0, 0.75)
-                }):Play()
-                task.wait(1.65)
-                TS:Create(strokeGrad, TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    Offset = Vector2.new(0, -0.75)
-                }):Play()
-                task.wait(1.65)
-            end
-        end)
-
-        card.ClipsDescendants = false
-        local animBgFileName = "StarCrowHub/StarCrow.png"
-        local animBgUrl = "https://files.catbox.moe/wdjv1j.jpg"
-
-        task.spawn(function()
-            local ok, asset = pcall(function()
-                if not isfile(animBgFileName) then
-                    writefile(animBgFileName, game:HttpGet(animBgUrl))
-                end
-                return getcustomasset(animBgFileName)
-            end)
-
-            if ok and card and card.Parent then
-                local bg = Instance.new("ImageLabel")
-                bg.Size = UDim2.new(1, 0, 1, 0)
-                bg.Position = UDim2.new(0, 0, 0, 0)
-                bg.BackgroundTransparency = 1
-                bg.Image = asset
-                bg.ScaleType = Enum.ScaleType.Crop
-                bg.ZIndex = 1
-                bg.Parent = card
-                Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 12)
-
-                local frames  = 60
-                local columns = 8
-                local frameW  = 128
-                local frameH  = 128
-                bg.ImageRectSize = Vector2.new(frameW, frameH)
-
-                local FPS    = 33.33
-                local startT = os.clock()
-                local bgConn
-                bgConn = RunService.RenderStepped:Connect(function()
-                    if not bg or not bg.Parent then
-                        bgConn:Disconnect()
-                        return
-                    end
-                    local elapsed  = os.clock() - startT
-                    local curFrame = math.floor(elapsed * FPS) % frames
-                    bg.ImageRectOffset = Vector2.new(
-                        (curFrame % columns) * frameW,
-                        math.floor(curFrame / columns) * frameH
-                    )
-                end)
-
-                -- ảnh load xong mới hiện card với tween pop-in
-                card.Size = UDim2.new(0, 0, 0, 0)
-                card.Position = UDim2.new(0.5, 0, 0.5, 0)
-                card.Visible = true
-                TS:Create(card, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(0, 400, 0, 250),
-                    Position = UDim2.new(0.5, -200, 0.5, -125)
-                }):Play()
-                task.wait(0.6)
-                bgReady:Fire()
-            else
-                bgReady:Fire()
-            end
-        end)
-
-        local dragging = false
-        local dragStart = nil
-        local startPos = nil
-        local activeTouchId = nil
-        local currentMousePos = Vector3.new(0, 0, 0)
-
-        card.InputBegan:Connect(function(input)
-            if dragging then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = card.Position
-                activeTouchId = input
-                currentMousePos = input.Position
-            end
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            if not dragging then return end
-            if input.UserInputType == Enum.UserInputType.MouseMovement then
-                currentMousePos = input.Position
-            elseif input.UserInputType == Enum.UserInputType.Touch and input == activeTouchId then
-                currentMousePos = input.Position
-            end
-        end)
-
-        local dragConn
-        dragConn = RunService.RenderStepped:Connect(function()
-            if not card.Parent then
-                dragConn:Disconnect()
-                return
-            end
-            if dragging then
-                local delta = currentMousePos - dragStart
-                card.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + delta.X,
-                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                )
-            end
-        end)
-
-        card.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-            or (input.UserInputType == Enum.UserInputType.Touch and input == activeTouchId) then
-                dragging = false
-                activeTouchId = nil
-            end
-        end)
-
-        local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1, 0, 0, 50)
-        title.Position = UDim2.new(0, 0, 0, 20)
-        title.BackgroundTransparency = 1
-        title.Text = "StarCrow Hub"
-        title.TextColor3 = Color3.fromRGB(255, 255, 255)
-        title.TextSize = 36
-        title.Font = Enum.Font.Antique
-        title.TextXAlignment = Enum.TextXAlignment.Center
-        title.TextStrokeTransparency = 0.2
-        title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        title.ZIndex = 2
-        title.Parent = card
-
-        local titleGrad = Instance.new("UIGradient")
-        titleGrad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 180, 255)),
-            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 120, 255)),
-        })
-        titleGrad.Rotation = 90
-        titleGrad.Parent = title
-
-        local statusLbl = Instance.new("TextLabel")
-        statusLbl.Size = UDim2.new(1, 0, 0, 30)
-        statusLbl.Position = UDim2.new(0, 0, 0, 95)
-        statusLbl.BackgroundTransparency = 1
-        statusLbl.Text = "Please validate your whitelist."
-        statusLbl.TextColor3 = Color3.fromRGB(200, 180, 240)
-        statusLbl.TextSize = 15
-        statusLbl.Font = Enum.Font.GothamMedium
-        statusLbl.TextXAlignment = Enum.TextXAlignment.Center
-        statusLbl.TextWrapped = true
-        statusLbl.TextStrokeTransparency = 0 
-        statusLbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        statusLbl.ZIndex = 2
-        statusLbl.Parent = card
-
-        local spinner2Frame = Instance.new("Frame")
-        spinner2Frame.Size = UDim2.new(0, 28, 0, 28)
-        spinner2Frame.Position = UDim2.new(0.5, -14, 0, 132)
-        spinner2Frame.BackgroundTransparency = 1
-        spinner2Frame.ZIndex = 2
-        spinner2Frame.Visible = false
-        spinner2Frame.Parent = card
-
-        local spin2Arc = Instance.new("Frame")
-        spin2Arc.Size = UDim2.new(1, 0, 1, 0)
-        spin2Arc.BackgroundTransparency = 1
-        spin2Arc.Parent = spinner2Frame
-        Instance.new("UICorner", spin2Arc).CornerRadius = UDim.new(0.5, 0)
-
-        local spin2Stroke = Instance.new("UIStroke")
-        spin2Stroke.Color = Color3.fromRGB(180, 80, 255)
-        spin2Stroke.Thickness = 3
-        spin2Stroke.Parent = spin2Arc
-
-        local spin2Grad = Instance.new("UIGradient")
-        spin2Grad.Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0),
-            NumberSequenceKeypoint.new(1, 1)
-        })
-        spin2Grad.Parent = spin2Stroke
-
-        local spin2Conn
-        spin2Conn = RunService.RenderStepped:Connect(function(dt)
-            if spinner2Frame and spinner2Frame.Parent then
-                spinner2Frame.Rotation = spinner2Frame.Rotation - (dt * 360)
-            else
-                if spin2Conn then spin2Conn:Disconnect() end
-            end
-        end)
-
-        local spinnerFrame = Instance.new("Frame")
-        spinnerFrame.Size = UDim2.new(0, 36, 0, 36)
-        spinnerFrame.Position = UDim2.new(0.5, -18, 0, 140)
-        spinnerFrame.BackgroundTransparency = 1
-        spinnerFrame.ZIndex = 2
-        spinnerFrame.Parent = card
-
-        local spinArc = Instance.new("Frame")
-        spinArc.Size = UDim2.new(1, 0, 1, 0)
-        spinArc.BackgroundTransparency = 1
-        spinArc.Parent = spinnerFrame
-        Instance.new("UICorner", spinArc).CornerRadius = UDim.new(0.5, 0)
-        
-        local spinStroke = Instance.new("UIStroke")
-        spinStroke.Color = Color3.fromRGB(150, 50, 255) 
-        spinStroke.Thickness = 4
-        spinStroke.Parent = spinArc
-
-        local spinGrad = Instance.new("UIGradient")
-        spinGrad.Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0),
-            NumberSequenceKeypoint.new(1, 1)
-        })
-        spinGrad.Parent = spinStroke
-
-        local spinConn
-        spinConn = RunService.RenderStepped:Connect(function(dt)
-            if spinnerFrame and spinnerFrame.Parent then
-                spinnerFrame.Rotation = spinnerFrame.Rotation + (dt * 400)
-            else
-                if spinConn then spinConn:Disconnect() end
-            end
-        end)
-
-        local function makeBtn(text, bgColor, yPos)
-            local b = Instance.new("TextButton")
-            b.Size = UDim2.new(0, 260, 0, 38) 
-            b.Position = UDim2.new(0.5, -130, 0, yPos) 
-            b.BackgroundColor3 = bgColor 
-            b.BorderSizePixel = 0
-            b.Text = text
-            b.TextColor3 = Color3.fromRGB(255, 255, 255) 
-            b.TextSize = 14
-            b.Font = Enum.Font.GothamBold
-            b.TextStrokeTransparency = 0 
-            b.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-            b.AutoButtonColor = false
-            b.Visible = false
-            b.ZIndex = 5
-            b.Parent = card
-            Instance.new("UICorner", b).CornerRadius = UDim.new(0.5, 0) 
-            
-            b.MouseEnter:Connect(function()
-                TS:Create(b, TweenInfo.new(0.15), {BackgroundTransparency = 0.15}):Play()
-            end)
-            b.MouseLeave:Connect(function()
-                TS:Create(b, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
-            end)
-            return b
-        end
-
-        local verifyBtn = makeBtn("Copy Whitelist", Color3.fromRGB(110, 30, 200), 180)
-
-        local function setStatus(text, color)
-            statusLbl.Text = text
-            statusLbl.TextColor3 = color
-        end
-
-        local function animateOutAndDestroy()
-            TS:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-                Size = UDim2.new(0, 0, 0, 0),
-                Position = UDim2.new(0.5, 0, 0.5, 0)
-            }):Play()
-            task.wait(0.4)
-            vGui:Destroy()
-            proceedSignal:Fire()
-        end
-
-        local function runCheck()
-            setStatus("Please validate your whitelist.", Color3.fromRGB(200, 180, 240))
-            verifyBtn.Visible = false
-            spinnerFrame.Visible = true
-            task.spawn(function()
-                if checkBloxlink() then
-                    local isBanned, banReason = checkDiscordBan(discordId)
-                    if isBanned then
-                        Config.IsBanned = true
-                        Config.BanReason = banReason
-                        Config.VerifiedDiscordId = discordId
-                        SaveConfig()
-                        spinnerFrame.Visible = false
-                        if spinConn then spinConn:Disconnect() end
-                        setStatus("StarCrowHub Banned: " .. banReason, Color3.fromRGB(255, 80, 80))
-                        task.wait(4)
-                        LocalPlayer:Kick("StarCrowHub Banned: " .. banReason)
-                        return
-                    end
-                    
-                    Config.IsBanned = false
-                    Config.VerifiedDiscordId = discordId
-                    SaveConfig()
-
-                    spinnerFrame.Visible = false
-                    if spinConn then spinConn:Disconnect() end
-                    setStatus("Verified! Discord: " .. discordId, Color3.fromRGB(180, 100, 255))
-                    task.wait(1.2)
-                    animateOutAndDestroy()
-                else
-                    spinnerFrame.Visible = false
-                    if spinConn then spinConn:Disconnect() end
-                    setStatus("Not verified.\nJoin the StarCrow Discord and verify at blox.link", Color3.fromRGB(255, 100, 100))
-                    verifyBtn.Visible = true
-                    spinner2Frame.Visible = true
-                end
-            end)
-        end
-
-        local ripple = Instance.new("Frame")
-        ripple.Size = UDim2.new(0, 0, 0, 0)
-        ripple.Position = UDim2.new(0.5, 0, 0.5, 0)
-        ripple.AnchorPoint = Vector2.new(0.5, 0.5)
-        ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        ripple.BackgroundTransparency = 0.6
-        ripple.BorderSizePixel = 0
-        ripple.ZIndex = 6
-        ripple.Visible = false
-        ripple.Parent = verifyBtn
-        Instance.new("UICorner", ripple).CornerRadius = UDim.new(0.5, 0)
-
-        verifyBtn.MouseButton1Click:Connect(function()
-            pcall(function() setclipboard("https://blox.link/dashboard") end)
-            setStatus("Link copied! Verify at blox.link then restart script.", Color3.fromRGB(160, 200, 255))
-
-            local origSize = verifyBtn.Size
-            TS:Create(verifyBtn, TweenInfo.new(0.08, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
-                Size = UDim2.new(0, 240, 0, 32)
-            }):Play()
-            task.wait(0.08)
-            TS:Create(verifyBtn, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Size = origSize
-            }):Play()
-
-            TS:Create(verifyBtn, TweenInfo.new(0.08), {
-                BackgroundColor3 = Color3.fromRGB(180, 80, 255)
-            }):Play()
-            task.wait(0.15)
-            TS:Create(verifyBtn, TweenInfo.new(0.35, Enum.EasingStyle.Sine), {
-                BackgroundColor3 = Color3.fromRGB(110, 30, 200)
-            }):Play()
-
-            ripple.Size = UDim2.new(0, 0, 0, 0)
-            ripple.BackgroundTransparency = 0.75
-            ripple.Visible = true
-            TS:Create(ripple, TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0.6, 0, 1.2, 0),
-                BackgroundTransparency = 1
-            }):Play()
-            task.wait(0.45)
-            ripple.Visible = false
-        end)
-
-        bgReady.Event:Wait()
-        bgReady:Destroy()
-        runCheck()
-    end
-end
-
-proceedSignal.Event:Wait()
-proceedSignal:Destroy()
 
 local LogoGui = Instance.new("ScreenGui")
 LogoGui.Name = "StarCrowLogoGui"
@@ -1246,7 +752,7 @@ end)
 local bossHitboxNPCs = {}
 local bossOrigSizes = {}
 
-local _bossTargets = {mastersamurai=true, eldervampire=true, gnomechampion=true, steamborneczar=true, kingice=true}
+local _bossTargets = {thiefking=true, mastersamurai=true, eldervampire=true, gnomechampion=true, steamborneczar=true, kingice=true}
 local function isBossModel(model)
     local name = string.gsub(string.lower(model.Name), "%s+", "")
     for n in pairs(_bossTargets) do
@@ -1564,6 +1070,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
 end)
 
 local bosses = {
+    {n = "thiefking", pos = CFrame.new(81.00, 11.51, -18039.25)},
     {n = "mastersamurai", pos = CFrame.new(103.27, 40.89, -3560.05)},
     {n = "eldervampire", pos = CFrame.new(165.61, 3.00, 5058.65)},
     {n = "gnomechampion", pos = CFrame.new(37.76, 3.00, 13993.09)},
@@ -1723,7 +1230,6 @@ task.spawn(function()
                 else
                     if currentIdx <= #bosses then
                         local info = bosses[currentIdx]
-                        local isSteamborne = info.n == "steamborneczar"
                         local targetBoss = cachedBosses[info.n]
 
                         if targetBoss then
@@ -1731,11 +1237,7 @@ task.spawn(function()
                             if bHrp then
                                 if not visited then
                                     hoverPos = nil
-                                    if isSteamborne then
-                                        hrp.CFrame = info.pos
-                                    else
-                                        hrp.CFrame = bHrp.CFrame + Vector3.new(0, 25, 0)
-                                    end
+                                    hrp.CFrame = info.pos
                                     hrp.Anchored = true
                                     task.wait(2)
                                     hrp.Anchored = false
@@ -1744,14 +1246,9 @@ task.spawn(function()
 
                                 engaged = true
 
-                                if isSteamborne then
-                                    bHrp.CFrame = CFrame.new(info.pos.Position)
-                                    bHrp.Velocity = Vector3.new(0, 0, 0)
-                                    hoverPos = CFrame.lookAt(info.pos.Position + Vector3.new(0, 15, 0), info.pos.Position)
-                                else
-                                    local abovePos = bHrp.CFrame.Position + Vector3.new(0, 25, 0)
-                                    hoverPos = CFrame.new(abovePos)
-                                end
+                                bHrp.CFrame = CFrame.new(info.pos.Position)
+                                bHrp.Velocity = Vector3.new(0, 0, 0)
+                                hoverPos = CFrame.lookAt(info.pos.Position + Vector3.new(0, 15, 0), info.pos.Position)
 
                                 local tool = char:FindFirstChildOfClass("Tool")
                                 if not tool or not isMelee(tool) then
@@ -1874,10 +1371,7 @@ Tabs.Info:AddParagraph({
     Content = "Discord is the best place to get updates and report bugs."
 })
 
-Tabs.Info:AddParagraph({
-    Title = "Verified successfully",
-    Content = "Discord ID: " .. (discordId or "Bypassed")
-})
+
 
 Tabs.Info:AddButton({
     Title = "Copy Discord Link",
@@ -2115,6 +1609,7 @@ for _, loc in ipairs(tpLocations) do
 end
 
 local bossLocations = {
+    {"Thief King", Vector3.new(81.00, 11.51, -18039.25)},
     {"Master Samurai", Vector3.new(103.27, 40.89, -3560.05)}, {"Elder Vampire", Vector3.new(165.61, 3.00, 5058.65)},
     {"Gnome", Vector3.new(37.76, 3.00, 13993.09)}, {"Steam Punk", Vector3.new(-15.31, 3.02, 27032.90)},
     {"King Ice", Vector3.new(24.27, 3.00, 45907.91)}

@@ -891,12 +891,17 @@ RunService.RenderStepped:Connect(function()
     updateESP()
 end)
 
-RunService.Stepped:Connect(function()
+local _noclipThrottle = 0
+RunService.Stepped:Connect(function(_, dt)
     local char = LocalPlayer.Character
     if char then
         if Config.NoclipEnabled then
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
+            _noclipThrottle = _noclipThrottle + dt
+            if _noclipThrottle >= 0.1 then
+                _noclipThrottle = 0
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
+                end
             end
         end
         local hum = char:FindFirstChildOfClass("Humanoid")
@@ -1192,17 +1197,19 @@ local function applyHitbox(npc)
     outline.Adornee = head
     outline.Parent = head
 
-    local connection
-    connection = RunService.Heartbeat:Connect(function()
+    local _hbThrottle = 0
+    connection = RunService.Heartbeat:Connect(function(dt)
         if not Config.NPCHitboxEnabled or not npc.Parent or hum.Health <= 0 then
             cleanupNPC(npc)
             return
         end
-
+        _hbThrottle = _hbThrottle + dt
+        if _hbThrottle < 0.1 then return end
+        _hbThrottle = 0
         local wanted = Vector3.new(Config.NPCHitboxSize, Config.NPCHitboxSize, Config.NPCHitboxSize)
         if head.Size ~= wanted then
             head.Size = wanted
-            head.Transparency = 1 
+            head.Transparency = 1
             head.CanCollide = false
             head.Massless = true
         end
@@ -1232,6 +1239,93 @@ task.spawn(function()
     while task.wait(1) do
         if Config.NPCHitboxEnabled then
             scanNPCs()
+        end
+    end
+end)
+
+local bossHitboxNPCs = {}
+local bossOrigSizes = {}
+
+local _bossTargets = {mastersamurai=true, eldervampire=true, gnomechampion=true, steamborneczar=true, kingice=true}
+local function isBossModel(model)
+    local name = string.gsub(string.lower(model.Name), "%s+", "")
+    for n in pairs(_bossTargets) do
+        if string.find(name, n) then return true end
+    end
+    return false
+end
+
+local function cleanupBossHitbox(npc)
+    local data = bossHitboxNPCs[npc]
+    if not data then return end
+    if data.connection then data.connection:Disconnect() end
+    local head = data.head
+    if head and head.Parent then
+        head.Size = bossOrigSizes[head] or Vector3.new(2, 1, 1)
+        head.Transparency = 0
+        head.CanCollide = true
+        head.Massless = false
+        local outline = head:FindFirstChild("StarCrowBossHitboxOutline")
+        if outline then outline:Destroy() end
+    end
+    bossOrigSizes[head] = nil
+    bossHitboxNPCs[npc] = nil
+end
+
+local function applyBossHitbox(npc)
+    if bossHitboxNPCs[npc] then return end
+    if not npc or not npc.Parent then return end
+    if not isBossModel(npc) then return end
+
+    local hum = npc:FindFirstChildOfClass("Humanoid")
+    local head = npc:FindFirstChild("Head") or npc:FindFirstChild("HumanoidRootPart")
+    if not hum or not head then return end
+    if hum.Health <= 0 then return end
+
+    bossOrigSizes[head] = head.Size
+
+    local outline = Instance.new("SelectionBox")
+    outline.Name = "StarCrowBossHitboxOutline"
+    outline.Color3 = Color3.fromRGB(255, 165, 0)
+    outline.LineThickness = 0.3
+    outline.Transparency = 0
+    outline.SurfaceTransparency = 1
+    outline.Adornee = head
+    outline.Parent = head
+
+    local _bhThrottle = 0
+    connection = RunService.Heartbeat:Connect(function(dt)
+        if not Config.AutoFarmEnabled or not npc.Parent or hum.Health <= 0 then
+            cleanupBossHitbox(npc)
+            return
+        end
+        _bhThrottle = _bhThrottle + dt
+        if _bhThrottle < 0.1 then return end
+        _bhThrottle = 0
+        local wanted = Vector3.new(200, 200, 200)
+        if head.Size ~= wanted then
+            head.Size = wanted
+            head.Transparency = 1
+            head.CanCollide = false
+            head.Massless = true
+        end
+    end)
+
+    bossHitboxNPCs[npc] = { head = head, connection = connection }
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if Config.AutoFarmEnabled then
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("Model") and v:FindFirstChildOfClass("Humanoid") and isBossModel(v) then
+                    applyBossHitbox(v)
+                end
+            end
+        else
+            for npc in pairs(bossHitboxNPCs) do
+                cleanupBossHitbox(npc)
+            end
         end
     end
 end)
@@ -1428,10 +1522,16 @@ local function updateBurgerESP()
     end
 end
 
-RunService.RenderStepped:Connect(function(deltaTime)
-    updateBurgerESP()
-    updateNPCESP()
+local _espThrottle = 0
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        updateBurgerESP()
+        updateNPCESP()
+    end
+end)
 
+RunService.RenderStepped:Connect(function(deltaTime)
     if not Config.BringBurger then return end
 
     if not isValidItem(currentTarget) then
@@ -1535,8 +1635,56 @@ task.spawn(function()
     end
 end)
 
+local cachedBosses = {}
+
+local function getBossKey(model)
+    local name = string.gsub(string.lower(model.Name), "%s+", "")
+    for n in pairs(_bossTargets) do
+        if string.find(name, n) then return n end
+    end
+    return nil
+end
+
+workspace.DescendantAdded:Connect(function(v)
+    if not v:IsA("Model") then return end
+    local key = getBossKey(v)
+    if not key then return end
+    local hum = v:FindFirstChildOfClass("Humanoid")
+    if hum and hum.Health > 0 then
+        cachedBosses[key] = v
+        hum.Died:Connect(function()
+            if cachedBosses[key] == v then
+                cachedBosses[key] = nil
+            end
+        end)
+    end
+end)
+
+workspace.DescendantRemoving:Connect(function(v)
+    if not v:IsA("Model") then return end
+    local key = getBossKey(v)
+    if key and cachedBosses[key] == v then
+        cachedBosses[key] = nil
+    end
+end)
+
+for _, v in ipairs(workspace:GetDescendants()) do
+    if v:IsA("Model") then
+        local key = getBossKey(v)
+        if key then
+            local hum = v:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                cachedBosses[key] = v
+                hum.Died:Connect(function()
+                    if cachedBosses[key] == v then cachedBosses[key] = nil end
+                end)
+            end
+        end
+    end
+end
+
 task.spawn(function()
-    while task.wait() do
+    while task.wait(0.1) do
         if not Config.AutoFarmEnabled then
             hoverPos = nil
             continue
@@ -1576,20 +1724,7 @@ task.spawn(function()
                     if currentIdx <= #bosses then
                         local info = bosses[currentIdx]
                         local isSteamborne = info.n == "steamborneczar"
-                        local targetBoss = nil
-
-                        for _, v in ipairs(workspace:GetDescendants()) do
-                            if v:IsA("Model") and v:FindFirstChildOfClass("Humanoid") then
-                                local name = string.gsub(string.lower(v.Name), "%s+", "")
-                                if string.find(name, info.n) then
-                                    local bHum = v:FindFirstChildOfClass("Humanoid")
-                                    if bHum.Health > 0 then
-                                        targetBoss = v
-                                        break
-                                    end
-                                end
-                            end
-                        end
+                        local targetBoss = cachedBosses[info.n]
 
                         if targetBoss then
                             local bHrp = targetBoss:FindFirstChild("HumanoidRootPart")
@@ -1767,14 +1902,10 @@ Tabs.Main:AddToggle("AutoFarmToggle", {
         if Value then
             Config.FastAttackEnabled = true
             Config.FastAttackMultiplier = 200
-            Config.NPCHitboxEnabled = true
-            Config.NPCHitboxSize = 200
             Config.BringBurger = true
-            
+
             if FastAttackToggleObj then FastAttackToggleObj:SetValue(true) end
             if FastAttackSliderObj then FastAttackSliderObj:SetValue(200) end
-            if NPCHitboxToggleObj then NPCHitboxToggleObj:SetValue(true) end
-            if NPCHitboxSliderObj then NPCHitboxSliderObj:SetValue(200) end
             if BringBurgerToggleObj then BringBurgerToggleObj:SetValue(true) end
             startAutoClick()
             if uiVisible then
@@ -1969,6 +2100,7 @@ Tabs.Player:AddToggle("InfJumpToggle", {
     end
 })
 
+Tabs.Teleport:AddSection("Tp Locations")
 Tabs.Teleport:AddButton({ Title = "Sky Island", Callback = function() teleportPlayer(CFrame.new(64.97, 3.00, 34971.64)) end })
 
 local tpLocations = {
@@ -1987,6 +2119,7 @@ local bossLocations = {
     {"Gnome", Vector3.new(37.76, 3.00, 13993.09)}, {"Steam Punk", Vector3.new(-15.31, 3.02, 27032.90)},
     {"King Ice", Vector3.new(24.27, 3.00, 45907.91)}
 }
+Tabs.Teleport:AddSection("Boss Locations")
 for _, loc in ipairs(bossLocations) do
     Tabs.Teleport:AddButton({ Title = loc[1], Callback = function() teleportPlayer(CFrame.new(loc[2])) end })
 end

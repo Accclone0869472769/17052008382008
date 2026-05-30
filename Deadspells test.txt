@@ -56,6 +56,7 @@ local Config = {
     NPCHitboxEnabled = false,
     NPCHitboxSize = 4,
     NPCESPEnabled = false,
+    ItemESPEnabled = false,
     AutoFarmEnabled = false,
     AutoResetMinutes = 5,
     AutoMineEnabled = false
@@ -934,6 +935,143 @@ local function isValidItem(obj)
     return true
 end
 
+
+local activeItemESP = {}
+
+local function getItemColor(itemModel)
+    local rarity = "Common"
+    local priceValue = 0
+    for _, child in pairs(itemModel:GetDescendants()) do
+        if child:IsA("StringValue") then
+            local valLower = string.lower(child.Value)
+            if valLower == "common" or valLower == "uncommon" or valLower == "rare"
+            or valLower == "epic" or valLower == "legendary" or valLower == "mythic" then
+                rarity = child.Value
+                break
+            end
+        elseif child:IsA("IntValue") or child:IsA("NumberValue") then
+            if string.find(string.lower(child.Name), "value")
+            or string.find(string.lower(child.Name), "price")
+            or child.Name == "Gold" then
+                priceValue = child.Value
+            end
+        end
+    end
+    local attrRarity = itemModel:GetAttribute("Rarity") or itemModel:GetAttribute("Tier")
+    if attrRarity then rarity = tostring(attrRarity) end
+    local attrValue = itemModel:GetAttribute("Value") or itemModel:GetAttribute("Price")
+    if attrValue and type(attrValue) == "number" then priceValue = attrValue end
+    local rarityLower = string.lower(rarity)
+    if string.find(rarityLower, "uncommon")  then return Color3.fromRGB(50, 225, 50)
+    elseif string.find(rarityLower, "rare")  then return Color3.fromRGB(0, 162, 255)
+    elseif string.find(rarityLower, "epic")  then return Color3.fromRGB(162, 0, 255)
+    elseif string.find(rarityLower, "legendary") then return Color3.fromRGB(255, 145, 0)
+    elseif string.find(rarityLower, "mythic") then return Color3.fromRGB(255, 0, 50)
+    end
+    if priceValue > 0 then
+        if priceValue >= 1000 then return Color3.fromRGB(255, 0, 50)
+        elseif priceValue >= 500 then return Color3.fromRGB(255, 145, 0)
+        elseif priceValue >= 100 then return Color3.fromRGB(162, 0, 255)
+        elseif priceValue >= 50  then return Color3.fromRGB(0, 162, 255)
+        end
+    end
+    local nameLower = string.lower(itemModel.Name)
+    if string.find(nameLower, "gold") or string.find(nameLower, "coin") then
+        return Color3.fromRGB(255, 215, 0)
+    elseif string.find(nameLower, "magic") or string.find(nameLower, "potion") then
+        return Color3.fromRGB(0, 255, 255)
+    end
+    return Color3.fromRGB(255, 255, 255)
+end
+
+local function isItemEquipped(obj)
+    local ancestor = obj.Parent
+    while ancestor and ancestor ~= workspace do
+        if ancestor:IsA("Model") and ancestor:FindFirstChildOfClass("Humanoid") then
+            return true
+        end
+        ancestor = ancestor.Parent
+    end
+    return false
+end
+
+local function isValidDroppedItem(obj)
+    if not obj:IsA("Model") then return false end
+    if not obj.Parent then return false end
+    local nameLower = string.lower(obj.Name)
+    local blacklist = {
+        "rock","bite","ruins","box","burger","model",
+        "tree","bush","plant","grass","flower","mushroom","log","branch","stump",
+        "wall","floor","door","fence","gate","pillar","statue","chest",
+        "npc","mob","enemy","boss","monster","creature",
+        "part","mesh","union","wedge","frame","joint"
+    }
+    for _, kw in ipairs(blacklist) do
+        if string.find(nameLower, kw) then return false end
+    end
+    if obj:FindFirstChildOfClass("Humanoid") or isItemEquipped(obj) then return false end
+    if obj:FindFirstAncestorWhichIsA("Tool") then return false end
+    if targetItems[obj.Name] then return false end
+    local mapFolder = workspace:FindFirstChild("Map")
+    if mapFolder and obj:IsDescendantOf(mapFolder) then return false end
+    if obj:FindFirstChildOfClass("Configuration") then
+        local size = obj:GetExtentsSize()
+        if size.X < 15 and size.Y < 15 and size.Z < 15 then return true end
+    end
+    return false
+end
+
+local function createItemESP(itemModel)
+    if activeItemESP[itemModel] then return end
+    local targetPart = itemModel.PrimaryPart or itemModel:FindFirstChildWhichIsA("BasePart")
+    if not targetPart then return end
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "StarCrowItemESP"
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(0, 150, 0, 30)
+    billboard.StudsOffset = Vector3.new(0, 2, 0)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = itemModel.Name
+    label.TextColor3 = getItemColor(itemModel)
+    label.TextSize = 14
+    label.Font = Enum.Font.SourceSansBold
+    label.TextStrokeTransparency = 0
+    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    label.Parent = billboard
+    billboard.Parent = targetPart
+    activeItemESP[itemModel] = billboard
+    local conn
+    conn = itemModel.AncestryChanged:Connect(function()
+        if not itemModel:IsDescendantOf(workspace) or isItemEquipped(itemModel) then
+            if billboard and billboard.Parent then billboard:Destroy() end
+            activeItemESP[itemModel] = nil
+            conn:Disconnect()
+        end
+    end)
+end
+
+local function cleanupAllItemESP()
+    for model, billboard in pairs(activeItemESP) do
+        if billboard and billboard.Parent then billboard:Destroy() end
+        activeItemESP[model] = nil
+    end
+end
+
+local function scanItemESP()
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if isValidDroppedItem(obj) then createItemESP(obj) end
+    end
+end
+
+workspace.DescendantAdded:Connect(function(descendant)
+    task.wait(0.1)
+    if Config.ItemESPEnabled and isValidDroppedItem(descendant) then
+        createItemESP(descendant)
+    end
+end)
+
 local function buildBurgerESP(obj)
     local old = obj:FindFirstChild("StarCrowBurgerESP")
     if old then old:Destroy() end
@@ -1525,6 +1663,20 @@ Tabs.ESP:AddToggle("ESPNPCToggle", {
             for npc in pairs(activeNPCESP) do
                 cleanupNPCESP(npc)
             end
+        end
+    end
+})
+
+Tabs.ESP:AddToggle("ESPItemToggle", {
+    Title = "ESP Item",
+    Default = Config.ItemESPEnabled,
+    Callback = function(Value)
+        Config.ItemESPEnabled = Value
+        SaveConfig()
+        if Value then
+            scanItemESP()
+        else
+            cleanupAllItemESP()
         end
     end
 })

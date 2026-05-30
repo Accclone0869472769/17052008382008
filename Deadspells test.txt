@@ -1537,16 +1537,16 @@ end)
 
 task.spawn(function()
     while task.wait() do
-        if not Config.AutoFarmEnabled then 
+        if not Config.AutoFarmEnabled then
             hoverPos = nil
-            continue 
+            continue
         end
-        
+
         local char = LocalPlayer.Character
         if char then
             local hrp = char:FindFirstChild("HumanoidRootPart")
             local hum = char:FindFirstChild("Humanoid")
-            
+
             if hrp and hum then
                 if autoFarmStartTime > 0 and tick() - autoFarmStartTime >= (Config.AutoResetMinutes * 60) then
                     pcall(function()
@@ -1575,6 +1575,7 @@ task.spawn(function()
                 else
                     if currentIdx <= #bosses then
                         local info = bosses[currentIdx]
+                        local isSteamborne = info.n == "steamborneczar"
                         local targetBoss = nil
 
                         for _, v in ipairs(workspace:GetDescendants()) do
@@ -1595,19 +1596,28 @@ task.spawn(function()
                             if bHrp then
                                 if not visited then
                                     hoverPos = nil
-                                    hrp.CFrame = info.pos
+                                    if isSteamborne then
+                                        hrp.CFrame = info.pos
+                                    else
+                                        hrp.CFrame = bHrp.CFrame + Vector3.new(0, 25, 0)
+                                    end
                                     hrp.Anchored = true
                                     task.wait(2)
                                     hrp.Anchored = false
                                     visited = true
                                 end
-                                
+
                                 engaged = true
-                                hoverPos = CFrame.lookAt(info.pos.Position + Vector3.new(0, 15, 0), info.pos.Position)
-                                
-                                bHrp.CFrame = CFrame.new(info.pos.Position)
-                                bHrp.Velocity = Vector3.new(0, 0, 0)
-                                
+
+                                if isSteamborne then
+                                    bHrp.CFrame = CFrame.new(info.pos.Position)
+                                    bHrp.Velocity = Vector3.new(0, 0, 0)
+                                    hoverPos = CFrame.lookAt(info.pos.Position + Vector3.new(0, 15, 0), info.pos.Position)
+                                else
+                                    local abovePos = bHrp.CFrame.Position + Vector3.new(0, 25, 0)
+                                    hoverPos = CFrame.new(abovePos)
+                                end
+
                                 local tool = char:FindFirstChildOfClass("Tool")
                                 if not tool or not isMelee(tool) then
                                     for _, t in ipairs(LocalPlayer.Backpack:GetChildren()) do
@@ -1654,7 +1664,6 @@ task.spawn(function()
                                 hoverPos = nil
                                 visitedSkyIsland = false
                                 currentIdx = 1
-                                
                                 autoFarmStartTime = tick()
                                 task.spawn(function()
                                     pcall(function()

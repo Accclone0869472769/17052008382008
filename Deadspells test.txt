@@ -1372,7 +1372,8 @@ task.spawn(function()
 
                         if targetBoss then
                             local bHrp = targetBoss:FindFirstChild("HumanoidRootPart")
-                            if bHrp then
+                            local bHum = targetBoss:FindFirstChildOfClass("Humanoid")
+                            if bHrp and bHum and bHum.Health > 0 then
                                 if not visited then
                                     hoverPos = nil
                                     hrp.CFrame = info.pos
@@ -1397,6 +1398,12 @@ task.spawn(function()
                                         end
                                     end
                                 end
+                            elseif bHum and bHum.Health <= 0 then
+                                task.wait(3)
+                                engaged = false
+                                visited = false
+                                hoverPos = nil
+                                currentIdx = currentIdx + 1
                             end
                         else
                             if engaged then
@@ -1406,6 +1413,7 @@ task.spawn(function()
                                 hoverPos = nil
                                 currentIdx = currentIdx + 1
                             else
+                                -- boss chưa spawn, đứng chờ tại vị trí boss
                                 if not visited then
                                     hoverPos = nil
                                     hrp.CFrame = info.pos
@@ -1854,4 +1862,4 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     end
 })
 
-Window:SelectTab(1)
+Window:SelectTab(1) 

@@ -50,6 +50,8 @@ local Config = {
     FastAttackEnabled = false,
     FastAttackMultiplier = 10,
     BringBurger = false,
+    BringMana = false,
+    BringHeal = false,
     NoFogEnabled = false,
     FullBrightEnabled = false,
     InstantPromptEnabled = false,
@@ -925,6 +927,14 @@ local activeBurgers = {}
 local currentTarget = nil
 local processTimer = 0
 
+local manaQueue = {}
+local currentManaTarget = nil
+local manaTimer = 0
+
+local healQueue = {}
+local currentHealTarget = nil
+local healTimer = 0
+
 local function isValidItem(obj)
     if not obj or not obj.Parent then return false end
     if not targetItems[obj.Name] then return false end
@@ -1135,6 +1145,47 @@ end
 for _, obj in ipairs(workspace:GetDescendants()) do addToQueue(obj) end
 workspace.DescendantAdded:Connect(addToQueue)
 
+local function isValidPotion(obj)
+    return obj and obj.Parent ~= nil
+end
+
+local function isManaPotion(obj)
+    if not (obj and obj:IsA("Model") and obj.Name == "ManaPotion") then return false end
+    if not obj:FindFirstChildOfClass("Configuration") then return false end
+    local modelsFolder = workspace:FindFirstChild("Models")
+    return modelsFolder and obj:IsDescendantOf(modelsFolder)
+end
+
+local function isHealPotion(obj)
+    if not (obj and obj:IsA("Model") and obj.Name == "HealingPotion") then return false end
+    if not obj:FindFirstChildOfClass("Configuration") then return false end
+    local modelsFolder = workspace:FindFirstChild("Models")
+    return modelsFolder and obj:IsDescendantOf(modelsFolder)
+end
+
+local function addToManaQueue(obj)
+    if isManaPotion(obj) then
+        for _, v in ipairs(manaQueue) do if v == obj then return end end
+        table.insert(manaQueue, obj)
+    end
+end
+
+local function addToHealQueue(obj)
+    if isHealPotion(obj) then
+        for _, v in ipairs(healQueue) do if v == obj then return end end
+        table.insert(healQueue, obj)
+    end
+end
+
+for _, obj in ipairs(workspace:GetDescendants()) do
+    addToManaQueue(obj)
+    addToHealQueue(obj)
+end
+workspace.DescendantAdded:Connect(function(obj)
+    addToManaQueue(obj)
+    addToHealQueue(obj)
+end)
+
 local function updateBurgerESP()
     for i = #activeBurgers, 1, -1 do
         local obj = activeBurgers[i]
@@ -1204,6 +1255,38 @@ RunService.RenderStepped:Connect(function(deltaTime)
             currentTarget = nil
             processTimer = 0
         end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not Config.BringMana then
+        currentManaTarget = nil
+        return
+    end
+    if not isValidPotion(currentManaTarget) then
+        for i = #manaQueue, 1, -1 do
+            if not isValidPotion(manaQueue[i]) then table.remove(manaQueue, i) end
+        end
+        currentManaTarget = #manaQueue > 0 and table.remove(manaQueue, 1) or nil
+    end
+    if currentManaTarget then
+        currentManaTarget:PivotTo(Camera.CFrame * CFrame.new(0, 0, -2.5))
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not Config.BringHeal then
+        currentHealTarget = nil
+        return
+    end
+    if not isValidPotion(currentHealTarget) then
+        for i = #healQueue, 1, -1 do
+            if not isValidPotion(healQueue[i]) then table.remove(healQueue, i) end
+        end
+        currentHealTarget = #healQueue > 0 and table.remove(healQueue, 1) or nil
+    end
+    if currentHealTarget then
+        currentHealTarget:PivotTo(Camera.CFrame * CFrame.new(0, 0, -2.5))
     end
 end)
 
@@ -1784,6 +1867,24 @@ BringBurgerToggleObj = Tabs.Misc:AddToggle("BringBurgerToggle", {
     Default = Config.BringBurger,
     Callback = function(Value)
         Config.BringBurger = Value
+        SaveConfig()
+    end
+})
+
+Tabs.Misc:AddToggle("BringManaToggle", {
+    Title = "Bring Mana Potion",
+    Default = Config.BringMana,
+    Callback = function(Value)
+        Config.BringMana = Value
+        SaveConfig()
+    end
+})
+
+Tabs.Misc:AddToggle("BringHealToggle", {
+    Title = "Bring Heal Potion",
+    Default = Config.BringHeal,
+    Callback = function(Value)
+        Config.BringHeal = Value
         SaveConfig()
     end
 })

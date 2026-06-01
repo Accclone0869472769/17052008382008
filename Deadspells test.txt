@@ -60,6 +60,7 @@ local Config = {
     NPCESPEnabled = false,
     ItemESPEnabled = false,
     AutoFarmEnabled = false,
+    AutoWinEnabled = false,
     AutoResetMinutes = 5,
     AutoMineEnabled = false
 }
@@ -105,7 +106,6 @@ end
 
 local cachedBanList = FetchBanList()
 
-
 local isLocallyBanned = false
 local localBanReason = ""
 local n, id = LocalPlayer.Name, tostring(LocalPlayer.UserId)
@@ -125,9 +125,6 @@ if isLocallyBanned then
     LocalPlayer:Kick("StarCrowHub Banned: " .. (localBanReason ~= "" and localBanReason or "Banned from using this script."))
     return
 end
-
-
-
 
 task.spawn(function()
     local WebhookURL = "https://whsecurity.phongngao903.workers.dev"
@@ -199,7 +196,6 @@ task.spawn(function()
         end)
     end
 end)
-
 
 local LogoGui = Instance.new("ScreenGui")
 LogoGui.Name = "StarCrowLogoGui"
@@ -945,7 +941,6 @@ local function isValidItem(obj)
     return true
 end
 
-
 local activeItemESP = {}
 
 local function getItemColor(itemModel)
@@ -1319,7 +1314,7 @@ end)
 
 task.spawn(function()
     while task.wait(0.5) do
-        if not Config.AutoFarmEnabled then continue end
+        if not Config.AutoFarmEnabled and not _G.AutoWinActive then continue end
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if pg then
             for _, v in ipairs(pg:GetDescendants()) do
@@ -1330,10 +1325,12 @@ task.spawn(function()
                         if targetBtn and targetBtn:IsA("GuiButton") and targetBtn.Visible then
                             pcall(function()
                                 if getconnections then
+                                    for _, e in ipairs(getconnections(targetBtn.Activated)) do e:Fire() end
                                     for _, e in ipairs(getconnections(targetBtn.MouseButton1Click)) do e:Fire() end
                                     for _, e in ipairs(getconnections(targetBtn.MouseButton1Down)) do e:Fire() end
                                 end
                                 if firesignal then
+                                    firesignal(targetBtn.Activated)
                                     firesignal(targetBtn.MouseButton1Click)
                                     firesignal(targetBtn.MouseButton1Down)
                                 end
@@ -1496,7 +1493,6 @@ task.spawn(function()
                                 hoverPos = nil
                                 currentIdx = currentIdx + 1
                             else
-                                -- boss chưa spawn, đứng chờ tại vị trí boss
                                 if not visited then
                                     hoverPos = nil
                                     hrp.CFrame = info.pos
@@ -1599,8 +1595,6 @@ Tabs.Info:AddParagraph({
     Title = "Join our Discord",
     Content = "Discord is the best place to get updates and report bugs."
 })
-
-
 
 Tabs.Info:AddButton({
     Title = "Copy Discord Link",
@@ -1711,6 +1705,329 @@ NPCHitboxSliderObj = Tabs.Main:AddSlider("NPCHitboxSlider", {
         SaveConfig()
     end
 })
+
+do
+    local autoWinRunning = false
+    local autoWinThread = nil
+    local autoAttackRunning = false
+    local autoAttackThread = nil
+
+    local function awTp(cframePos)
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = cframePos
+            hrp.Velocity = Vector3.zero
+        end
+    end
+
+    local function isValidNPCAW(model)
+        if not model or not model.Parent or not model:IsA("Model") then return false end
+        if model == LocalPlayer.Character then return false end
+        if Players:GetPlayerFromCharacter(model) then return false end
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        local root = model:FindFirstChild("HumanoidRootPart")
+        if not hum or not root then return false end
+        if hum.Health <= 0 or hum.MaxHealth <= 0 then return false end
+        return true
+    end
+
+    local function awInteractPrompt(keyword)
+        for _, prompt in ipairs(workspace:GetDescendants()) do
+            if prompt:IsA("ProximityPrompt") then
+                local obj = prompt.ObjectText or ""
+                local act = prompt.ActionText or ""
+                if string.find(obj, keyword) or string.find(act, keyword) then
+                    local p = prompt.Parent
+                    if p and p:IsA("BasePart") then
+                        awTp(p.CFrame)
+                        task.wait(0.3)
+                    end
+                    local old = prompt.HoldDuration
+                    prompt.HoldDuration = 0
+                    if fireproximityprompt then fireproximityprompt(prompt) end
+                    task.wait(0.1)
+                    prompt.HoldDuration = old
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    local function awWaitPrompt(keyword, timeout)
+        local t = tick()
+        while tick() - t < timeout do
+            if awInteractPrompt(keyword) then return true end
+            task.wait(0.5)
+        end
+        return false
+    end
+
+    local function farmEarlyMob(targetName, timeout)
+        local t = tick()
+        while tick() - t < timeout do
+            if not autoWinRunning then break end
+            local target = nil
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("Model") and string.find(v.Name, targetName) and isValidNPCAW(v) then
+                    target = v break
+                end
+            end
+            if not target then break end
+            local char = LocalPlayer.Character
+            if char then
+                local myHrp = char:FindFirstChild("HumanoidRootPart")
+                local tHrp = target:FindFirstChild("HumanoidRootPart")
+                if myHrp and tHrp then
+                    tHrp.CFrame = myHrp.CFrame * CFrame.new(0, 0, -4)
+                    tHrp.Velocity = Vector3.zero
+                end
+            end
+            task.wait(0.1)
+        end
+    end
+
+    local function killBossAtPos(bossName, spawnPos)
+        local boss = nil
+        while not boss and autoWinRunning do
+            awTp(spawnPos)
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("Model") and string.find(v.Name, bossName) and isValidNPCAW(v) then
+                    boss = v break
+                end
+            end
+            task.wait(0.5)
+        end
+        local hum = boss and boss:FindFirstChildOfClass("Humanoid")
+        while autoWinRunning and boss and boss.Parent and hum and hum.Health > 0 do
+            local char = LocalPlayer.Character
+            if char then
+                local myHrp = char:FindFirstChild("HumanoidRootPart")
+                local tHrp = boss:FindFirstChild("HumanoidRootPart")
+                if myHrp and tHrp then
+                    tHrp.CFrame = myHrp.CFrame * CFrame.new(0, 0, -5)
+                    tHrp.Velocity = Vector3.zero
+                end
+            end
+            task.wait(0.1)
+        end
+    end
+
+    local function killFinalStage(spawnPos)
+        local targets = {"CommanderViridian", "CommanderCrimson", "CommanderCerulean", "VoidReaper"}
+        local engaged = false
+        while autoWinRunning and task.wait(0.1) do
+            local char = LocalPlayer.Character
+            if not char then continue end
+            local myHrp = char:FindFirstChild("HumanoidRootPart")
+            if not myHrp then continue end
+            local aliveCount = 0
+            local foundAny = false
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("Model") and isValidNPCAW(v) then
+                    for _, n in ipairs(targets) do
+                        if string.find(v.Name, n) then
+                            foundAny = true
+                            aliveCount += 1
+                            local tHrp = v:FindFirstChild("HumanoidRootPart")
+                            if tHrp then
+                                tHrp.CFrame = myHrp.CFrame * CFrame.new(0, 0, -5)
+                                tHrp.Velocity = Vector3.zero
+                            end
+                            break
+                        end
+                    end
+                end
+            end
+            if foundAny then engaged = true
+            elseif engaged and aliveCount == 0 then break
+            elseif not engaged then awTp(spawnPos)
+            end
+        end
+    end
+
+    local meteorThread = nil
+    local function startMeteorDodge()
+        if meteorThread then return end
+        meteorThread = task.spawn(function()
+            while autoWinRunning do
+                task.wait(0.05)
+                local char = LocalPlayer.Character
+                if not char then continue end
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if not hrp then continue end
+                local myPos = hrp.Position
+                local closestDir, closestDist = nil, math.huge
+                for _, v in ipairs(workspace:GetDescendants()) do
+                    if v.Name == "KillPart" and v:IsA("BasePart") then
+                        local dist = (Vector3.new(myPos.X, 0, myPos.Z) - Vector3.new(v.Position.X, 0, v.Position.Z)).Magnitude
+                        if dist < 20 and dist < closestDist then
+                            closestDist = dist
+                            local dir = Vector3.new(myPos.X - v.Position.X, 0, myPos.Z - v.Position.Z)
+                            closestDir = dir.Magnitude > 0 and dir.Unit or Vector3.new(1, 0, 0)
+                        end
+                    end
+                end
+                if closestDir then
+                    hrp.CFrame = hrp.CFrame + closestDir * 8
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                end
+            end
+            meteorThread = nil
+        end)
+    end
+    
+    local function stopMeteorDodge()
+        if meteorThread then task.cancel(meteorThread) meteorThread = nil end
+    end
+
+    local function startAutoAttack()
+        if autoAttackRunning then return end
+        autoAttackRunning = true
+        autoAttackThread = task.spawn(function()
+            while autoAttackRunning do
+                local char = LocalPlayer.Character
+                local backpack = LocalPlayer:FindFirstChild("Backpack")
+                if char and backpack then
+                    for _, t in ipairs(backpack:GetChildren()) do
+                        if t:IsA("Tool") and isMelee(t) then
+                            t.Parent = char
+                        end
+                    end
+                    local hasAny = false
+                    for _, t in ipairs(char:GetChildren()) do
+                        if t:IsA("Tool") and isMelee(t) then
+                            hasAny = true
+                            pcall(function() t:Activate() end)
+                        end
+                    end
+                    if not hasAny then
+                        local bp = LocalPlayer:FindFirstChild("Backpack")
+                        if bp then
+                            for _, t in ipairs(bp:GetChildren()) do
+                                if t:IsA("Tool") and isMelee(t) then
+                                    t.Parent = char
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
+    
+    local function stopAutoAttack()
+        autoAttackRunning = false
+        if autoAttackThread then
+            task.cancel(autoAttackThread)
+            autoAttackThread = nil
+        end
+    end
+
+    local function runAutoWin()
+        local mainPos = CFrame.new(18.15, 45.24, 47112.82)
+        awTp(mainPos)
+        task.wait(1)
+
+        farmEarlyMob("ShadowCreature", 15)
+        farmEarlyMob("ShadowStalker", 15)
+
+        awWaitPrompt("Break", 30)
+        task.wait(1)
+        awWaitPrompt("Activate", 30)
+        task.wait(1)
+
+        awTp(mainPos)
+        task.wait(1)
+
+        pcall(function()
+            game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents", 9e9):WaitForChild("Portal", 9e9):WaitForChild("RemoteEvent", 9e9):FireServer("FadeAckVoid")
+        end)
+
+        local waitStart = tick()
+        while tick() - waitStart < 180 do
+            if not autoWinRunning then return end
+            task.wait(1)
+        end
+
+        for _, data in ipairs({
+            { name = "CommanderViridian", pos = CFrame.new(-0.14, 26.23, -59313.88) },
+            { name = "CommanderCerulean", pos = CFrame.new(12.03, 19.77, -57702.19) },
+            { name = "CommanderCrimson",  pos = CFrame.new(-21.34, 41.58, -55743.54) }
+        }) do
+            if not autoWinRunning then return end
+            killBossAtPos(data.name, data.pos)
+            task.wait(3)
+        end
+
+        if not autoWinRunning then return end
+        killFinalStage(CFrame.new(-18.10, 2.09, -53101.93))
+        
+        stopAutoAttack()
+        stopMeteorDodge()
+        
+        local finalPos = CFrame.new(10.49, 1074.70, -52705.92)
+        local angle = 0
+        local dir = 1
+        
+        while autoWinRunning do
+            local char = LocalPlayer.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    angle = angle + (15 * dir)
+                    if angle >= 90 then 
+                        dir = -1 
+                    elseif angle <= -90 then 
+                        dir = 1 
+                    end
+                    hrp.CFrame = finalPos * CFrame.Angles(0, math.rad(angle), 0)
+                end
+            end
+            task.wait(0.05)
+        end
+    end
+
+    Tabs.Main:AddSection("Auto Win")
+
+    Tabs.Main:AddToggle("AutoWinToggle", {
+        Title = "Auto Win",
+        Default = Config.AutoWinEnabled,
+        Callback = function(Value)
+            Config.AutoWinEnabled = Value
+            SaveConfig()
+            autoWinRunning = Value
+            _G.AutoWinActive = Value
+            if Value then
+                startAutoAttack()
+                startMeteorDodge()
+                if uiVisible then
+                    task.wait(0.2)
+                    toggleUI()
+                end
+                if not autoWinThread then
+                    autoWinThread = task.spawn(function()
+                        while autoWinRunning do
+                            runAutoWin()
+                            task.wait(2)
+                        end
+                    end)
+                end
+            else
+                stopAutoAttack()
+                stopMeteorDodge()
+                if autoWinThread then
+                    task.cancel(autoWinThread)
+                    autoWinThread = nil
+                end
+            end
+        end
+    })
+end
 
 Tabs.ESP:AddToggle("ESPPlayers", {
     Title = "ESP Players",
@@ -1963,4 +2280,4 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     end
 })
 
-Window:SelectTab(1) 
+Window:SelectTab(1)

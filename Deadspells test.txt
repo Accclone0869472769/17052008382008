@@ -1933,6 +1933,8 @@ do
         awTp(mainPos)
         task.wait(1)
 
+        local waitStart = tick()
+
         farmEarlyMob("ShadowCreature", 15)
         farmEarlyMob("ShadowStalker", 15)
 
@@ -1948,7 +1950,6 @@ do
             game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents", 9e9):WaitForChild("Portal", 9e9):WaitForChild("RemoteEvent", 9e9):FireServer("FadeAckVoid")
         end)
 
-        local waitStart = tick()
         while tick() - waitStart < 180 do
             if not autoWinRunning then return end
             task.wait(1)
@@ -2003,6 +2004,15 @@ do
             autoWinRunning = Value
             _G.AutoWinActive = Value
             if Value then
+                Config.FastAttackEnabled = true
+                Config.FastAttackMultiplier = 200
+                Config.NPCHitboxEnabled = true
+                Config.NPCHitboxSize = 100
+                if FastAttackToggleObj then FastAttackToggleObj:SetValue(true) end
+                if FastAttackSliderObj then FastAttackSliderObj:SetValue(200) end
+                if NPCHitboxToggleObj then NPCHitboxToggleObj:SetValue(true) end
+                if NPCHitboxSliderObj then NPCHitboxSliderObj:SetValue(100) end
+                scanNPCs()
                 startAutoAttack()
                 startMeteorDodge()
                 if uiVisible then

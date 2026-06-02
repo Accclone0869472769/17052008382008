@@ -120,6 +120,18 @@ task.spawn(function()
         end
     end)
 
+    local gameIconUrl = ""
+    pcall(function()
+        local res = req({
+            Url    = "https://thumbnails.roblox.com/v1/places/gameicons?placeIds=" .. tostring(game.PlaceId) .. "&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false",
+            Method = "GET"
+        })
+        if res and res.StatusCode == 200 then
+            local d = HttpService:JSONDecode(res.Body)
+            if d and d.data and d.data[1] then gameIconUrl = d.data[1].imageUrl end
+        end
+    end)
+
     local gameName = tostring(game.PlaceId)
     pcall(function() gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
 
@@ -134,6 +146,7 @@ task.spawn(function()
         }
     }
     if avatarUrl ~= "" then embedData["thumbnail"] = { ["url"] = avatarUrl } end
+    if gameIconUrl ~= "" then embedData["image"] = { ["url"] = gameIconUrl } end
 
     pcall(function()
         req({
@@ -861,4 +874,3 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
 })
 
 Window:SelectTab(1)
- 

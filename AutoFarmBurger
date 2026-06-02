@@ -190,11 +190,7 @@ pcall(function()
     end)
 end)
 
-local bossHitboxNPCs = {}
-local bossOrigSizes  = {}
-
 local bossTargets = {
-    thiefking      = true,
     mastersamurai  = true,
     eldervampire   = true,
     gnomechampion  = true,
@@ -210,59 +206,95 @@ local function isBossModel(model)
     return false
 end
 
-local function cleanupBossHitbox(npc)
-    local data = bossHitboxNPCs[npc]
+-- ==========================================
+-- HỆ THỐNG HEADBOX TÀNG HÌNH HOÀN TOÀN (TẮT SHADOW + DECAL)
+-- ==========================================
+local headboxNPCs = {}
+local origHeadSizes = {}
+
+local function cleanupHeadbox(npc)
+    local data = headboxNPCs[npc]
     if not data then return end
     if data.connection then data.connection:Disconnect() end
-    local hrp = data.hrp
-    if hrp and hrp.Parent then
-        hrp.Size          = bossOrigSizes[hrp] or Vector3.new(2, 2, 1)
-        hrp.Transparency  = 1
-        hrp.CanCollide    = true
-        hrp.Massless      = false
+    local head = data.head
+    if head and head.Parent then
+        head.Size = origHeadSizes[head] or Vector3.new(2, 1, 1)
+        head.Transparency = 0
+        head.CanCollide = true
+        head.Massless = false
+        if head:IsA("BasePart") then
+            head.CastShadow = true
+        end
+        -- Bật lại Decal
+        for _, child in ipairs(head:GetChildren()) do
+            if child:IsA("Decal") or child:IsA("Texture") then
+                child.Transparency = 0
+            end
+        end
     end
-    bossOrigSizes[hrp]   = nil
-    bossHitboxNPCs[npc]  = nil
+    origHeadSizes[head] = nil
+    headboxNPCs[npc] = nil
 end
 
-local function applyBossHitbox(npc)
-    if bossHitboxNPCs[npc] then return end
+local function applyHeadbox(npc)
+    if headboxNPCs[npc] then return end
     if not npc or not npc.Parent then return end
-    if not isBossModel(npc) then return end
+    
+    -- Tránh việc bật headbox cho chính người chơi
+    if Players:GetPlayerFromCharacter(npc) then return end
+
     local hum = npc:FindFirstChildOfClass("Humanoid")
-    local hrp = npc:FindFirstChild("HumanoidRootPart")
-    if not hum or not hrp then return end
+    local head = npc:FindFirstChild("Head") or npc:FindFirstChild("HumanoidRootPart")
+    
+    if not hum or not head then return end
     if hum.Health <= 0 then return end
-    bossOrigSizes[hrp] = hrp.Size
+
+    origHeadSizes[head] = head.Size
+
     local throttle = 0
     local conn = RunService.Heartbeat:Connect(function(dt)
         if not npc.Parent or hum.Health <= 0 then
-            cleanupBossHitbox(npc)
+            cleanupHeadbox(npc)
             return
         end
         throttle = throttle + dt
         if throttle < 0.1 then return end
         throttle = 0
-        local wanted = Vector3.new(200, 200, 200)
-        if hrp.Size ~= wanted then
-            hrp.Size          = wanted
-            hrp.Transparency  = 1
-            hrp.CanCollide    = false
-            hrp.Massless      = true
+        
+        -- Kích thước headbox set cứng = 100 và tàng hình hoàn toàn
+        local wanted = Vector3.new(100, 100, 100)
+        if head.Size ~= wanted then
+            head.Size = wanted
+            head.Transparency = 1 -- Ẩn khối
+            head.CanCollide = false
+            head.Massless = true
+            
+            if head:IsA("BasePart") then
+                head.CastShadow = false -- Xóa bóng đen khổng lồ
+            end
+            
+            -- Xóa các hình vẽ khuôn mặt (Decal) bị phóng to
+            for _, child in ipairs(head:GetChildren()) do
+                if child:IsA("Decal") or child:IsA("Texture") then
+                    child.Transparency = 1
+                end
+            end
         end
     end)
-    bossHitboxNPCs[npc] = { hrp = hrp, connection = conn }
+    headboxNPCs[npc] = { head = head, connection = conn }
 end
 
 task.spawn(function()
     while task.wait(1) do
         for _, v in ipairs(workspace:GetDescendants()) do
-            if v:IsA("Model") and v:FindFirstChildOfClass("Humanoid") and isBossModel(v) then
-                applyBossHitbox(v)
+            -- Quét toàn bộ NPC có Humanoid (áp dụng cho tất cả NPC có máu)
+            if v:IsA("Model") and v:FindFirstChildOfClass("Humanoid") then
+                applyHeadbox(v)
             end
         end
     end
 end)
+-- ==========================================
 
 local targetItems = { ["Burger"] = true, ["GoldenBurger"] = true, ["DiamondBurger"] = true }
 local burgerColors = {
@@ -518,7 +550,6 @@ workspace.DescendantRemoving:Connect(function(v)
 end)
 
 local bosses = {
-    { n = "thiefking",      pos = CFrame.new(81.00,   11.51, -18039.25) },
     { n = "mastersamurai",  pos = CFrame.new(103.27,  40.89,  -3560.05) },
     { n = "eldervampire",   pos = CFrame.new(165.61,   3.00,   5058.65) },
     { n = "gnomechampion",  pos = CFrame.new(37.76,    3.00,  13993.09) },

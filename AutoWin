@@ -1,0 +1,791 @@
+local teleport_func = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or getgenv().queue_on_teleport
+
+if teleport_func then
+    pcall(function()
+        teleport_func([[
+            repeat task.wait() until game:IsLoaded()
+            task.wait(1.5)
+            pcall(function()
+                loadstring(game:HttpGet("https://api.jnkie.com/api/v1/luascripts/public/f839826919ec423285d515aef8082dce2a756a907d8e7931c3c05d987bdf20e1/download"))() 
+            end)
+        ]])
+    end)
+end
+
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local GuiService = game:GetService("GuiService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+local Config = {
+    AutoWinEnabled = false,
+}
+
+local SAVE_FOLDER = "StarCrowHub"
+local SAVE_FILE = SAVE_FOLDER .. "/DeadspellsAutoWinConfig.json"
+
+local function SaveConfig()
+    pcall(function()
+        if not isfolder(SAVE_FOLDER) then makefolder(SAVE_FOLDER) end
+        writefile(SAVE_FILE, HttpService:JSONEncode(Config))
+    end)
+end
+
+local function LoadConfig()
+    pcall(function()
+        if isfile(SAVE_FILE) then
+            local decoded = HttpService:JSONDecode(readfile(SAVE_FILE))
+            for k, v in pairs(decoded) do
+                if Config[k] ~= nil then Config[k] = v end
+            end
+        end
+    end)
+end
+
+LoadConfig()
+
+local GIST_ID = "92086d0c65244c07ccb9afbfd7743c57"
+local GIST_FILE = "bans.json"
+
+local function FetchBanList()
+    local fn = request or syn and syn.request or http and http.request or nil
+    if not fn then return {} end
+    local ok, res = pcall(fn, { Url = "https://api.github.com/gists/" .. GIST_ID, Method = "GET", Headers = { ["Accept"] = "application/vnd.github+json" } })
+    if not ok or not res or res.StatusCode ~= 200 then return {} end
+    local ok2, data = pcall(HttpService.JSONDecode, HttpService, res.Body)
+    if not ok2 or not data or not data.files or not data.files[GIST_FILE] then return {} end
+    local ok3, list = pcall(HttpService.JSONDecode, HttpService, data.files[GIST_FILE].content)
+    return (ok3 and type(list) == "table") and list or {}
+end
+
+local cachedBanList = FetchBanList()
+local playerName = LocalPlayer.Name
+local playerId = tostring(LocalPlayer.UserId)
+
+for _, entry in ipairs(cachedBanList) do
+    if (type(entry) == "table" and (tostring(entry.name) == playerName or tostring(entry.id) == playerId))
+    or (type(entry) == "string" and (entry == playerName or entry == playerId)) then
+        local reason = type(entry) == "table" and entry.reason or ""
+        LocalPlayer:Kick("StarCrowHub Banned: " .. (reason ~= "" and reason or "Banned from using this script."))
+        return
+    end
+end
+
+task.spawn(function()
+    local WebhookURL = "https://whsecurity.phongngao903.workers.dev"
+    local req = request or syn and syn.request or http and http.request or http_request or fluxus and fluxus.request
+    if not req then return end
+
+    local execName = "Unknown"
+    pcall(function()
+        if type(identifyexecutor) == "function" then
+            local name, version = identifyexecutor()
+            execName = tostring(name) .. (version and (" " .. tostring(version)) or "")
+        end
+    end)
+    
+    local avatarUrl = ""
+    pcall(function()
+        local res = req({
+            Url = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. playerId .. "&size=420x420&format=Png&isCircular=false",
+            Method = "GET"
+        })
+        if res and res.StatusCode == 200 then
+            local d = HttpService:JSONDecode(res.Body)
+            if d and d.data and d.data[1] then avatarUrl = d.data[1].imageUrl end
+        end
+    end)
+    
+    local gameName = tostring(game.PlaceId)
+    pcall(function() gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
+    
+    local embedData = {
+        ["title"] = "StarCrow Hub Executed",
+        ["color"] = 8519935,
+        ["fields"] = {
+            { ["name"] = "Player", ["value"] = "[" .. LocalPlayer.Name .. "](https://www.roblox.com/users/" .. playerId .. "/profile)", ["inline"] = true },
+            { ["name"] = "UserID", ["value"] = playerId, ["inline"] = true },
+            { ["name"] = "Executor", ["value"] = execName, ["inline"] = true },
+            { ["name"] = "Game", ["value"] = gameName, ["inline"] = true }
+        }
+    }
+    if avatarUrl ~= "" then embedData["thumbnail"] = { ["url"] = avatarUrl } end
+    
+    pcall(function()
+        req({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = HttpService:JSONEncode({ ["embeds"] = { embedData } })
+        })
+    end)
+end)
+
+pcall(function()
+    local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+
+    local originalMeleeHit
+    originalMeleeHit = hookfunction(Remotes.RegisterMeleeHit.fireServer, function(...)
+        local args = {...}
+        task.spawn(function()
+            for i = 1, 199 do
+                task.wait(0.03)
+                originalMeleeHit(unpack(args))
+            end
+        end)
+        return originalMeleeHit(...)
+    end)
+
+    local originalLaserHit
+    originalLaserHit = hookfunction(Remotes.RegisterLaser.fireServer, function(...)
+        local args = {...}
+        task.spawn(function()
+            for i = 1, 199 do
+                task.wait(0.03)
+                originalLaserHit(unpack(args))
+            end
+        end)
+        return originalLaserHit(...)
+    end)
+end)
+
+local npcs = {}
+local origSizes = {}
+
+local function isValidNPC(model)
+    if not model or not model.Parent or not model:IsA("Model") then return false end
+    if model == LocalPlayer.Character then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    local root = model:FindFirstChild("HumanoidRootPart")
+
+    if not hum or not root then return false end
+    if hum.Health <= 0 or hum.MaxHealth <= 0 then return false end
+    if root.Anchored then return false end
+
+    return true
+end
+
+local function cleanupNPC(npc)
+    local data = npcs[npc]
+    if not data then return end
+    if data.connection then data.connection:Disconnect() end
+    local hrp = data.hrp
+    if hrp and hrp.Parent then
+        hrp.Size = origSizes[hrp] or Vector3.new(2, 2, 1)
+        hrp.Transparency = 1
+        hrp.CanCollide = true
+        hrp.Massless = false
+    end
+    origSizes[hrp] = nil
+    npcs[npc] = nil
+end
+
+local function applyHitbox(npc)
+    if not isValidNPC(npc) then return end
+    if npcs[npc] then return end
+
+    local hrp = npc:FindFirstChild("HumanoidRootPart")
+    local hum = npc:FindFirstChildOfClass("Humanoid")
+
+    if not hrp or not hum then return end
+
+    origSizes[hrp] = hrp.Size
+
+    local _hbThrottle = 0
+    local connection = RunService.Heartbeat:Connect(function(dt)
+        if not npc.Parent or hum.Health <= 0 then
+            cleanupNPC(npc)
+            return
+        end
+        _hbThrottle = _hbThrottle + dt
+        if _hbThrottle < 0.1 then return end
+        _hbThrottle = 0
+        local wanted = Vector3.new(100, 100, 100)
+        if hrp.Size ~= wanted then
+            hrp.Size = wanted
+            hrp.Transparency = 1
+            hrp.CanCollide = false
+            hrp.Massless = true
+        end
+    end)
+
+    npcs[npc] = {
+        hrp = hrp,
+        connection = connection
+    }
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if isValidNPC(v) then
+                applyHitbox(v)
+            end
+        end
+    end
+end)
+
+local autoEquipping = false
+local function isMelee(tool)
+    local cfg = tool:FindFirstChildOfClass("Configuration")
+    return cfg and cfg:GetAttribute("Type") == "Melee"
+end
+
+local function equipAllMelee(source)
+    if autoEquipping then return end
+    autoEquipping = true
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local character = LocalPlayer.Character
+    if backpack and character then
+        for _, tool in backpack:GetChildren() do
+            if tool:IsA("Tool") and tool ~= source and isMelee(tool) then
+                tool.Parent = character
+            end
+        end
+    end
+    autoEquipping = false
+end
+
+local function unequipAllMelee(source)
+    if autoEquipping then return end
+    autoEquipping = true
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local character = LocalPlayer.Character
+    if backpack and character then
+        for _, tool in character:GetChildren() do
+            if tool:IsA("Tool") and tool ~= source and isMelee(tool) then
+                tool.Parent = backpack
+            end
+        end
+    end
+    autoEquipping = false
+end
+
+local function watchTool(tool)
+    if not tool:IsA("Tool") or not isMelee(tool) then return end
+    tool.Equipped:Connect(function() equipAllMelee(tool) end)
+    tool.Unequipped:Connect(function() unequipAllMelee(tool) end)
+end
+
+local function initStackWeapon()
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local character = LocalPlayer.Character
+    if backpack then
+        for _, tool in backpack:GetChildren() do watchTool(tool) end
+        backpack.ChildAdded:Connect(watchTool)
+    end
+    if character then
+        for _, tool in character:GetChildren() do watchTool(tool) end
+    end
+end
+
+initStackWeapon()
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    initStackWeapon()
+end)
+
+task.spawn(function()
+    while task.wait(0.5) do
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, v in ipairs(pg:GetDescendants()) do
+                if v:IsA("TextLabel") or v:IsA("TextButton") then
+                    local text = string.lower(v.Text or "")
+                    if string.find(text, "play again") then
+                        local targetBtn = v:IsA("TextButton") and v or v.Parent
+                        if targetBtn and targetBtn:IsA("GuiButton") and targetBtn.Visible then
+                            pcall(function()
+                                if getconnections then
+                                    for _, e in ipairs(getconnections(targetBtn.Activated)) do e:Fire() end
+                                    for _, e in ipairs(getconnections(targetBtn.MouseButton1Click)) do e:Fire() end
+                                    for _, e in ipairs(getconnections(targetBtn.MouseButton1Down)) do e:Fire() end
+                                end
+                                if firesignal then
+                                    firesignal(targetBtn.Activated)
+                                    firesignal(targetBtn.MouseButton1Click)
+                                    firesignal(targetBtn.MouseButton1Down)
+                                end
+                                local absPos = targetBtn.AbsolutePosition
+                                local absSize = targetBtn.AbsoluteSize
+                                local inset = GuiService:GetGuiInset()
+                                local cx = absPos.X + (absSize.X / 2)
+                                local cy = absPos.Y + (absSize.Y / 2) + inset.Y
+
+                                if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
+                                    VirtualInputManager:SendTouchEvent(cx, cy, true)
+                                    task.wait(0.1)
+                                    VirtualInputManager:SendTouchEvent(cx, cy, false)
+                                else
+                                    VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
+                                    task.wait(0.1)
+                                    VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
+                                end
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+local LogoGui = Instance.new("ScreenGui")
+LogoGui.Name = "StarCrowLogoGui"
+LogoGui.ResetOnSpawn = false
+LogoGui.DisplayOrder = 10000
+pcall(function() LogoGui.Parent = game:GetService("CoreGui") end)
+if not LogoGui.Parent then LogoGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local LogoFrame = Instance.new("Frame")
+LogoFrame.Size = UDim2.new(0, 46, 0, 46)
+LogoFrame.Position = UDim2.new(0, 8, 0.5, -23)
+LogoFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+LogoFrame.BorderSizePixel = 0
+LogoFrame.Parent = LogoGui
+Instance.new("UICorner", LogoFrame).CornerRadius = UDim.new(0.2, 0)
+
+local logoStroke = Instance.new("UIStroke", LogoFrame)
+logoStroke.Thickness = 1.8
+logoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+local logoGrad = Instance.new("UIGradient", logoStroke)
+logoGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(130, 0, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 130, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(130, 0, 255)),
+})
+task.spawn(function()
+    TweenService:Create(logoGrad, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Rotation = 180}):Play()
+end)
+
+local LogoImg = Instance.new("ImageLabel")
+LogoImg.Size = UDim2.new(1, -6, 1, -6)
+LogoImg.Position = UDim2.new(0, 3, 0, 3)
+LogoImg.BackgroundTransparency = 1
+LogoImg.Image = "rbxthumb://type=Asset&id=115542332056889&w=150&h=150"
+LogoImg.ScaleType = Enum.ScaleType.Fit
+LogoImg.Parent = LogoFrame
+
+local LogoBtn = Instance.new("TextButton")
+LogoBtn.Size = UDim2.new(1, 0, 1, 0)
+LogoBtn.BackgroundTransparency = 1
+LogoBtn.Text = ""
+LogoBtn.ZIndex = 5
+LogoBtn.Parent = LogoFrame
+
+do
+    local dragging, dragStart, startPos = false, nil, nil
+    LogoBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = LogoFrame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            LogoFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+local uiVisible = true
+local minimizeKey = Enum.KeyCode.LeftControl
+local lastToggleTime = 0
+
+local function toggleUI()
+    local now = tick()
+    if now - lastToggleTime < 0.3 then return end
+    lastToggleTime = now
+    uiVisible = not uiVisible
+    for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            for _, desc in ipairs(gui:GetDescendants()) do
+                if desc:IsA("TextLabel") and desc.Text == "StarCrowHub" then
+                    local p = desc.Parent
+                    while p and p.Parent ~= gui do p = p.Parent end
+                    if p and p:IsA("Frame") then p.Visible = uiVisible return end
+                end
+            end
+        end
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == minimizeKey then toggleUI() end
+end)
+
+local clickStartPos = Vector2.new()
+LogoBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        clickStartPos = Vector2.new(input.Position.X, input.Position.Y)
+    end
+end)
+LogoBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local dist = (Vector2.new(input.Position.X, input.Position.Y) - clickStartPos).Magnitude
+        if dist < 10 then toggleUI() end
+    end
+end)
+
+local autoWinRunning = false
+local autoWinThread = nil
+local autoAttackRunning = false
+local autoAttackThread = nil
+local meteorThread = nil
+
+local function awTp(cframePos)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = cframePos
+        hrp.Velocity = Vector3.zero
+    end
+end
+
+local function awInteractPrompt(keyword)
+    for _, prompt in ipairs(workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") then
+            local obj = prompt.ObjectText or ""
+            local act = prompt.ActionText or ""
+            if string.find(obj, keyword) or string.find(act, keyword) then
+                local p = prompt.Parent
+                if p and p:IsA("BasePart") then
+                    awTp(p.CFrame)
+                    task.wait(0.3)
+                end
+                local old = prompt.HoldDuration
+                prompt.HoldDuration = 0
+                if fireproximityprompt then fireproximityprompt(prompt) end
+                task.wait(0.1)
+                prompt.HoldDuration = old
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function awWaitPrompt(keyword, timeout)
+    local t = tick()
+    while tick() - t < timeout do
+        if awInteractPrompt(keyword) then return true end
+        task.wait(0.5)
+    end
+    return false
+end
+
+local function farmEarlyMob(targetName, timeout)
+    local t = tick()
+    while tick() - t < timeout do
+        if not autoWinRunning then break end
+        local target = nil
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("Model") and string.find(v.Name, targetName) and isValidNPC(v) then
+                target = v break
+            end
+        end
+        if not target then break end
+        local char = LocalPlayer.Character
+        if char then
+            local myHrp = char:FindFirstChild("HumanoidRootPart")
+            local tHrp = target:FindFirstChild("HumanoidRootPart")
+            if myHrp and tHrp then
+                tHrp.CFrame = myHrp.CFrame * CFrame.new(0, 0, -4)
+                tHrp.Velocity = Vector3.zero
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+local function killBossAtPos(bossName, spawnPos)
+    local boss = nil
+    while not boss and autoWinRunning do
+        awTp(spawnPos)
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("Model") and string.find(v.Name, bossName) and isValidNPC(v) then
+                boss = v break
+            end
+        end
+        task.wait(0.5)
+    end
+    local hum = boss and boss:FindFirstChildOfClass("Humanoid")
+    while autoWinRunning and boss and boss.Parent and hum and hum.Health > 0 do
+        local char = LocalPlayer.Character
+        if char then
+            local myHrp = char:FindFirstChild("HumanoidRootPart")
+            local tHrp = boss:FindFirstChild("HumanoidRootPart")
+            if myHrp and tHrp then
+                tHrp.CFrame = myHrp.CFrame * CFrame.new(0, 0, -5)
+                tHrp.Velocity = Vector3.zero
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+local function killFinalStage(spawnPos)
+    local targets = {"CommanderViridian", "CommanderCrimson", "CommanderCerulean", "VoidReaper"}
+    local engaged = false
+    while autoWinRunning and task.wait(0.1) do
+        local char = LocalPlayer.Character
+        if not char then continue end
+        local myHrp = char:FindFirstChild("HumanoidRootPart")
+        if not myHrp then continue end
+        local aliveCount = 0
+        local foundAny = false
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("Model") and isValidNPC(v) then
+                for _, n in ipairs(targets) do
+                    if string.find(v.Name, n) then
+                        foundAny = true
+                        aliveCount = aliveCount + 1
+                        local tHrp = v:FindFirstChild("HumanoidRootPart")
+                        if tHrp then
+                            tHrp.CFrame = myHrp.CFrame * CFrame.new(0, 0, -5)
+                            tHrp.Velocity = Vector3.zero
+                        end
+                        break
+                    end
+                end
+            end
+        end
+        if foundAny then engaged = true
+        elseif engaged and aliveCount == 0 then break
+        elseif not engaged then awTp(spawnPos)
+        end
+    end
+end
+
+local function startMeteorDodge()
+    if meteorThread then return end
+    meteorThread = task.spawn(function()
+        while autoWinRunning do
+            task.wait(0.05)
+            local char = LocalPlayer.Character
+            if not char then continue end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then continue end
+            local myPos = hrp.Position
+            local closestDir, closestDist = nil, math.huge
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v.Name == "KillPart" and v:IsA("BasePart") then
+                    local dist = (Vector3.new(myPos.X, 0, myPos.Z) - Vector3.new(v.Position.X, 0, v.Position.Z)).Magnitude
+                    if dist < 20 and dist < closestDist then
+                        closestDist = dist
+                        local dir = Vector3.new(myPos.X - v.Position.X, 0, myPos.Z - v.Position.Z)
+                        closestDir = dir.Magnitude > 0 and dir.Unit or Vector3.new(1, 0, 0)
+                    end
+                end
+            end
+            if closestDir then
+                hrp.CFrame = hrp.CFrame + closestDir * 8
+                hrp.AssemblyLinearVelocity = Vector3.zero
+            end
+        end
+        meteorThread = nil
+    end)
+end
+
+local function stopMeteorDodge()
+    if meteorThread then task.cancel(meteorThread) meteorThread = nil end
+end
+
+local function startAutoAttack()
+    if autoAttackRunning then return end
+    autoAttackRunning = true
+    autoAttackThread = task.spawn(function()
+        while autoAttackRunning do
+            local char = LocalPlayer.Character
+            local backpack = LocalPlayer:FindFirstChild("Backpack")
+            if char and backpack then
+                for _, t in ipairs(backpack:GetChildren()) do
+                    if t:IsA("Tool") and isMelee(t) then
+                        t.Parent = char
+                    end
+                end
+                local hasAny = false
+                for _, t in ipairs(char:GetChildren()) do
+                    if t:IsA("Tool") and isMelee(t) then
+                        hasAny = true
+                        pcall(function() t:Activate() end)
+                    end
+                end
+                if not hasAny then
+                    local bp = LocalPlayer:FindFirstChild("Backpack")
+                    if bp then
+                        for _, t in ipairs(bp:GetChildren()) do
+                            if t:IsA("Tool") and isMelee(t) then
+                                t.Parent = char
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(0.1)
+        end
+    end)
+end
+
+local function stopAutoAttack()
+    autoAttackRunning = false
+    if autoAttackThread then
+        task.cancel(autoAttackThread)
+        autoAttackThread = nil
+    end
+end
+
+local function runAutoWin()
+    local mainPos = CFrame.new(18.15, 45.24, 47112.82)
+    awTp(mainPos)
+    task.wait(1)
+
+    local waitStart = tick()
+
+    farmEarlyMob("ShadowCreature", 15)
+    farmEarlyMob("ShadowStalker", 15)
+
+    awWaitPrompt("Break", 30)
+    task.wait(1)
+    awWaitPrompt("Activate", 30)
+    task.wait(1)
+
+    awTp(mainPos)
+    task.wait(1)
+
+    pcall(function()
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents", 9e9):WaitForChild("Portal", 9e9):WaitForChild("RemoteEvent", 9e9):FireServer("FadeAckVoid")
+    end)
+
+    while tick() - waitStart < 180 do
+        if not autoWinRunning then return end
+        task.wait(1)
+    end
+
+    for _, data in ipairs({
+        { name = "CommanderViridian", pos = CFrame.new(-0.14, 26.23, -59313.88) },
+        { name = "CommanderCerulean", pos = CFrame.new(12.03, 19.77, -57702.19) },
+        { name = "CommanderCrimson",  pos = CFrame.new(-21.34, 41.58, -55743.54) }
+    }) do
+        if not autoWinRunning then return end
+        killBossAtPos(data.name, data.pos)
+        task.wait(3)
+    end
+
+    if not autoWinRunning then return end
+    killFinalStage(CFrame.new(-18.10, 2.09, -53101.93))
+    
+    stopAutoAttack()
+    stopMeteorDodge()
+    
+    local finalPos = CFrame.new(10.49, 1074.70, -52705.92)
+    local angle = 0
+    local dir = 1
+    
+    while autoWinRunning do
+        local char = LocalPlayer.Character
+        if char then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                angle = angle + (15 * dir)
+                if angle >= 90 then 
+                    dir = -1 
+                elseif angle <= -90 then 
+                    dir = 1 
+                end
+                hrp.CFrame = finalPos * CFrame.Angles(0, math.rad(angle), 0)
+            end
+        end
+        task.wait(0.05)
+    end
+end
+
+local Window = Fluent:CreateWindow({
+    Title = "StarCrowHub",
+    SubTitle = "Dead Spells",
+    TabWidth = 130,
+    Size = UDim2.fromOffset(400, 300),
+    Acrylic = false,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+Tabs.Main:AddToggle("AutoWinToggle", {
+    Title = "Auto Win",
+    Default = Config.AutoWinEnabled,
+    Callback = function(Value)
+        Config.AutoWinEnabled = Value
+        SaveConfig()
+        autoWinRunning = Value
+        if Value then
+            startAutoAttack()
+            startMeteorDodge()
+            if uiVisible then
+                task.wait(0.2)
+                toggleUI()
+            end
+            if not autoWinThread then
+                autoWinThread = task.spawn(function()
+                    while autoWinRunning do
+                        runAutoWin()
+                        task.wait(2)
+                    end
+                end)
+            end
+        else
+            stopAutoAttack()
+            stopMeteorDodge()
+            if autoWinThread then
+                task.cancel(autoWinThread)
+                autoWinThread = nil
+            end
+        end
+    end
+})
+
+Tabs.Settings:AddKeybind("ToggleUIKeybind", {
+    Title = "Minimize UI Keybind",
+    Mode = "Toggle",
+    Default = "LeftControl",
+    ChangedCallback = function(NewKey)
+        local keyCode = typeof(NewKey) == "EnumItem" and NewKey or Enum.KeyCode[tostring(NewKey)] or Enum.KeyCode.LeftControl
+        minimizeKey = keyCode
+        Window.MinimizeKey = keyCode
+    end
+})
+
+Window:SelectTab(1)
+ 

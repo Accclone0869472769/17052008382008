@@ -86,69 +86,6 @@ for _, entry in ipairs(cachedBanList) do
     end
 end
 
-task.spawn(function()
-    local WebhookURL = "https://whsecurity.phongngao903.workers.dev"
-    local req = request or syn and syn.request or http and http.request or http_request or fluxus and fluxus.request
-    if not req then return end
-
-    local execName = "Unknown"
-    pcall(function()
-        if type(identifyexecutor) == "function" then
-            local name, version = identifyexecutor()
-            execName = tostring(name) .. (version and (" " .. tostring(version)) or "")
-        end
-    end)
-    
-    local avatarUrl = ""
-    pcall(function()
-        local res = req({
-            Url = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. playerId .. "&size=420x420&format=Png&isCircular=false",
-            Method = "GET"
-        })
-        if res and res.StatusCode == 200 then
-            local d = HttpService:JSONDecode(res.Body)
-            if d and d.data and d.data[1] then avatarUrl = d.data[1].imageUrl end
-        end
-    end)
-
-    local gameIconUrl = ""
-    pcall(function()
-        local res = req({
-            Url = "https://thumbnails.roblox.com/v1/places/gameicons?placeIds=" .. tostring(game.PlaceId) .. "&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false",
-            Method = "GET"
-        })
-        if res and res.StatusCode == 200 then
-            local d = HttpService:JSONDecode(res.Body)
-            if d and d.data and d.data[1] then gameIconUrl = d.data[1].imageUrl end
-        end
-    end)
-
-    local gameName = tostring(game.PlaceId)
-    pcall(function() gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
-    
-    local embedData = {
-        ["title"] = "StarCrow Hub Executed",
-        ["color"] = 8519935,
-        ["fields"] = {
-            { ["name"] = "Player", ["value"] = "[" .. LocalPlayer.Name .. "](https://www.roblox.com/users/" .. playerId .. "/profile)", ["inline"] = true },
-            { ["name"] = "UserID", ["value"] = playerId, ["inline"] = true },
-            { ["name"] = "Executor", ["value"] = execName, ["inline"] = true },
-            { ["name"] = "Game", ["value"] = gameName, ["inline"] = true }
-        }
-    }
-    if avatarUrl ~= "" then embedData["thumbnail"] = { ["url"] = avatarUrl } end
-    if gameIconUrl ~= "" then embedData["image"] = { ["url"] = gameIconUrl } end
-    
-    pcall(function()
-        req({
-            Url = WebhookURL,
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = HttpService:JSONEncode({ ["embeds"] = { embedData } })
-        })
-    end)
-end)
-
 pcall(function()
     local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 

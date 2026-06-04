@@ -45,7 +45,8 @@ local Config = {
     NPCHitboxSize = 4,
     NPCESPEnabled = false,
     ItemESPEnabled = false,
-    AutoMineEnabled = false
+    AutoMineEnabled = false,
+    BringItemRange = 100
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -1354,6 +1355,61 @@ NPCHitboxSliderObj = Tabs.Main:AddSlider("NPCHitboxSlider", {
     end
 })
 
+Tabs.Main:AddSection("Items")
+
+Tabs.Main:AddButton({
+    Title = "Bring Nearby Items",
+    Callback = function()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if isValidDroppedItem(obj) then
+                local part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                if part then
+                    local dist = (part.Position - root.Position).Magnitude
+                    if dist <= Config.BringItemRange then
+                        local angle = math.random() * math.pi * 2
+                        local radius = math.random(2, 6)
+                        local xz = root.Position + Vector3.new(
+                            math.cos(angle) * radius,
+                            0,
+                            math.sin(angle) * radius
+                        )
+                        local rayParams = RaycastParams.new()
+                        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                        rayParams.FilterDescendantsInstances = {LocalPlayer.Character, obj}
+                        local rayResult = workspace:Raycast(
+                            xz + Vector3.new(0, 500, 0),
+                            Vector3.new(0, -1000, 0),
+                            rayParams
+                        )
+                        local groundY = rayResult and rayResult.Position.Y or root.Position.Y
+                        part.CFrame = CFrame.new(Vector3.new(xz.X, groundY + 1, xz.Z))
+                        if not part.Anchored then
+                            part.Velocity = Vector3.new(0, 0, 0)
+                            part.RotVelocity = Vector3.new(0, 0, 0)
+                        end
+                    end
+                end
+            end
+        end
+    end
+})
+
+Tabs.Main:AddSlider("BringItemRangeSlider", {
+    Title = "Bring Range",
+    Default = Config.BringItemRange,
+    Min = 10,
+    Max = 1000,
+    Rounding = 0,
+    Callback = function(Value)
+        Config.BringItemRange = Value
+        SaveConfig()
+    end
+})
+
 Tabs.ESP:AddToggle("ESPPlayers", {
     Title = "ESP Players",
     Default = Config.ESPEnabled,
@@ -1606,4 +1662,3 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
 })
 
 Window:SelectTab(1)
- 

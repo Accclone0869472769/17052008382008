@@ -47,6 +47,15 @@ local Config = {
     ItemESPEnabled = false,
     AutoMineEnabled = false,
     BringItemRange = 100,
+    ItemESPRarities = {
+        Common = true,
+        Uncommon = true,
+        Rare = true,
+        Epic = true,
+        Legendary = true,
+        Mythical = true,
+        Transcended = true,
+    },
     BringItemRarities = {
         Common = true,
         Uncommon = true,
@@ -902,6 +911,8 @@ end
 
 local function createItemESP(itemModel)
     if activeItemESP[itemModel] then return end
+    local rarity = getItemRarity(itemModel)
+    if not Config.ItemESPRarities[rarity] then return end
     local targetPart = itemModel.PrimaryPart or itemModel:FindFirstChildWhichIsA("BasePart")
     if not targetPart then return end
     local billboard = Instance.new("BillboardGui")
@@ -1413,6 +1424,29 @@ Tabs.ESP:AddToggle("ESPItemToggle", {
             scanItemESP()
         else
             cleanupAllItemESP()
+        end
+    end
+})
+
+Tabs.ESP:AddDropdown("ItemESPRarityDropdown", {
+    Title = "Select Item ESP",
+    Values = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical", "Transcended"},
+    Default = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical", "Transcended"},
+    Multi = true,
+    ScrollingEnabled = true,
+    Callback = function(Value)
+        for rarity, _ in pairs(Config.ItemESPRarities) do
+            Config.ItemESPRarities[rarity] = false
+        end
+        for rarity, selected in pairs(Value) do
+            if selected then
+                Config.ItemESPRarities[rarity] = true
+            end
+        end
+        SaveConfig()
+        if Config.ItemESPEnabled then
+            cleanupAllItemESP()
+            scanItemESP()
         end
     end
 })

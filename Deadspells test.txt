@@ -1608,4 +1608,13 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     end
 })
 
+Tabs.Settings:AddDropdown("UITheme", {
+    Title = "UI Theme",
+    Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose", "Mint" },
+    Default = "Dark",
+    Callback = function(Value)
+        Fluent:SetTheme(Value)
+    end
+})
+
 Window:SelectTab(1)

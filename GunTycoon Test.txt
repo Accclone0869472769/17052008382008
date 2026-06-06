@@ -1,29 +1,54 @@
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
-local Players          = game:GetService("Players")
+local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local TweenService     = game:GetService("TweenService")
-local RunService       = game:GetService("RunService")
-local LocalPlayer      = Players.LocalPlayer
-local Camera           = workspace.CurrentCamera
-local HttpService      = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
-local INVIS_CONFIG = {
-    INVISIBILITY_POSITION = Vector3.new(-25.95,84,3537.55)
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local INVIS_CONFIG = { INVISIBILITY_POSITION = Vector3.new(-25.95, 84, 3537.55) }
+local InvisState = { isInvisible = false }
+
+local Config = {
+    SilentAim = false, FOV = 90, AimPart = "Head", TeamCheck = false, FriendCheck = false,
+    InfAmmo = false, NoRecoil = false, FastFire = false, FireRate = 0.05,
+    Multishot = false, BulletPerShot = 5, MagicBullets = false, ESPEnabled = false,
+    LoopSpeedEnabled = false, WalkSpeed = 30, InfJumpEnabled = false, NoclipEnabled = false,
+    FlyEnabled = false, FlySpeed = 5, FloatBtnSize = 46,
+    NoclipFloatEnabled = false, FlyFloatEnabled = false, InvisFloatEnabled = false,
+    UITheme = "Dark",
+    FlyKey = "F", NoclipKey = "J", InvisKey = "C"
 }
 
-local InvisState = {
-    isInvisible = false
-}
+local SAVE_FOLDER = "StarCrowHub"
+local SAVE_FILE = SAVE_FOLDER .. "/GunTycoonConfig.json"
+
+local function SaveConfig()
+    pcall(function()
+        if not isfolder(SAVE_FOLDER) then makefolder(SAVE_FOLDER) end
+        writefile(SAVE_FILE, HttpService:JSONEncode(Config))
+    end)
+end
+
+local function LoadConfig()
+    pcall(function()
+        if isfile(SAVE_FILE) then
+            local data = HttpService:JSONDecode(readfile(SAVE_FILE))
+            for k, v in pairs(data) do
+                if Config[k] ~= nil then Config[k] = v end
+            end
+        end
+    end)
+end
+LoadConfig()
 
 local function setCharacterTransparency(character, transparency)
     if not character then return end
-
     for _, d in character:GetDescendants() do
-        if d:FindFirstAncestorOfClass("Accessory") then
-            continue
-        end
-
+        if d:FindFirstAncestorOfClass("Accessory") then continue end
         if d:IsA("BasePart") then
             if d.Name == "HumanoidRootPart" then
                 d.Transparency = 1
@@ -32,50 +57,32 @@ local function setCharacterTransparency(character, transparency)
             else
                 d.Transparency = transparency
             end
-
+        elseif d:IsA("Decal") and d.Name == "face" and d.Parent and d.Parent.Name == "Head" then
+            d.Transparency = 0
         elseif d:IsA("Decal") then
-            if d.Name == "face" and d.Parent and d.Parent.Name == "Head" then
-                d.Transparency = 0
-            else
-                d.Transparency = transparency
-            end
+            d.Transparency = transparency
         end
     end
 end
 
-local function getHumanoidRootPart()
-    local character = LocalPlayer.Character
-    if not character then
-        return nil
-    end
-
-    return character:FindFirstChild("HumanoidRootPart")
-end
-
 local function toggleInvisibility(state)
-    if not LocalPlayer.Character then
-        return
-    end
-    
+    local char = LocalPlayer.Character
+    if not char then return end
     if InvisState.isInvisible == state then return end
     InvisState.isInvisible = state
 
     local cam = workspace.CurrentCamera
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
 
     if InvisState.isInvisible then
-        local hrp = getHumanoidRootPart()
-        if not hrp then
-            return
-        end
-
+        if not hrp then return end
         local savedCFrame = hrp.CFrame
         local savedCamCFrame = cam.CFrame
 
         cam.CameraType = Enum.CameraType.Scriptable
         cam.CFrame = savedCamCFrame
-
-        LocalPlayer.Character:MoveTo(INVIS_CONFIG.INVISIBILITY_POSITION)
-
+        char:MoveTo(INVIS_CONFIG.INVISIBILITY_POSITION)
         task.wait(0.1)
 
         local seat = Instance.new("Seat")
@@ -83,7 +90,7 @@ local function toggleInvisibility(state)
         seat.Anchored = false
         seat.CanCollide = false
         seat.Transparency = 1
-        seat.Size = Vector3.new(2,0.5,2)
+        seat.Size = Vector3.new(2, 0.5, 2)
         seat.Position = INVIS_CONFIG.INVISIBILITY_POSITION
         seat.Parent = workspace
 
@@ -93,77 +100,41 @@ local function toggleInvisibility(state)
         weld.Parent = seat
 
         task.wait()
-
         task.defer(function()
-            if seat and seat.Parent then
-                seat.CFrame = savedCFrame
-            end
+            if seat and seat.Parent then seat.CFrame = savedCFrame end
         end)
 
         cam.CameraType = Enum.CameraType.Custom
+        if humanoid then cam.CameraSubject = humanoid end
 
-        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            cam.CameraSubject = humanoid
-        end
-
-        setCharacterTransparency(LocalPlayer.Character, 0.5)
+        setCharacterTransparency(char, 0.5)
         hrp.Transparency = 1
-
     else
         local chair = workspace:FindFirstChild("invischair")
-        if chair then
-            chair:Destroy()
-        end
+        if chair then chair:Destroy() end
 
-        if LocalPlayer.Character then
-            setCharacterTransparency(LocalPlayer.Character, 0)
-            local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                hrp.Transparency = 1
-            end
-
-            local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                cam.CameraSubject = humanoid
-            end
-        end
+        setCharacterTransparency(char, 0)
+        if hrp then hrp.Transparency = 1 end
+        if humanoid then cam.CameraSubject = humanoid end
     end
 end
 
-local LoopBring = {
-    Enabled = false,
-    Targets = {},
-    Connection = nil
-}
+local LoopBring = { Enabled = false, Targets = {}, Connection = nil }
 
 local function StartLoopBring()
-    if LoopBring.Connection then
-        LoopBring.Connection:Disconnect()
-        LoopBring.Connection = nil
-    end
-
+    if LoopBring.Connection then LoopBring.Connection:Disconnect() end
     LoopBring.Enabled = true
-
     LoopBring.Connection = RunService.Heartbeat:Connect(function()
-        if not LoopBring.Enabled then
-            return
-        end
-
+        if not LoopBring.Enabled then return end
         local myChar = LocalPlayer.Character
         local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-
-        if not myHRP then
-            return
-        end
+        if not myHRP then return end
 
         for targetName, isSelected in pairs(LoopBring.Targets) do
             if isSelected then
                 local targetPlayer = Players:FindFirstChild(targetName)
-                if targetPlayer then
-                    local targetChar = targetPlayer.Character
-                    local targetHRP = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-
+                if targetPlayer and targetPlayer.Character then
+                    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                     if targetHRP then
                         targetHRP.CFrame = myHRP.CFrame * CFrame.new(0, 0, -3)
                     end
@@ -175,7 +146,6 @@ end
 
 local function StopLoopBring()
     LoopBring.Enabled = false
-
     if LoopBring.Connection then
         LoopBring.Connection:Disconnect()
         LoopBring.Connection = nil
@@ -223,23 +193,23 @@ LogoBtn.Text = ""
 LogoBtn.ZIndex = 5
 LogoBtn.Parent = LogoFrame
 
-do
-    local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
-    LogoBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging, dragInput, dragStart, startPos = true, input, input.Position, LogoFrame.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input == dragInput then
-            local delta = input.Position - dragStart
-            LogoFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input == dragInput then dragging = false; dragInput = nil end
-    end)
-end
+local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
+LogoBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging, dragInput, dragStart, startPos = true, input, input.Position, LogoFrame.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input == dragInput or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        local delta = input.Position - dragStart
+        LogoFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input == dragInput or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false; dragInput = nil
+    end
+end)
 
 local uiVisible = true
 LogoBtn.MouseButton1Click:Connect(function()
@@ -257,51 +227,235 @@ LogoBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-local Config = {
-    SilentAim = false,
-    FOV = 90,
-    AimPart = "Head",
-    TeamCheck = false,
-    FriendCheck = false,
-    InfAmmo = false,
-    NoRecoil = false,
-    FastFire = false,
-    FireRate = 0.05,
-    Multishot = false,
-    BulletPerShot = 5,
-    MagicBullets = false,
-    ESPEnabled = false,
-    LoopSpeedEnabled = false,
-    WalkSpeed = 30,
-    InfJumpEnabled = false,
-    NoclipEnabled = false
-}
+local flyConnection = nil
 
-local SAVE_FOLDER = "StarCrowHub"
-local SAVE_FILE = SAVE_FOLDER .. "/GunTycoonConfig.json"
+local function startFly()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not humanoid then return end
 
-local function SaveConfig()
-    pcall(function()
-        if not isfolder(SAVE_FOLDER) then makefolder(SAVE_FOLDER) end
-        writefile(SAVE_FILE, HttpService:JSONEncode(Config))
-    end)
-end
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "FlyVelocity"
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bv.Velocity = Vector3.zero
+    bv.Parent = hrp
 
-local function LoadConfig()
-    pcall(function()
-        if isfile(SAVE_FILE) then
-            local raw = readfile(SAVE_FILE)
-            local data = HttpService:JSONDecode(raw)
-            for k, v in pairs(data) do
-                if Config[k] ~= nil then
-                    Config[k] = v
-                end
+    local bg = Instance.new("BodyGyro")
+    bg.Name = "FlyGyro"
+    bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bg.P = 1e7
+    bg.D = 12000
+    bg.CFrame = hrp.CFrame
+    bg.Parent = hrp
+
+    humanoid.PlatformStand = true
+
+    flyConnection = RunService.RenderStepped:Connect(function()
+        local cam = workspace.CurrentCamera
+        local move = Vector3.zero
+        local md = humanoid.MoveDirection
+
+        if md.Magnitude > 0 then
+            local flatLook = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
+            local flatRight = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z)
+            if flatLook.Magnitude > 0.01 and flatRight.Magnitude > 0.01 then
+                move += cam.CFrame.LookVector * md:Dot(flatLook.Unit)
+                move += cam.CFrame.RightVector * md:Dot(flatRight.Unit)
             end
         end
+
+        if move.Magnitude > 0 then move = move.Unit end
+        bv.Velocity = move * Config.FlySpeed * 50
+        bg.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + cam.CFrame.LookVector, Vector3.new(0, 1, 0))
     end)
 end
 
-LoadConfig()
+local function stopFly()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+
+    if hrp then
+        local bv = hrp:FindFirstChild("FlyVelocity")
+        local bg = hrp:FindFirstChild("FlyGyro")
+        if bv then bv:Destroy() end
+        if bg then bg:Destroy() end
+    end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.PlatformStand = false end
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    local key = input.KeyCode.Name
+    if key == Config.FlyKey then
+        Config.FlyEnabled = not Config.FlyEnabled
+        SaveConfig()
+        if Config.FlyEnabled then startFly() else stopFly() end
+        setFloatStrokeActive(SC_flyFloatStroke, Config.FlyEnabled)
+        pcall(function() Fluent.Options["FlyToggle"]:SetValue(Config.FlyEnabled) end)
+    elseif key == Config.NoclipKey then
+        Config.NoclipEnabled = not Config.NoclipEnabled
+        SaveConfig()
+        setFloatStrokeActive(SC_noclipFloatStroke, Config.NoclipEnabled)
+        pcall(function() Fluent.Options["Noclip"]:SetValue(Config.NoclipEnabled) end)
+    elseif key == Config.InvisKey then
+        local newState = not InvisState.isInvisible
+        toggleInvisibility(newState)
+        setFloatStrokeActive(SC_invisFloatStroke, newState)
+        pcall(function() Fluent.Options["InvisibleToggle"]:SetValue(newState) end)
+    end
+end)
+
+local floatGui = Instance.new("ScreenGui")
+floatGui.Name = "StarCrowFloatBtns"
+floatGui.ResetOnSpawn = false
+floatGui.DisplayOrder = 9999
+floatGui.IgnoreGuiInset = true
+pcall(function() floatGui.Parent = game:GetService("CoreGui") end)
+if not floatGui.Parent then floatGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local floatDragLocked = false
+
+local function setFloatStrokeActive(stroke, isActive)
+    if not stroke then return end
+    local old = stroke:FindFirstChildOfClass("UIGradient")
+    if old then old:Destroy() end
+
+    stroke.Color = Color3.fromRGB(255, 255, 255)
+    stroke.Thickness = isActive and 2.2 or 1.6
+
+    local grad = Instance.new("UIGradient")
+    grad.Color = isActive and ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(170, 70, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 180, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(170, 70, 255)),
+    }) or ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 0, 120)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 100, 200)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 0, 120)),
+    })
+    grad.Parent = stroke
+    task.spawn(function()
+        TweenService:Create(grad, TweenInfo.new(3, isActive and Enum.EasingStyle.Linear or Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, not isActive), {Rotation = isActive and 360 or 180}):Play()
+    end)
+end
+
+local function makeDraggableFloat(btn)
+    local fDragging, fMoved, fDragStart, fDragPos, fDragInput = false, false, nil, nil, nil
+    btn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if floatDragLocked then return end
+            fDragging = true; fMoved = false
+            fDragStart = input.Position; fDragPos = btn.Position; fDragInput = input
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then fDragging = false; fDragInput = nil end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if floatDragLocked then return end
+        if fDragging and (input == fDragInput or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            local delta = input.Position - fDragStart
+            if delta.Magnitude > 6 then fMoved = true end
+            btn.Position = UDim2.new(fDragPos.X.Scale, fDragPos.X.Offset + delta.X, fDragPos.Y.Scale, fDragPos.Y.Offset + delta.Y)
+        end
+    end)
+    return function() return fMoved end, function() fMoved = false end
+end
+
+local function makeFloatBtn(text, posScale, posOffX, posOffY)
+    local sz = Config.FloatBtnSize
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, sz, 0, sz)
+    btn.Position = UDim2.new(posScale, posOffX, 0.5, posOffY)
+    btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    btn.BackgroundTransparency = 0.88
+    btn.BorderSizePixel = 0
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = math.max(11, math.floor(sz * 0.22))
+    btn.Font = Enum.Font.GothamBold
+    btn.ZIndex = 15
+    btn.Parent = floatGui
+
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    local s = Instance.new("UIStroke", btn)
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    return btn, s
+end
+
+local SC_noclipFloatBtn, SC_noclipFloatStroke
+local SC_flyFloatBtn, SC_flyFloatStroke
+local SC_invisFloatBtn, SC_invisFloatStroke
+
+local function resizeAllFloatBtns()
+    local sz = Config.FloatBtnSize
+    local ts = math.max(11, math.floor(sz * 0.22))
+    if SC_noclipFloatBtn then SC_noclipFloatBtn.Size = UDim2.new(0, sz, 0, sz); SC_noclipFloatBtn.TextSize = ts end
+    if SC_flyFloatBtn then SC_flyFloatBtn.Size = UDim2.new(0, sz, 0, sz); SC_flyFloatBtn.TextSize = ts end
+    if SC_invisFloatBtn then SC_invisFloatBtn.Size = UDim2.new(0, sz, 0, sz); SC_invisFloatBtn.TextSize = ts end
+end
+
+local function createNoclipFloat()
+    if SC_noclipFloatBtn then SC_noclipFloatBtn:Destroy() end
+    local sz = Config.FloatBtnSize
+    local btn, stroke = makeFloatBtn("Noclip", 0.85, sz + 14, -(sz * 2 + 18))
+    SC_noclipFloatBtn, SC_noclipFloatStroke = btn, stroke
+    setFloatStrokeActive(stroke, Config.NoclipEnabled)
+    local getWasMoved, clearMoved = makeDraggableFloat(btn)
+    btn.MouseButton1Click:Connect(function()
+        if getWasMoved() then clearMoved() return end
+        Config.NoclipEnabled = not Config.NoclipEnabled
+        SaveConfig()
+        setFloatStrokeActive(stroke, Config.NoclipEnabled)
+        pcall(function() Fluent.Options.Noclip:SetValue(Config.NoclipEnabled) end)
+    end)
+end
+
+local function createFlyFloat()
+    if SC_flyFloatBtn then SC_flyFloatBtn:Destroy() end
+    local sz = Config.FloatBtnSize
+    local btn, stroke = makeFloatBtn("Fly", 0.85, sz + 14, -(sz * 4 - 16))
+    SC_flyFloatBtn, SC_flyFloatStroke = btn, stroke
+    setFloatStrokeActive(stroke, Config.FlyEnabled)
+    local getWasMoved, clearMoved = makeDraggableFloat(btn)
+    btn.MouseButton1Click:Connect(function()
+        if getWasMoved() then clearMoved() return end
+        Config.FlyEnabled = not Config.FlyEnabled
+        SaveConfig()
+        if Config.FlyEnabled then startFly() else stopFly() end
+        setFloatStrokeActive(stroke, Config.FlyEnabled)
+        pcall(function() Fluent.Options.FlyToggle:SetValue(Config.FlyEnabled) end)
+    end)
+end
+
+local function createInvisFloat()
+    if SC_invisFloatBtn then SC_invisFloatBtn:Destroy() end
+    local sz = Config.FloatBtnSize
+    local btn, stroke = makeFloatBtn("Invisible", 0.85, 0, -(sz * 3 + 30))
+    SC_invisFloatBtn, SC_invisFloatStroke = btn, stroke
+    setFloatStrokeActive(stroke, InvisState.isInvisible)
+    local getWasMoved, clearMoved = makeDraggableFloat(btn)
+    btn.MouseButton1Click:Connect(function()
+        if getWasMoved() then clearMoved() return end
+        local newState = not InvisState.isInvisible
+        toggleInvisibility(newState)
+        setFloatStrokeActive(stroke, newState)
+    end)
+end
+
+if Config.NoclipFloatEnabled then createNoclipFloat() end
+if Config.FlyFloatEnabled then createFlyFloat() end
+if Config.InvisFloatEnabled then createInvisFloat() end
 
 local fovGui = Instance.new("ScreenGui")
 fovGui.Name = "StarCrowFOV"
@@ -316,19 +470,15 @@ fovCircle.BackgroundTransparency = 1
 fovCircle.Visible = false
 fovCircle.Parent = fovGui
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(1, 0)
-corner.Parent = fovCircle
-
-local stroke = Instance.new("UIStroke")
+Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(1, 0)
+local stroke = Instance.new("UIStroke", fovCircle)
 stroke.Color = Color3.fromRGB(0, 255, 127)
 stroke.Thickness = 2
-stroke.Parent = fovCircle
 
 local currentTarget = nil
 local isHoldingGun = false
-
 local FriendCache = {}
+
 local function isFriend(player)
     if FriendCache[player.UserId] ~= nil then return FriendCache[player.UserId] end
     local s, r = pcall(function() return LocalPlayer:IsFriendsWith(player.UserId) end)
@@ -345,7 +495,7 @@ task.spawn(function()
 
         local char = LocalPlayer.Character
         isHoldingGun = char and char:FindFirstChildOfClass("Tool") ~= nil
-        
+
         local target = nil
         if isHoldingGun then
             local shortestDist = Config.FOV
@@ -353,12 +503,12 @@ task.spawn(function()
 
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer and player.Character then
-                    if Config.TeamCheck and player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team then continue end
+                    if Config.TeamCheck and player.Team and LocalPlayer.Team == player.Team then continue end
                     if Config.FriendCheck and isFriend(player) then continue end
 
                     local part = player.Character:FindFirstChild(Config.AimPart)
                     local hum = player.Character:FindFirstChildOfClass("Humanoid")
-                    
+
                     if part and hum and hum.Health > 0 then
                         local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
                         if onScreen then
@@ -378,17 +528,14 @@ end)
 
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    if not Config.SilentAim and not Config.MagicBullets then return oldNamecall(self, ...) end 
+    if not Config.SilentAim and not Config.MagicBullets then return oldNamecall(self, ...) end
 
     local method = getnamecallmethod()
-    
     if not checkcaller() and currentTarget and isHoldingGun and self == workspace then
         local args = {...}
-        
+
         if method == "Raycast" then
-            local origin = args[1]
-            local direction = args[2]
-            
+            local origin, direction = args[1], args[2]
             if typeof(origin) == "Vector3" and typeof(direction) == "Vector3" and direction.Magnitude > 5 then
                 local targetPos = currentTarget.Position
                 if Config.MagicBullets then
@@ -400,15 +547,13 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                 end
                 return oldNamecall(self, unpack(args))
             end
-            
         elseif method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" then
             local ray = args[1]
             if typeof(ray) == "Ray" and ray.Direction.Magnitude > 5 then
                 local targetPos = currentTarget.Position
                 if Config.MagicBullets then
                     local dirToTarget = (targetPos - Camera.CFrame.Position).Unit
-                    local newOrigin = targetPos - (dirToTarget * 1.5)
-                    args[1] = Ray.new(newOrigin, dirToTarget * 100)
+                    args[1] = Ray.new(targetPos - (dirToTarget * 1.5), dirToTarget * 100)
                 else
                     args[1] = Ray.new(ray.Origin, (targetPos - ray.Origin).Unit * ray.Direction.Magnitude)
                 end
@@ -416,7 +561,6 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
             end
         end
     end
-    
     return oldNamecall(self, ...)
 end)
 
@@ -429,19 +573,13 @@ local function ScanGuns()
             if not OriginalStats[v] then
                 OriginalStats[v] = {
                     LimitedAmmoEnabled = rawget(v, "LimitedAmmoEnabled"),
-                    AmmoCost = rawget(v, "AmmoCost"),
-                    Ammo = rawget(v, "Ammo"), 
-                    MaxAmmo = rawget(v, "MaxAmmo"),
-                    ReloadTime = rawget(v, "ReloadTime"),
-                    Recoil = rawget(v, "Recoil"),
-                    Spread = rawget(v, "Spread"),
+                    AmmoCost = rawget(v, "AmmoCost"), Ammo = rawget(v, "Ammo"),
+                    MaxAmmo = rawget(v, "MaxAmmo"), ReloadTime = rawget(v, "ReloadTime"),
+                    Recoil = rawget(v, "Recoil"), Spread = rawget(v, "Spread"),
                     CameraRecoilingEnabled = rawget(v, "CameraRecoilingEnabled"),
-                    Auto = rawget(v, "Auto"),
-                    FireRate = rawget(v, "FireRate"),
-                    ShotgunEnabled = rawget(v, "ShotgunEnabled"),
-                    BulletPerShot = rawget(v, "BulletPerShot"),
-                    ShotgunPattern = rawget(v, "ShotgunPattern"),
-                    BaseDamage = rawget(v, "BaseDamage")
+                    Auto = rawget(v, "Auto"), FireRate = rawget(v, "FireRate"),
+                    ShotgunEnabled = rawget(v, "ShotgunEnabled"), BulletPerShot = rawget(v, "BulletPerShot"),
+                    ShotgunPattern = rawget(v, "ShotgunPattern"), BaseDamage = rawget(v, "BaseDamage")
                 }
                 table.insert(GunCache, v)
             end
@@ -453,35 +591,25 @@ local function UpdateGuns()
     for _, v in ipairs(GunCache) do
         pcall(function()
             if setreadonly then setreadonly(v, false) end
-
             v.LimitedAmmoEnabled = not Config.InfAmmo and OriginalStats[v].LimitedAmmoEnabled or false
             v.AmmoCost = Config.InfAmmo and 0 or OriginalStats[v].AmmoCost
             v.Ammo = Config.InfAmmo and 999999 or OriginalStats[v].Ammo
             v.MaxAmmo = Config.InfAmmo and 999999 or OriginalStats[v].MaxAmmo
             v.ReloadTime = Config.InfAmmo and 0 or OriginalStats[v].ReloadTime
-
             v.Recoil = Config.NoRecoil and 0 or OriginalStats[v].Recoil
             v.Spread = Config.NoRecoil and 0 or OriginalStats[v].Spread
             v.CameraRecoilingEnabled = not Config.NoRecoil and OriginalStats[v].CameraRecoilingEnabled or false
-
             v.Auto = Config.FastFire and true or OriginalStats[v].Auto
             v.FireRate = Config.FastFire and Config.FireRate or OriginalStats[v].FireRate
-
             v.ShotgunEnabled = Config.Multishot and true or OriginalStats[v].ShotgunEnabled
             v.BulletPerShot = Config.Multishot and Config.BulletPerShot or OriginalStats[v].BulletPerShot
             v.ShotgunPattern = not Config.Multishot and OriginalStats[v].ShotgunPattern or false
-
             if setreadonly then setreadonly(v, true) end
         end)
     end
 end
 
-local function ApplyModsInstant()
-    UpdateGuns()
-end
-
 ScanGuns()
-
 task.spawn(function()
     while task.wait(2) do
         ScanGuns()
@@ -494,10 +622,8 @@ local function updateESP()
         if player ~= LocalPlayer then
             local char = player.Character
             if char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") then
-                local hum = char.Humanoid
-                local head = char.Head
-                local esp = head:FindFirstChild("StarCrowESP")
-                local chams = char:FindFirstChild("StarCrowChams")
+                local hum, head = char.Humanoid, char.Head
+                local esp, chams = head:FindFirstChild("StarCrowESP"), char:FindFirstChild("StarCrowChams")
 
                 if Config.ESPEnabled and hum.Health > 0 then
                     if not esp then
@@ -507,40 +633,29 @@ local function updateESP()
                         esp.Size = UDim2.new(0, 350, 0, 30)
                         esp.StudsOffset = Vector3.new(0, 1.2, 0)
                         esp.AlwaysOnTop = true
-                        esp.MaxDistance = math.huge
-                        local text = Instance.new("TextLabel")
+                        local text = Instance.new("TextLabel", esp)
                         text.Name = "NameText"
-                        text.Parent = esp
                         text.Size = UDim2.new(1, 0, 1, 0)
                         text.BackgroundTransparency = 1
-                        text.TextScaled = false
                         text.TextSize = 12
                         text.Font = Enum.Font.GothamBold
                         text.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        text.TextStrokeTransparency = 0
-                        text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
                         text.RichText = true
                         esp.Parent = head
                     end
                     local dist = math.floor((Camera.CFrame.Position - head.Position).Magnitude)
                     local hp = math.floor((hum.Health / hum.MaxHealth) * 100)
-                    local teamColor = Color3.fromRGB(255, 255, 255)
-                    local tR, tG, tB = 255, 255, 255
-                    if player.Team then
-                        local tc = player.Team.TeamColor.Color
-                        teamColor = tc
-                        tR, tG, tB = math.floor(tc.R*255), math.floor(tc.G*255), math.floor(tc.B*255)
-                    end
+                    local tc = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255, 255, 255)
                     local hpColor = hp > 70 and "rgb(0, 255, 127)" or hp > 30 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
-                    esp.NameText.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font> | %dm | <font color="%s">%d%%</font>', tR, tG, tB, player.DisplayName, dist, hpColor, hp)
-                    
+                    esp.NameText.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font> | %dm | <font color="%s">%d%%</font>', tc.R * 255, tc.G * 255, tc.B * 255, player.DisplayName, dist, hpColor, hp)
+
                     if not chams then
                         chams = Instance.new("Highlight")
                         chams.Name = "StarCrowChams"
                         chams.Parent = char
                     end
-                    chams.FillColor = teamColor
-                    chams.OutlineColor = teamColor
+                    chams.FillColor = tc
+                    chams.OutlineColor = tc
                     chams.FillTransparency = 0.7
                     chams.OutlineTransparency = 0
                     chams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -555,12 +670,8 @@ end
 
 RunService.RenderStepped:Connect(function()
     Camera = workspace.CurrentCamera
-    if Config.SilentAim or Config.MagicBullets then
-        fovCircle.Visible = true
-        fovCircle.Size = UDim2.new(0, Config.FOV * 2, 0, Config.FOV * 2)
-    else
-        fovCircle.Visible = false
-    end
+    fovCircle.Visible = Config.SilentAim or Config.MagicBullets
+    if fovCircle.Visible then fovCircle.Size = UDim2.new(0, Config.FOV * 2, 0, Config.FOV * 2) end
     updateESP()
 end)
 
@@ -588,28 +699,19 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 local Window = Fluent:CreateWindow({
-    Title    = "StarCrowHub",
-    SubTitle = "Gun Tycoon",
-    TabWidth = 130,
-    Size     = UDim2.fromOffset(460, 400),
-    Acrylic  = false,
-    Theme    = "Dark",
-    MinimizeKey = Enum.KeyCode.LeftControl
+    Title = "StarCrowHub", SubTitle = "Gun Tycoon", TabWidth = 130, Size = UDim2.fromOffset(460, 400),
+    Acrylic = false, Theme = "Dark", MinimizeKey = Enum.KeyCode.LeftControl
 })
 
 local Tabs = {
-    Info     = Window:AddTab({ Title = "Info",      Icon = "info" }),
-    GunMod   = Window:AddTab({ Title = "Gun Mod",   Icon = "crosshair" }),
-    ESP      = Window:AddTab({ Title = "ESP",       Icon = "eye" }),
-    Player   = Window:AddTab({ Title = "Player",    Icon = "user" }),
-    Settings = Window:AddTab({ Title = "Settings",  Icon = "settings" })
+    Info = Window:AddTab({ Title = "Info", Icon = "info" }),
+    GunMod = Window:AddTab({ Title = "Gun Mod", Icon = "crosshair" }),
+    ESP = Window:AddTab({ Title = "ESP", Icon = "eye" }),
+    Player = Window:AddTab({ Title = "Player", Icon = "user" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
-Tabs.Info:AddParagraph({
-    Title = "Join our Discord",
-    Content = "Discord is the best place to get updates and report bugs."
-})
-
+Tabs.Info:AddParagraph({ Title = "Join our Discord", Content = "Discord is the best place to get updates and report bugs." })
 Tabs.Info:AddButton({
     Title = "Copy Discord Link",
     Callback = function()
@@ -620,184 +722,45 @@ Tabs.Info:AddButton({
     end
 })
 
-Tabs.GunMod:AddToggle("SilentAimT", {
-    Title = "Silent Aim", Default = Config.SilentAim,
-    Callback = function(v) Config.SilentAim = v; SaveConfig() end
-})
+Tabs.GunMod:AddToggle("SilentAimT", { Title = "Silent Aim", Default = Config.SilentAim, Callback = function(v) Config.SilentAim = v; SaveConfig() end })
+Tabs.GunMod:AddDropdown("AimPartD", { Title = "Aim Part", Values = {"Head", "Body"}, Default = (Config.AimPart == "HumanoidRootPart") and 2 or 1, Callback = function(v) Config.AimPart = (v == "Body") and "HumanoidRootPart" or "Head"; SaveConfig() end })
+Tabs.GunMod:AddSlider("POVSlider", { Title = "POV", Default = Config.FOV, Min = 50, Max = 600, Rounding = 0, Callback = function(v) Config.FOV = v; SaveConfig() end })
+Tabs.GunMod:AddToggle("TeamCheckT", { Title = "Team Check", Default = Config.TeamCheck, Callback = function(v) Config.TeamCheck = v; SaveConfig() end })
+Tabs.GunMod:AddToggle("FriendCheckT", { Title = "Friend Check", Default = Config.FriendCheck, Callback = function(v) Config.FriendCheck = v; SaveConfig() end })
+Tabs.GunMod:AddToggle("InfAmmoT", { Title = "Inf Ammo", Default = Config.InfAmmo, Callback = function(v) Config.InfAmmo = v; UpdateGuns(); SaveConfig() end })
+Tabs.GunMod:AddToggle("NoRecoilT", { Title = "No Recoil", Default = Config.NoRecoil, Callback = function(v) Config.NoRecoil = v; UpdateGuns(); SaveConfig() end })
+Tabs.GunMod:AddToggle("FastFireT", { Title = "Fast Fire", Default = Config.FastFire, Callback = function(v) Config.FastFire = v; UpdateGuns(); SaveConfig() end })
+Tabs.GunMod:AddInput("FireRateInput", { Title = "Fire Rate", Default = tostring(Config.FireRate), Numeric = true, Finished = true, Callback = function(v) if tonumber(v) then Config.FireRate = tonumber(v); if Config.FastFire then UpdateGuns() end; SaveConfig() end end })
+Tabs.GunMod:AddToggle("MultishotT", { Title = "Multishot", Default = Config.Multishot, Callback = function(v) Config.Multishot = v; UpdateGuns(); SaveConfig() end })
+Tabs.GunMod:AddInput("BulletsPerShotInput", { Title = "Bullets Per Shot", Default = tostring(Config.BulletPerShot), Numeric = true, Finished = true, Callback = function(v) if tonumber(v) then Config.BulletPerShot = tonumber(v); if Config.Multishot then UpdateGuns() end; SaveConfig() end end })
+Tabs.GunMod:AddToggle("MagicBulletsT", { Title = "Magic Bullets", Default = Config.MagicBullets, Callback = function(v) Config.MagicBullets = v; SaveConfig() end })
 
-Tabs.GunMod:AddDropdown("AimPartD", {
-    Title = "Aim Part",
-    Values = {"Head", "Body"},
-    Default = (Config.AimPart == "HumanoidRootPart") and 2 or 1,
-    Callback = function(v) 
-        Config.AimPart = (v == "Body") and "HumanoidRootPart" or "Head"
-        SaveConfig()
-    end
-})
+Tabs.ESP:AddToggle("ESPPlayers", { Title = "ESP Players (Name | Dist | HP | Chams)", Default = Config.ESPEnabled, Callback = function(v) Config.ESPEnabled = v; SaveConfig() end })
 
-Tabs.GunMod:AddSlider("POVSlider", {
-    Title = "POV", Default = Config.FOV, Min = 50, Max = 600, Rounding = 0,
-    Callback = function(v) Config.FOV = v; SaveConfig() end
-})
-
-Tabs.GunMod:AddToggle("TeamCheckT", {
-    Title = "Team Check", Default = Config.TeamCheck,
-    Callback = function(v) Config.TeamCheck = v; SaveConfig() end
-})
-
-Tabs.GunMod:AddToggle("FriendCheckT", {
-    Title = "Friend Check", Default = Config.FriendCheck,
-    Callback = function(v) Config.FriendCheck = v; SaveConfig() end
-})
-
-Tabs.GunMod:AddToggle("InfAmmoT", {
-    Title = "Inf Ammo", Default = Config.InfAmmo,
-    Callback = function(v) Config.InfAmmo = v; ApplyModsInstant(); SaveConfig() end
-})
-
-Tabs.GunMod:AddToggle("NoRecoilT", {
-    Title = "No Recoil", Default = Config.NoRecoil,
-    Callback = function(v) Config.NoRecoil = v; ApplyModsInstant(); SaveConfig() end
-})
-
-Tabs.GunMod:AddToggle("FastFireT", {
-    Title = "Fast Fire", Default = Config.FastFire,
-    Callback = function(v) Config.FastFire = v; ApplyModsInstant(); SaveConfig() end
-})
-
-Tabs.GunMod:AddInput("FireRateInput", {
-    Title = "Fire Rate",
-    Default = tostring(Config.FireRate),
-    Placeholder = "Enter fire rate",
-    Numeric = true,
-    Finished = true,
-    Callback = function(v)
-        local num = tonumber(v)
-        if num then
-            Config.FireRate = num
-            if Config.FastFire then ApplyModsInstant() end
-            SaveConfig()
-        end
-    end
-})
-
-Tabs.GunMod:AddToggle("MultishotT", {
-    Title = "Multishot", Default = Config.Multishot,
-    Callback = function(v) Config.Multishot = v; ApplyModsInstant(); SaveConfig() end
-})
-
-Tabs.GunMod:AddInput("BulletsPerShotInput", {
-    Title = "Bullets Per Shot",
-    Default = tostring(Config.BulletPerShot),
-    Placeholder = "Enter bullet count",
-    Numeric = true,
-    Finished = true,
-    Callback = function(v)
-        local num = tonumber(v)
-        if num then
-            Config.BulletPerShot = num
-            if Config.Multishot then ApplyModsInstant() end
-            SaveConfig()
-        end
-    end
-})
-
-Tabs.GunMod:AddToggle("MagicBulletsT", {
-    Title = "Magic Bullets", Default = Config.MagicBullets,
-    Callback = function(v) Config.MagicBullets = v; SaveConfig() end
-})
-
-Tabs.ESP:AddToggle("ESPPlayers", {
-    Title = "ESP Players (Name | Dist | HP | Chams)", Default = Config.ESPEnabled,
-    Callback = function(v) Config.ESPEnabled = v; SaveConfig() end
-})
-
-Tabs.Player:AddToggle("InvisibleToggle", {
-    Title = "Invisible",
-    Default = false,
-    Callback = function(v)
-        toggleInvisibility(v)
-    end
-})
+Tabs.Player:AddToggle("InvisibleToggle", { Title = "Invisible", Default = false, Callback = function(v) if InvisState.isInvisible == v then return end; toggleInvisibility(v) end })
 
 local PlayerNames = {}
-for _, p in ipairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer then
-        table.insert(PlayerNames, p.Name)
-    end
-end
+for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(PlayerNames, p.Name) end end
+local SelectPlayerDropdown = Tabs.Player:AddDropdown("SelectPlayer", { Title = "Select Players", Values = PlayerNames, Multi = true, Default = {}, Callback = function(v) LoopBring.Targets = v end })
+Tabs.Player:AddButton({ Title = "Refresh Players", Callback = function() local newNames = {} for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(newNames, p.Name) end end SelectPlayerDropdown:SetValues(newNames) end })
+Tabs.Player:AddToggle("LoopBringToggle", { Title = "Loop Bring", Default = false, Callback = function(v) local hasTargets = false for _, s in pairs(LoopBring.Targets) do if s then hasTargets = true break end end if v and hasTargets then StartLoopBring() else StopLoopBring() end end })
 
-local SelectPlayerDropdown = Tabs.Player:AddDropdown("SelectPlayer", {
-    Title = "Select Players",
-    Values = PlayerNames,
-    Multi = true,
-    Default = {},
-    Callback = function(Value)
-        LoopBring.Targets = Value
-    end
-})
+Tabs.Player:AddToggle("Noclip", { Title = "Noclip", Default = Config.NoclipEnabled, Callback = function(v) if Config.NoclipEnabled == v then return end; Config.NoclipEnabled = v; SaveConfig() end })
+Tabs.Player:AddToggle("FlyToggle", { Title = "Fly", Default = Config.FlyEnabled, Callback = function(v) if Config.FlyEnabled == v then return end; Config.FlyEnabled = v; SaveConfig(); if v then startFly() else stopFly() end; setFloatStrokeActive(SC_flyFloatStroke, v) end })
+Tabs.Player:AddSlider("FlySpeed", { Title = "Fly Speed", Default = Config.FlySpeed, Min = 1, Max = 30, Rounding = 0, Callback = function(v) Config.FlySpeed = v; SaveConfig() end })
+Tabs.Player:AddToggle("NoclipFloat", { Title = "Noclip Float Button", Default = Config.NoclipFloatEnabled, Callback = function(v) Config.NoclipFloatEnabled = v; SaveConfig(); if v then createNoclipFloat() elseif SC_noclipFloatBtn then SC_noclipFloatBtn:Destroy() end end })
+Tabs.Player:AddToggle("FlyFloat", { Title = "Fly Float Button", Default = Config.FlyFloatEnabled, Callback = function(v) Config.FlyFloatEnabled = v; SaveConfig(); if v then createFlyFloat() elseif SC_flyFloatBtn then SC_flyFloatBtn:Destroy() end end })
+Tabs.Player:AddToggle("InvisFloat", { Title = "Invisible Float Button", Default = Config.InvisFloatEnabled, Callback = function(v) Config.InvisFloatEnabled = v; SaveConfig(); if v then createInvisFloat() elseif SC_invisFloatBtn then SC_invisFloatBtn:Destroy() end end })
+Tabs.Player:AddToggle("LoopSpeed", { Title = "Enable WalkSpeed", Default = Config.LoopSpeedEnabled, Callback = function(v) Config.LoopSpeedEnabled = v; SaveConfig() end })
+Tabs.Player:AddSlider("WalkSpeed", { Title = "Speed Amount", Default = Config.WalkSpeed, Min = 16, Max = 250, Rounding = 0, Callback = function(v) Config.WalkSpeed = v; SaveConfig() end })
+Tabs.Player:AddToggle("InfJump", { Title = "Infinite Jump", Default = Config.InfJumpEnabled, Callback = function(v) Config.InfJumpEnabled = v; SaveConfig() end })
 
-Tabs.Player:AddButton({
-    Title = "Refresh Players",
-    Callback = function()
-        local newNames = {}
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then
-                table.insert(newNames, p.Name)
-            end
-        end
-        SelectPlayerDropdown:SetValues(newNames)
-    end
-})
-
-Tabs.Player:AddToggle("LoopBringToggle", {
-    Title = "Loop Bring",
-    Default = false,
-    Callback = function(v)
-        if v then
-            local hasTargets = false
-            for _, selected in pairs(LoopBring.Targets) do
-                if selected then hasTargets = true break end
-            end
-            
-            if hasTargets then
-                StartLoopBring()
-            else
-                StopLoopBring()
-            end
-        else
-            StopLoopBring()
-        end
-    end
-})
-
-Tabs.Player:AddToggle("Noclip", {
-    Title = "Noclip", Default = Config.NoclipEnabled,
-    Callback = function(v) Config.NoclipEnabled = v; SaveConfig() end
-})
-
-Tabs.Player:AddToggle("LoopSpeed", {
-    Title = "Enable WalkSpeed", Default = Config.LoopSpeedEnabled,
-    Callback = function(v) Config.LoopSpeedEnabled = v; SaveConfig() end
-})
-
-Tabs.Player:AddSlider("WalkSpeed", {
-    Title = "Speed Amount", Default = Config.WalkSpeed, Min = 16, Max = 250, Rounding = 0,
-    Callback = function(v) Config.WalkSpeed = v; SaveConfig() end
-})
-
-Tabs.Player:AddToggle("InfJump", {
-    Title = "Infinite Jump", Default = Config.InfJumpEnabled,
-    Callback = function(v) Config.InfJumpEnabled = v; SaveConfig() end
-})
-
-Tabs.Settings:AddKeybind("ToggleUIKeybind", {
-    Title = "Minimize UI Keybind",
-    Mode = "Toggle",
-    Default = "LeftControl",
-    ChangedCallback = function(NewKey)
-        Window.MinimizeKey = NewKey
-    end
-})
+Tabs.Settings:AddKeybind("ToggleUIKeybind", { Title = "Minimize UI Keybind", Mode = "Toggle", Default = "LeftControl", ChangedCallback = function(NewKey) Window.MinimizeKey = NewKey end })
+Tabs.Settings:AddKeybind("FlyKeybind", { Title = "Fly Keybind", Mode = "Toggle", Default = Config.FlyKey, ChangedCallback = function(NewKey) Config.FlyKey = NewKey; SaveConfig() end })
+Tabs.Settings:AddKeybind("NoclipKeybind", { Title = "Noclip Keybind", Mode = "Toggle", Default = Config.NoclipKey, ChangedCallback = function(NewKey) Config.NoclipKey = NewKey; SaveConfig() end })
+Tabs.Settings:AddKeybind("InvisKeybind", { Title = "Invisible Keybind", Mode = "Toggle", Default = Config.InvisKey, ChangedCallback = function(NewKey) Config.InvisKey = NewKey; SaveConfig() end })
+Tabs.Settings:AddDropdown("UITheme", { Title = "UI Theme", Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose", "Mint" }, Default = Config.UITheme or "Dark", Callback = function(Value) Config.UITheme = Value; SaveConfig(); Fluent:SetTheme(Value) end })
+Tabs.Settings:AddSlider("FloatBtnSizeSlider", { Title = "Float Size", Default = Config.FloatBtnSize, Min = 30, Max = 130, Rounding = 0, Callback = function(v) Config.FloatBtnSize = v; SaveConfig(); resizeAllFloatBtns() end })
 
 Window:SelectTab(1)
+if Config.UITheme and Config.UITheme ~= "Dark" then Fluent:SetTheme(Config.UITheme) end

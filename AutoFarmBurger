@@ -1,3 +1,291 @@
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local API_URL = "https://yuuka-auth-bot.phongngao903.workers.dev/api/check"
+local requestFunc = request or syn and syn.request or http and http.request or fluxus and fluxus.request
+
+local function kickAndCrash(msg)
+    task.spawn(function()
+        task.wait(2)
+        game:Shutdown()
+        local function crash() while true do crash() end end
+        crash()
+    end)
+    player:Kick(msg)
+end
+
+if not requestFunc then
+    kickAndCrash("[StarCrow Hub] Error: Your executor does not support HTTP Requests!")
+    return
+end
+
+local function checkAuto()
+    local success, res = pcall(function()
+        return requestFunc({
+            Url = API_URL .. "?t=" .. tostring(os.time()),
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json", ["Cache-Control"] = "no-cache" },
+            Body = HttpService:JSONEncode({ roblox_name = player.Name, type = "auto" })
+        })
+    end)
+    if success and res and res.StatusCode == 200 then
+        local data = HttpService:JSONDecode(res.Body)
+        return data.success, data.reason
+    end
+    return false, nil
+end
+
+local function verifyKey(code)
+    local success, res = pcall(function()
+        return requestFunc({
+            Url = API_URL .. "?t=" .. tostring(os.time()),
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json", ["Cache-Control"] = "no-cache" },
+            Body = HttpService:JSONEncode({ code = code, roblox_name = player.Name, type = "verify" })
+        })
+    end)
+    if success and res and res.StatusCode == 200 then
+        local data = HttpService:JSONDecode(res.Body)
+        return data.success, data.reason
+    end
+    return false, "Connection lost."
+end
+
+-- ============================================================
+-- VERIFY GUI — dùng coroutine để đảm bảo load script
+-- chỉ chạy SAU KHI verify 100% xong, không có race condition
+-- ============================================================
+
+local mainThread = coroutine.running()
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "StarCrowAuthGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local ok = pcall(function() ScreenGui.Parent = CoreGui end)
+if not ok then ScreenGui.Parent = player:WaitForChild("PlayerGui") end
+
+local Panel = Instance.new("Frame")
+Panel.Name = "Panel"
+Panel.Size = UDim2.new(0, 340, 0, 240)
+Panel.Position = UDim2.new(0.5, -170, 0.5, -120)
+Panel.BackgroundColor3 = Color3.fromRGB(15, 0, 35)
+Panel.BackgroundTransparency = 0.35
+Panel.BorderSizePixel = 0
+Panel.Active = true
+Panel.Draggable = true
+Panel.Parent = ScreenGui
+
+Instance.new("UICorner", Panel).CornerRadius = UDim.new(0, 16)
+
+local PanelStroke = Instance.new("UIStroke")
+PanelStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+PanelStroke.Thickness = 2
+PanelStroke.Color = Color3.fromRGB(255, 255, 255)
+PanelStroke.Parent = Panel
+
+local PanelGrad = Instance.new("UIGradient")
+PanelGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(60, 10, 160)),
+    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(190, 70, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 180, 255)),
+    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(190, 70, 255)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(60, 10, 160)),
+})
+PanelGrad.Rotation = 0
+PanelGrad.Parent = PanelStroke
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -20, 0, 28)
+Title.Position = UDim2.new(0, 14, 0, 14)
+Title.BackgroundTransparency = 1
+Title.Text = "STARCROW HUB"
+Title.TextColor3 = Color3.fromRGB(220, 190, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Panel
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(1, -20, 0, 20)
+Subtitle.Position = UDim2.new(0, 14, 0, 42)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "Auto-Login System"
+Subtitle.TextColor3 = Color3.fromRGB(160, 120, 210)
+Subtitle.TextTransparency = 0.3
+Subtitle.TextSize = 12
+Subtitle.Font = Enum.Font.Gotham
+Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+Subtitle.Parent = Panel
+
+local CenterStatus = Instance.new("TextLabel")
+CenterStatus.Size = UDim2.new(1, 0, 0, 40)
+CenterStatus.Position = UDim2.new(0, 0, 0.5, -30)
+CenterStatus.BackgroundTransparency = 1
+CenterStatus.Text = "Verifying your account..."
+CenterStatus.TextColor3 = Color3.fromRGB(230, 200, 255)
+CenterStatus.Font = Enum.Font.GothamBold
+CenterStatus.TextSize = 16
+CenterStatus.Visible = true
+CenterStatus.Parent = Panel
+
+local SubStatus = Instance.new("TextLabel")
+SubStatus.Size = UDim2.new(1, 0, 0, 20)
+SubStatus.Position = UDim2.new(0, 0, 0.5, 10)
+SubStatus.BackgroundTransparency = 1
+SubStatus.Text = "Checking database connection"
+SubStatus.TextColor3 = Color3.fromRGB(180, 130, 220)
+SubStatus.Font = Enum.Font.Gotham
+SubStatus.TextSize = 12
+SubStatus.Visible = true
+SubStatus.Parent = Panel
+
+local KeyLabel = Instance.new("TextLabel")
+KeyLabel.Size = UDim2.new(1, -28, 0, 16)
+KeyLabel.Position = UDim2.new(0, 14, 0, 74)
+KeyLabel.BackgroundTransparency = 1
+KeyLabel.Text = "KEY"
+KeyLabel.TextColor3 = Color3.fromRGB(190, 130, 255)
+KeyLabel.TextTransparency = 0.5
+KeyLabel.TextSize = 10
+KeyLabel.Font = Enum.Font.GothamBold
+KeyLabel.TextXAlignment = Enum.TextXAlignment.Left
+KeyLabel.Visible = false
+KeyLabel.Parent = Panel
+
+local KeyBox = Instance.new("TextBox")
+KeyBox.Size = UDim2.new(1, -28, 0, 44)
+KeyBox.Position = UDim2.new(0, 14, 0, 93)
+KeyBox.BackgroundColor3 = Color3.fromRGB(90, 30, 170)
+KeyBox.BackgroundTransparency = 0.78
+KeyBox.BorderSizePixel = 0
+KeyBox.PlaceholderText = "Paste or type your key here..."
+KeyBox.PlaceholderColor3 = Color3.fromRGB(160, 110, 220)
+KeyBox.Text = ""
+KeyBox.TextColor3 = Color3.fromRGB(220, 195, 255)
+KeyBox.TextSize = 13
+KeyBox.Font = Enum.Font.Gotham
+KeyBox.ClearTextOnFocus = false
+KeyBox.Visible = false
+KeyBox.Parent = Panel
+
+Instance.new("UICorner", KeyBox).CornerRadius = UDim.new(0, 10)
+local KeyStroke = Instance.new("UIStroke")
+KeyStroke.Color = Color3.fromRGB(160, 80, 255)
+KeyStroke.Transparency = 0.6
+KeyStroke.Thickness = 1
+KeyStroke.Parent = KeyBox
+
+local VerifyBtn = Instance.new("TextButton")
+VerifyBtn.Size = UDim2.new(1, -28, 0, 44)
+VerifyBtn.Position = UDim2.new(0, 14, 0, 152)
+VerifyBtn.BackgroundColor3 = Color3.fromRGB(130, 50, 240)
+VerifyBtn.BackgroundTransparency = 0.45
+VerifyBtn.BorderSizePixel = 0
+VerifyBtn.Text = "Verify"
+VerifyBtn.TextColor3 = Color3.fromRGB(232, 210, 255)
+VerifyBtn.TextSize = 14
+VerifyBtn.Font = Enum.Font.GothamBold
+VerifyBtn.Visible = false
+VerifyBtn.Parent = Panel
+
+Instance.new("UICorner", VerifyBtn).CornerRadius = UDim.new(0, 10)
+local BtnStroke = Instance.new("UIStroke")
+BtnStroke.Color = Color3.fromRGB(190, 120, 255)
+BtnStroke.Transparency = 0.55
+BtnStroke.Thickness = 1
+BtnStroke.Parent = VerifyBtn
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -28, 0, 20)
+StatusLabel.Position = UDim2.new(0, 14, 0, 206)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Ready to verify"
+StatusLabel.TextColor3 = Color3.fromRGB(180, 130, 220)
+StatusLabel.TextTransparency = 0.45
+StatusLabel.TextSize = 11
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Visible = false
+StatusLabel.Parent = Panel
+
+local rot = 0
+local animConn = RunService.Heartbeat:Connect(function(dt)
+    rot = (rot + dt * 80) % 360
+    PanelGrad.Rotation = rot
+end)
+
+-- Hàm này gọi sau khi verify xong — resume mainThread
+local function onVerified()
+    task.wait(1.5)
+    animConn:Disconnect()
+    ScreenGui:Destroy()
+    coroutine.resume(mainThread)  -- resume, không truyền gì cả
+end
+
+local isAutoValid, autoReason = checkAuto()
+if isAutoValid then
+    CenterStatus.Text = "Auto-Login Successful!"
+    CenterStatus.TextColor3 = Color3.fromRGB(100, 255, 150)
+    SubStatus.Text = "Loading StarCrow Hub..."
+    task.spawn(onVerified)
+else
+    if autoReason and autoReason:match("BANNED") then
+        CenterStatus.Text = "ACCESS DENIED"
+        CenterStatus.TextColor3 = Color3.fromRGB(255, 110, 110)
+        SubStatus.Text = autoReason
+        kickAndCrash("[Seminar Security] " .. autoReason)
+        return
+    end
+    -- Hiện form nhập key
+    CenterStatus.Visible = false
+    SubStatus.Visible = false
+    Subtitle.Text = "Enter your key from Discord (/verify)"
+    KeyLabel.Visible = true
+    KeyBox.Visible = true
+    VerifyBtn.Visible = true
+    StatusLabel.Visible = true
+
+    VerifyBtn.MouseButton1Click:Connect(function()
+        local codeInput = KeyBox.Text:gsub("%s+", "")
+        if codeInput == "" then
+            StatusLabel.Text = "Please enter your key first."
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 110, 110)
+            StatusLabel.TextTransparency = 0.2
+            return
+        end
+        VerifyBtn.Text = "Checking..."
+        StatusLabel.Text = "Connecting to Yuuka..."
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        StatusLabel.TextTransparency = 0.1
+        local isValid, reason = verifyKey(codeInput)
+        if isValid then
+            StatusLabel.Text = "Success! Loading Script..."
+            StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+            VerifyBtn.Text = "Verified"
+            VerifyBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 110)
+            task.spawn(onVerified)
+        else
+            VerifyBtn.Text = "Verify"
+            VerifyBtn.BackgroundColor3 = Color3.fromRGB(130, 50, 240)
+            StatusLabel.Text = reason or "Invalid Key!"
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 110, 110)
+            StatusLabel.TextTransparency = 0.2
+            if reason and reason:match("BANNED") then
+                kickAndCrash("[Seminar Security] " .. reason)
+            end
+        end
+    end)
+end
+
+-- Yield main thread tại đây — chờ onVerified() resume
+coroutine.yield()
+
+-- ============================================================
+--              AUTOFARM BURGER - DEAD SPELLS
+-- ============================================================
+
 local teleport_func = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or getgenv().queue_on_teleport
 
 if teleport_func then
@@ -14,11 +302,8 @@ end
 
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
-local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -33,12 +318,12 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 local Config = {
-    BurgerESPEnabled   = false,
-    FastAttackEnabled  = true,
+    BurgerESPEnabled     = false,
+    FastAttackEnabled    = true,
     FastAttackMultiplier = 200,
-    BringBurger        = false,
-    AutoFarmEnabled    = false,
-    AutoResetMinutes   = 5,
+    BringBurger          = false,
+    AutoFarmEnabled      = false,
+    AutoResetMinutes     = 5,
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -63,8 +348,6 @@ local function LoadConfig()
 end
 
 LoadConfig()
-
-
 
 pcall(function()
     local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
@@ -114,9 +397,6 @@ local function isBossModel(model)
     return false
 end
 
--- ==========================================
--- HỆ THỐNG HEADBOX TÀNG HÌNH HOÀN TOÀN (TẮT SHADOW + DECAL)
--- ==========================================
 local headboxNPCs = {}
 local origHeadSizes = {}
 
@@ -130,10 +410,7 @@ local function cleanupHeadbox(npc)
         head.Transparency = 0
         head.CanCollide = true
         head.Massless = false
-        if head:IsA("BasePart") then
-            head.CastShadow = true
-        end
-        -- Bật lại Decal
+        if head:IsA("BasePart") then head.CastShadow = true end
         for _, child in ipairs(head:GetChildren()) do
             if child:IsA("Decal") or child:IsA("Texture") then
                 child.Transparency = 0
@@ -147,45 +424,27 @@ end
 local function applyHeadbox(npc)
     if headboxNPCs[npc] then return end
     if not npc or not npc.Parent then return end
-    
-    -- Tránh việc bật headbox cho chính người chơi
     if Players:GetPlayerFromCharacter(npc) then return end
-
     local hum = npc:FindFirstChildOfClass("Humanoid")
     local head = npc:FindFirstChild("Head") or npc:FindFirstChild("HumanoidRootPart")
-    
     if not hum or not head then return end
     if hum.Health <= 0 then return end
-
     origHeadSizes[head] = head.Size
-
     local throttle = 0
     local conn = RunService.Heartbeat:Connect(function(dt)
-        if not npc.Parent or hum.Health <= 0 then
-            cleanupHeadbox(npc)
-            return
-        end
+        if not npc.Parent or hum.Health <= 0 then cleanupHeadbox(npc) return end
         throttle = throttle + dt
         if throttle < 0.1 then return end
         throttle = 0
-        
-        -- Kích thước headbox set cứng = 100 và tàng hình hoàn toàn
         local wanted = Vector3.new(100, 100, 100)
         if head.Size ~= wanted then
             head.Size = wanted
-            head.Transparency = 1 -- Ẩn khối
+            head.Transparency = 1
             head.CanCollide = false
             head.Massless = true
-            
-            if head:IsA("BasePart") then
-                head.CastShadow = false -- Xóa bóng đen khổng lồ
-            end
-            
-            -- Xóa các hình vẽ khuôn mặt (Decal) bị phóng to
+            if head:IsA("BasePart") then head.CastShadow = false end
             for _, child in ipairs(head:GetChildren()) do
-                if child:IsA("Decal") or child:IsA("Texture") then
-                    child.Transparency = 1
-                end
+                if child:IsA("Decal") or child:IsA("Texture") then child.Transparency = 1 end
             end
         end
     end)
@@ -195,23 +454,21 @@ end
 task.spawn(function()
     while task.wait(1) do
         for _, v in ipairs(workspace:GetDescendants()) do
-            -- Quét toàn bộ NPC có Humanoid (áp dụng cho tất cả NPC có máu)
             if v:IsA("Model") and v:FindFirstChildOfClass("Humanoid") then
                 applyHeadbox(v)
             end
         end
     end
 end)
--- ==========================================
 
-local targetItems = { ["Burger"] = true, ["GoldenBurger"] = true, ["DiamondBurger"] = true }
+local targetItems  = { ["Burger"] = true, ["GoldenBurger"] = true, ["DiamondBurger"] = true }
 local burgerColors = {
-    ["Burger"]       = Color3.fromRGB(205, 133, 63),
-    ["GoldenBurger"] = Color3.fromRGB(255, 215, 0),
-    ["DiamondBurger"]= Color3.fromRGB(0, 255, 255),
+    ["Burger"]        = Color3.fromRGB(205, 133, 63),
+    ["GoldenBurger"]  = Color3.fromRGB(255, 215, 0),
+    ["DiamondBurger"] = Color3.fromRGB(0, 255, 255),
 }
 
-local itemQueue    = {}
+local itemQueue     = {}
 local activeBurgers = {}
 local currentTarget = nil
 local processTimer  = 0
@@ -229,42 +486,37 @@ end
 local function buildBurgerESP(obj)
     local old = obj:FindFirstChild("StarCrowBurgerESP")
     if old then old:Destroy() end
-
     local espFolder = Instance.new("Folder")
-    espFolder.Name  = "StarCrowBurgerESP"
+    espFolder.Name = "StarCrowBurgerESP"
     espFolder.Parent = obj
-
     local highlight = Instance.new("Highlight")
-    highlight.Name              = "Chams"
-    highlight.FillColor         = burgerColors[obj.Name] or Color3.fromRGB(255, 255, 255)
-    highlight.OutlineColor      = Color3.fromRGB(255, 255, 255)
-    highlight.FillTransparency  = 0.5
+    highlight.Name = "Chams"
+    highlight.FillColor = burgerColors[obj.Name] or Color3.fromRGB(255, 255, 255)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
     highlight.OutlineTransparency = 0.2
-    highlight.Enabled           = Config.BurgerESPEnabled
-    highlight.Parent            = espFolder
-
+    highlight.Enabled = Config.BurgerESPEnabled
+    highlight.Parent = espFolder
     local targetPart = obj:IsA("Model") and obj.PrimaryPart or obj
     if not targetPart and obj:IsA("Model") then targetPart = obj:FindFirstChildWhichIsA("BasePart") end
-
     if targetPart then
-        local billboard       = Instance.new("BillboardGui")
-        billboard.Name        = "Text"
-        billboard.Size        = UDim2.new(0, 200, 0, 50)
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "Text"
+        billboard.Size = UDim2.new(0, 200, 0, 50)
         billboard.AlwaysOnTop = true
         billboard.MaxDistance = 5000
-        billboard.Adornee     = targetPart
-        billboard.Enabled     = Config.BurgerESPEnabled
-
+        billboard.Adornee = targetPart
+        billboard.Enabled = Config.BurgerESPEnabled
         local label = Instance.new("TextLabel")
-        label.Size                 = UDim2.new(1, 0, 1, 0)
+        label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
-        label.Text                 = obj.Name
-        label.TextColor3           = burgerColors[obj.Name] or Color3.fromRGB(255, 255, 255)
+        label.Text = obj.Name
+        label.TextColor3 = burgerColors[obj.Name] or Color3.fromRGB(255, 255, 255)
         label.TextStrokeTransparency = 0
-        label.Font                 = Enum.Font.GothamBold
-        label.TextSize             = 12
-        label.Parent               = billboard
-        billboard.Parent           = espFolder
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 12
+        label.Parent = billboard
+        billboard.Parent = espFolder
     end
 end
 
@@ -293,10 +545,7 @@ local function updateBurgerESP()
             table.remove(activeBurgers, i)
         else
             local espFolder = obj:FindFirstChild("StarCrowBurgerESP")
-            if not espFolder then
-                buildBurgerESP(obj)
-                espFolder = obj:FindFirstChild("StarCrowBurgerESP")
-            end
+            if not espFolder then buildBurgerESP(obj) espFolder = obj:FindFirstChild("StarCrowBurgerESP") end
             if espFolder then
                 local hl = espFolder:FindFirstChild("Chams")
                 if hl then hl.Enabled = Config.BurgerESPEnabled end
@@ -324,12 +573,10 @@ end)
 RunService.RenderStepped:Connect(function(deltaTime)
     Camera = workspace.CurrentCamera
     if not Config.BringBurger then return end
-
     if not isValidItem(currentTarget) then
         currentTarget = #itemQueue > 0 and table.remove(itemQueue, 1) or nil
         processTimer  = 0
     end
-
     if currentTarget then
         local targetCFrame = Camera.CFrame * CFrame.new(0, 0, -2.5)
         if currentTarget:IsA("Model") then
@@ -340,10 +587,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
         VirtualInputManager:SendKeyEvent(true,  Enum.KeyCode.E, false, game)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
         processTimer = processTimer + deltaTime
-        if processTimer > 0.2 then
-            currentTarget = nil
-            processTimer  = 0
-        end
+        if processTimer > 0.2 then currentTarget = nil processTimer = 0 end
     end
 end)
 
@@ -390,9 +634,9 @@ task.spawn(function()
                     if btn and btn:IsA("GuiButton") and btn.Visible then
                         pcall(function()
                             if getconnections then
-                                for _, e in ipairs(getconnections(btn.Activated))       do e:Fire() end
-                                for _, e in ipairs(getconnections(btn.MouseButton1Click)) do e:Fire() end
-                                for _, e in ipairs(getconnections(btn.MouseButton1Down))  do e:Fire() end
+                                for _, e in ipairs(getconnections(btn.Activated))         do e:Fire() end
+                                for _, e in ipairs(getconnections(btn.MouseButton1Click))  do e:Fire() end
+                                for _, e in ipairs(getconnections(btn.MouseButton1Down))   do e:Fire() end
                             end
                             if firesignal then
                                 firesignal(btn.Activated)
@@ -446,11 +690,9 @@ end
 for _, v in ipairs(workspace:GetDescendants()) do
     if v:IsA("Model") then registerBoss(v) end
 end
-
 workspace.DescendantAdded:Connect(function(v)
     if v:IsA("Model") then registerBoss(v) end
 end)
-
 workspace.DescendantRemoving:Connect(function(v)
     if not v:IsA("Model") then return end
     local key = getBossKey(v)
@@ -465,11 +707,11 @@ local bosses = {
     { n = "kingice",        pos = CFrame.new(24.27,    3.00,  45907.91) },
 }
 
-local skyIslandPos   = CFrame.new(64.97, 3.00, 34971.64)
-local currentIdx     = 1
-local hoverPos       = nil
-local visited        = false
-local engaged        = false
+local skyIslandPos     = CFrame.new(64.97, 3.00, 34971.64)
+local currentIdx       = 1
+local hoverPos         = nil
+local visited          = false
+local engaged          = false
 local visitedSkyIsland = false
 
 RunService.Heartbeat:Connect(function()
@@ -484,14 +726,9 @@ end)
 
 task.spawn(function()
     while task.wait(0.1) do
-        if not Config.AutoFarmEnabled then
-            hoverPos = nil
-            continue
-        end
-
+        if not Config.AutoFarmEnabled then hoverPos = nil continue end
         local char = LocalPlayer.Character
         if not char then continue end
-
         local hrp = char:FindFirstChild("HumanoidRootPart")
         local hum = char:FindFirstChild("Humanoid")
         if not hrp or not hum then continue end
@@ -499,108 +736,62 @@ task.spawn(function()
         if autoFarmStartTime > 0 and tick() - autoFarmStartTime >= Config.AutoResetMinutes * 60 then
             pcall(function()
                 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
-                for _ = 1, 3 do
-                    Remotes.Reset.fireServer()
-                    task.wait(1)
-                end
+                for _ = 1, 3 do Remotes.Reset.fireServer() task.wait(1) end
             end)
-            hoverPos         = nil
-            visited          = false
-            engaged          = false
-            visitedSkyIsland = false
-            currentIdx       = 1
-            autoFarmStartTime = tick()
+            hoverPos = nil visited = false engaged = false visitedSkyIsland = false
+            currentIdx = 1 autoFarmStartTime = tick()
             continue
         end
 
         if hum.Health <= 0 then
-            hoverPos         = nil
-            visited          = false
-            engaged          = false
-            visitedSkyIsland = false
-            currentIdx       = 1
-            task.wait(1)
-            continue
+            hoverPos = nil visited = false engaged = false visitedSkyIsland = false
+            currentIdx = 1 task.wait(1) continue
         end
 
         if currentIdx <= #bosses then
             local info       = bosses[currentIdx]
             local targetBoss = cachedBosses[info.n]
-
             if targetBoss then
                 local bHrp = targetBoss:FindFirstChild("HumanoidRootPart")
                 local bHum = targetBoss:FindFirstChildOfClass("Humanoid")
-
                 if bHrp and bHum and bHum.Health > 0 then
                     if not visited then
-                        hoverPos      = nil
-                        hrp.CFrame    = info.pos
-                        hrp.Anchored  = true
-                        task.wait(2)
-                        hrp.Anchored  = false
-                        visited       = true
+                        hoverPos = nil hrp.CFrame = info.pos hrp.Anchored = true
+                        task.wait(2) hrp.Anchored = false visited = true
                     end
-                    engaged       = true
-                    bHrp.CFrame   = CFrame.new(info.pos.Position)
+                    engaged = true
+                    bHrp.CFrame = CFrame.new(info.pos.Position)
                     bHrp.Velocity = Vector3.new(0, 0, 0)
-                    hoverPos      = CFrame.lookAt(info.pos.Position + Vector3.new(0, 15, 0), info.pos.Position)
-
+                    hoverPos = CFrame.lookAt(info.pos.Position + Vector3.new(0, 15, 0), info.pos.Position)
                     local tool = char:FindFirstChildOfClass("Tool")
                     if not tool or not isMelee(tool) then
                         for _, t in ipairs(LocalPlayer.Backpack:GetChildren()) do
-                            if t:IsA("Tool") and isMelee(t) then
-                                t.Parent = char
-                                break
-                            end
+                            if t:IsA("Tool") and isMelee(t) then t.Parent = char break end
                         end
                     end
-
                 elseif bHum and bHum.Health <= 0 then
-                    task.wait(3)
-                    engaged    = false
-                    visited    = false
-                    hoverPos   = nil
-                    currentIdx = currentIdx + 1
+                    task.wait(3) engaged = false visited = false hoverPos = nil currentIdx = currentIdx + 1
                 end
-
             else
                 if engaged then
-                    task.wait(3)
-                    engaged    = false
-                    visited    = false
-                    hoverPos   = nil
-                    currentIdx = currentIdx + 1
+                    task.wait(3) engaged = false visited = false hoverPos = nil currentIdx = currentIdx + 1
                 else
                     if not visited then
-                        hoverPos     = nil
-                        hrp.CFrame   = info.pos
-                        hrp.Anchored = true
-                        task.wait(2)
-                        hrp.Anchored = false
-                        visited      = true
+                        hoverPos = nil hrp.CFrame = info.pos hrp.Anchored = true
+                        task.wait(2) hrp.Anchored = false visited = true
                     end
                     hoverPos = CFrame.new(info.pos.Position + Vector3.new(0, 15, 0))
                 end
             end
-
         else
             if not visitedSkyIsland then
-                hoverPos         = nil
-                hrp.CFrame       = skyIslandPos
-                hrp.Anchored     = true
-                task.wait(2)
-                hrp.Anchored     = false
-                visitedSkyIsland = true
-                hoverPos         = skyIslandPos
+                hoverPos = nil hrp.CFrame = skyIslandPos hrp.Anchored = true
+                task.wait(2) hrp.Anchored = false visitedSkyIsland = true hoverPos = skyIslandPos
             end
-
             if #itemQueue == 0 and currentTarget == nil then
                 task.wait(3)
                 if #itemQueue == 0 and currentTarget == nil then
-                    hoverPos         = nil
-                    visitedSkyIsland = false
-                    currentIdx       = 1
-                    autoFarmStartTime = tick()
+                    hoverPos = nil visitedSkyIsland = false currentIdx = 1 autoFarmStartTime = tick()
                     task.spawn(function()
                         pcall(function()
                             local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
@@ -613,10 +804,13 @@ task.spawn(function()
     end
 end)
 
+-- ==========================================
+-- LOGO GUI
+-- ==========================================
 local LogoGui = Instance.new("ScreenGui")
-LogoGui.Name          = "StarCrowLogoGui"
-LogoGui.ResetOnSpawn  = false
-LogoGui.DisplayOrder  = 10000
+LogoGui.Name         = "StarCrowLogoGui"
+LogoGui.ResetOnSpawn = false
+LogoGui.DisplayOrder = 10000
 pcall(function() LogoGui.Parent = game:GetService("CoreGui") end)
 if not LogoGui.Parent then LogoGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
@@ -643,27 +837,25 @@ task.spawn(function()
 end)
 
 local LogoImg = Instance.new("ImageLabel")
-LogoImg.Size                = UDim2.new(1, -6, 1, -6)
-LogoImg.Position            = UDim2.new(0, 3, 0, 3)
+LogoImg.Size                   = UDim2.new(1, -6, 1, -6)
+LogoImg.Position               = UDim2.new(0, 3, 0, 3)
 LogoImg.BackgroundTransparency = 1
-LogoImg.Image               = "rbxthumb://type=Asset&id=115542332056889&w=150&h=150"
-LogoImg.ScaleType           = Enum.ScaleType.Fit
-LogoImg.Parent              = LogoFrame
+LogoImg.Image                  = "rbxthumb://type=Asset&id=115542332056889&w=150&h=150"
+LogoImg.ScaleType              = Enum.ScaleType.Fit
+LogoImg.Parent                 = LogoFrame
 
 local LogoBtn = Instance.new("TextButton")
-LogoBtn.Size                = UDim2.new(1, 0, 1, 0)
+LogoBtn.Size                   = UDim2.new(1, 0, 1, 0)
 LogoBtn.BackgroundTransparency = 1
-LogoBtn.Text                = ""
-LogoBtn.ZIndex              = 5
-LogoBtn.Parent              = LogoFrame
+LogoBtn.Text                   = ""
+LogoBtn.ZIndex                 = 5
+LogoBtn.Parent                 = LogoFrame
 
 do
     local dragging, dragStart, startPos = false, nil, nil
     LogoBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging  = true
-            dragStart = input.Position
-            startPos  = LogoFrame.Position
+            dragging = true dragStart = input.Position startPos = LogoFrame.Position
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
@@ -718,14 +910,17 @@ LogoBtn.InputEnded:Connect(function(input)
     end
 end)
 
+-- ==========================================
+-- FLUENT GUI
+-- ==========================================
 local Window = Fluent:CreateWindow({
-    Title        = "StarCrowHub",
-    SubTitle     = "Dead Spells",
-    TabWidth     = 130,
-    Size         = UDim2.fromOffset(400, 300),
-    Acrylic      = false,
-    Theme        = "Dark",
-    MinimizeKey  = Enum.KeyCode.LeftControl,
+    Title       = "StarCrowHub",
+    SubTitle    = "Dead Spells",
+    TabWidth    = 130,
+    Size        = UDim2.fromOffset(400, 300),
+    Acrylic     = false,
+    Theme       = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl,
 })
 
 local Tabs = {
@@ -806,8 +1001,8 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     Mode    = "Toggle",
     Default = "LeftControl",
     ChangedCallback = function(NewKey)
-        local keyCode    = typeof(NewKey) == "EnumItem" and NewKey or Enum.KeyCode[tostring(NewKey)] or Enum.KeyCode.LeftControl
-        minimizeKey      = keyCode
+        local keyCode = typeof(NewKey) == "EnumItem" and NewKey or Enum.KeyCode[tostring(NewKey)] or Enum.KeyCode.LeftControl
+        minimizeKey   = keyCode
         Window.MinimizeKey = keyCode
     end,
 })

@@ -339,7 +339,7 @@ Tabs.Info:AddButton({
     Title = "Copy Discord Link",
     Callback = function()
         pcall(function()
-            setclipboard("https://discord.gg/4xMFad5He")
+            setclipboard("https://discord.com/invite/wXthjUsXns")
             Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 })
         end)
     end

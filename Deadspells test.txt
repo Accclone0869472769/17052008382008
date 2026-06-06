@@ -46,6 +46,7 @@ local Config = {
     NPCESPEnabled = false,
     ItemESPEnabled = false,
     AutoMineEnabled = false,
+    UITheme = "Dark",
     BringItemRange = 100,
     ItemESPRarities = {
         Common = true,
@@ -1207,7 +1208,7 @@ local Window = Fluent:CreateWindow({
     TabWidth = 130,
     Size = UDim2.fromOffset(460, 400),
     Acrylic = false,
-    Theme = "Dark",
+    Theme = Config.UITheme or "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
@@ -1645,8 +1646,10 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
 Tabs.Settings:AddDropdown("UITheme", {
     Title = "UI Theme",
     Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose", "Mint" },
-    Default = "Dark",
+    Default = Config.UITheme or "Dark",
     Callback = function(Value)
+        Config.UITheme = Value
+        SaveConfig()
         Fluent:SetTheme(Value)
     end
 })

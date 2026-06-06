@@ -46,16 +46,17 @@ local Config = {
     NPCESPEnabled = false,
     ItemESPEnabled = false,
     AutoMineEnabled = false,
+    OreESPEnabled = false,
     UITheme = "Dark",
     BringItemRange = 100,
     ItemESPRarities = {
-        Common = true,
-        Uncommon = true,
-        Rare = true,
-        Epic = true,
-        Legendary = true,
-        Mythical = true,
-        Transcended = true,
+        Common = false,
+        Uncommon = false,
+        Rare = false,
+        Epic = false,
+        Legendary = false,
+        Mythical = false,
+        Transcended = false,
     },
     BringItemRarities = {
         Common = true,
@@ -1202,6 +1203,134 @@ RunService.Heartbeat:Connect(function()
     SharedSignals.Mining:Fire("Mine", target, tool)
 end)
 
+
+local activeOreESP = {}
+
+local function getOreColor(name)
+    local n = name:lower()
+    if n:find("gold")        then return Color3.fromRGB(255, 215, 0)
+    elseif n:find("meteor")  then return Color3.fromRGB(255, 80, 20)
+    elseif n:find("mythril") then return Color3.fromRGB(160, 80, 255)
+    elseif n:find("copper")  then return Color3.fromRGB(205, 127, 50)
+    elseif n:find("iron")    then return Color3.fromRGB(230, 230, 255)
+    elseif n:find("silver")  then return Color3.fromRGB(210, 210, 255)
+    elseif n:find("mana")    then return Color3.fromRGB(80, 80, 255)
+    elseif n:find("yellow")  then return Color3.fromRGB(255, 230, 0)
+    elseif n:find("red")     then return Color3.fromRGB(255, 60, 60)
+    elseif n:find("green")   then return Color3.fromRGB(0, 220, 80)
+    elseif n:find("blue")    then return Color3.fromRGB(0, 150, 255)
+    elseif n:find("purple")  then return Color3.fromRGB(180, 0, 255)
+    elseif n:find("crystal") then return Color3.fromRGB(100, 200, 255)
+    end
+    return Color3.fromRGB(200, 200, 200)
+end
+
+local function isValidOre(obj)
+    if not obj or not obj.Parent then return false end
+    if not obj:IsA("Model") then return false end
+    local n = obj.Name:lower()
+    if not (n:find("rock") or n:find("crystal") or n:find("manastone")) then return false end
+    local map = workspace:FindFirstChild("Map")
+    return map ~= nil and obj.Parent == map
+end
+
+local function createOreESP(obj)
+    if activeOreESP[obj] then return end
+    local color = getOreColor(obj.Name)
+    local targetPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+    if not targetPart then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "StarCrowOreHL"
+    highlight.FillColor = color
+    highlight.OutlineColor = color
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0.1
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = obj
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "StarCrowOreBB"
+    billboard.Size = UDim2.new(0, 120, 0, 40)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 800
+    billboard.Adornee = targetPart
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0.55, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = obj.Name
+    nameLabel.TextColor3 = color
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = 11
+    nameLabel.Parent = billboard
+
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Name = "DistLabel"
+    distLabel.Size = UDim2.new(1, 0, 0.45, 0)
+    distLabel.Position = UDim2.new(0, 0, 0.55, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text = ""
+    distLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    distLabel.TextStrokeTransparency = 0
+    distLabel.Font = Enum.Font.Gotham
+    distLabel.TextSize = 10
+    distLabel.Parent = billboard
+
+    billboard.Parent = targetPart
+
+    activeOreESP[obj] = { highlight = highlight, billboard = billboard, part = targetPart }
+
+    obj.AncestryChanged:Connect(function()
+        if not obj.Parent then
+            pcall(function() highlight:Destroy() end)
+            pcall(function() billboard:Destroy() end)
+            activeOreESP[obj] = nil
+        end
+    end)
+end
+
+local function cleanupAllOreESP()
+    for obj, data in pairs(activeOreESP) do
+        pcall(function() data.highlight:Destroy() end)
+        pcall(function() data.billboard:Destroy() end)
+        activeOreESP[obj] = nil
+    end
+end
+
+local function scanOreESP()
+    local map = workspace:FindFirstChild("Map")
+    if not map then return end
+    for _, obj in ipairs(map:GetChildren()) do
+        if isValidOre(obj) then createOreESP(obj) end
+    end
+end
+
+workspace.DescendantAdded:Connect(function(obj)
+    if Config.OreESPEnabled then
+        task.defer(function()
+            if isValidOre(obj) then createOreESP(obj) end
+        end)
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not Config.OreESPEnabled then return end
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    for obj, data in pairs(activeOreESP) do
+        if not obj.Parent then
+            activeOreESP[obj] = nil
+        elseif data.part and data.part.Parent then
+            local dist = math.floor((hrp.Position - data.part.Position).Magnitude)
+            local dl = data.billboard and data.billboard:FindFirstChild("DistLabel")
+            if dl then dl.Text = dist .. "m" end
+        end
+    end
+end)
+
 local Window = Fluent:CreateWindow({
     Title = "StarCrowHub",
     SubTitle = "Dead Spells",
@@ -1353,7 +1482,7 @@ Tabs.Main:AddSlider("BringItemRangeSlider", {
 Tabs.Main:AddDropdown("BringRarityDropdown", {
     Title = "Bring Rarities",
     Values = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical", "Transcended"},
-    Default = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical", "Transcended"},
+    Default = {},
     Multi = true,
     ScrollingEnabled = true,
     Callback = function(Value)
@@ -1432,7 +1561,7 @@ Tabs.ESP:AddToggle("ESPItemToggle", {
 Tabs.ESP:AddDropdown("ItemESPRarityDropdown", {
     Title = "Select Item ESP",
     Values = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical", "Transcended"},
-    Default = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical", "Transcended"},
+    Default = {},
     Multi = true,
     ScrollingEnabled = true,
     Callback = function(Value)
@@ -1448,6 +1577,21 @@ Tabs.ESP:AddDropdown("ItemESPRarityDropdown", {
         if Config.ItemESPEnabled then
             cleanupAllItemESP()
             scanItemESP()
+        end
+    end
+})
+
+
+Tabs.ESP:AddToggle("ESPOreToggle", {
+    Title = "ESP Ore",
+    Default = Config.OreESPEnabled,
+    Callback = function(Value)
+        Config.OreESPEnabled = Value
+        SaveConfig()
+        if Value then
+            scanOreESP()
+        else
+            cleanupAllOreESP()
         end
     end
 })

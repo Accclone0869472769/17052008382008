@@ -1,13 +1,101 @@
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local HttpService      = game:GetService("HttpService")
+local CoreGui          = game:GetService("CoreGui")
 local LocalPlayer      = Players.LocalPlayer
 local Camera           = workspace.CurrentCamera
-local CoreGui          = game:GetService("CoreGui")
 
--- LOGO GUI
+local Features = {
+    NoRecoil      = false,
+    RapidFire     = false,
+    FullAuto      = false,
+    ArmorPiercing = false,
+    SpreadLock    = false,
+    InfAmmo       = false,
+    NoBulletDrop  = false,
+    Rainbow       = false,
+    Tracer        = false,
+    NoJam         = false,
+    NoFlash       = false,
+}
+
+local Values = {
+    ShootRate    = 1200,
+    MinSpreadVal = 0,
+    MaxSpreadVal = 0,
+    AmmoAmount   = 9999,
+}
+
+local SilentAimSettings = {
+    Enabled         = false,
+    ShowFOV         = true,
+    FOVRadius       = 150,
+    AimPart         = "Head",
+    WallbangEnabled = false,
+}
+
+local Config = {
+    ESPEnabled = false,
+    UITheme    = "Dark",
+}
+
+local SAVE_FOLDER = "StarCrowHub"
+local SAVE_FILE   = SAVE_FOLDER .. "/GunArmoryTycoonConfig.json"
+
+local function SaveConfig()
+    pcall(function()
+        if not isfolder(SAVE_FOLDER) then makefolder(SAVE_FOLDER) end
+        local data = {
+            Features          = Features,
+            Values            = Values,
+            SilentAimSettings = {
+                Enabled         = SilentAimSettings.Enabled,
+                ShowFOV         = SilentAimSettings.ShowFOV,
+                FOVRadius       = SilentAimSettings.FOVRadius,
+                WallbangEnabled = SilentAimSettings.WallbangEnabled,
+            },
+            Config = Config,
+        }
+        writefile(SAVE_FILE, HttpService:JSONEncode(data))
+    end)
+end
+
+local function LoadConfig()
+    pcall(function()
+        if not isfolder(SAVE_FOLDER) then makefolder(SAVE_FOLDER) end
+        if isfile(SAVE_FILE) then
+            local decoded = HttpService:JSONDecode(readfile(SAVE_FILE))
+            if type(decoded) ~= "table" then return end
+            if type(decoded.Features) == "table" then
+                for k, v in pairs(decoded.Features) do
+                    if Features[k] ~= nil then Features[k] = v end
+                end
+            end
+            if type(decoded.Values) == "table" then
+                for k, v in pairs(decoded.Values) do
+                    if Values[k] ~= nil then Values[k] = v end
+                end
+            end
+            if type(decoded.SilentAimSettings) == "table" then
+                for k, v in pairs(decoded.SilentAimSettings) do
+                    if SilentAimSettings[k] ~= nil then SilentAimSettings[k] = v end
+                end
+            end
+            if type(decoded.Config) == "table" then
+                for k, v in pairs(decoded.Config) do
+                    if Config[k] ~= nil then Config[k] = v end
+                end
+            end
+        end
+    end)
+end
+
+LoadConfig()
+
 local LogoGui = Instance.new("ScreenGui")
 LogoGui.Name = "StarCrowLogoGui"
 LogoGui.ResetOnSpawn = false
@@ -59,43 +147,32 @@ do
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and input == dragInput then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
             LogoFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
     UserInputService.InputEnded:Connect(function(input)
-        if input == dragInput then dragging = false; dragInput = nil end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            dragInput = nil
+        end
     end)
 end
 
--- FLUENT UI
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-
-local Window = Fluent:CreateWindow({
-    Title       = "StarCrow Hub Gun Armory tycoon",
-    TabWidth    = 130,
-    Size        = UDim2.fromOffset(500, 350),
-    Acrylic     = false,
-    Theme       = "Dark",
-    MinimizeKey = Enum.KeyCode.LeftControl
-})
-
-local Tabs = {
-    Info     = Window:AddTab({ Title = "Info",        Icon = "info"      }),
-    Combat   = Window:AddTab({ Title = "Silent Aim",  Icon = "crosshair" }),
-    GunMod   = Window:AddTab({ Title = "Gun Mod",     Icon = "swords"    }),
-    ESP      = Window:AddTab({ Title = "ESP",         Icon = "eye"       }),
-    Settings = Window:AddTab({ Title = "Settings",    Icon = "settings"  }),
-}
-
 local uiVisible = true
-LogoBtn.MouseButton1Click:Connect(function()
+local minimizeKey = Enum.KeyCode.LeftControl
+local lastToggleTime = 0
+
+local function toggleUI()
+    local now = tick()
+    if now - lastToggleTime < 0.3 then return end
+    lastToggleTime = now
     uiVisible = not uiVisible
     for _, gui in ipairs(CoreGui:GetChildren()) do
         if gui:IsA("ScreenGui") then
             for _, desc in ipairs(gui:GetDescendants()) do
-                if desc:IsA("TextLabel") and desc.Text == "StarCrow Hub Gun Armory tycoon" then
+                if desc:IsA("TextLabel") and desc.Text == "StarCrowHub" then
                     local p = desc.Parent
                     while p and p.Parent ~= gui do p = p.Parent end
                     if p and p:IsA("Frame") then p.Visible = uiVisible return end
@@ -103,104 +180,25 @@ LogoBtn.MouseButton1Click:Connect(function()
             end
         end
     end
+end
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == minimizeKey then toggleUI() end
 end)
 
--- VARIABLES & DEFAULT VALUES
-local Features = {
-    NoRecoil      = false,
-    RapidFire     = false,
-    FullAuto      = false,
-    ArmorPiercing = false,
-    SpreadLock    = false,
-    InfAmmo       = false,
-    NoBulletDrop  = false,
-    Rainbow       = false,
-    Tracer        = false,
-    NoJam         = false,
-    NoFlash       = false,
-}
-
-local Values = {
-    ShootRate    = 1200,
-    MinSpreadVal = 0,
-    MaxSpreadVal = 0,
-    AmmoAmount   = 9999,
-}
-
-local SilentAimSettings = {
-    Enabled         = false,
-    ShowFOV         = true,
-    FOVRadius       = 150,
-    AimPart         = "Head",
-    WallbangEnabled = false,
-}
-
-local Config = {
-    ESPEnabled = false,
-}
-
--- AUTO SAVE
-local CONFIG_FOLDER = "StarCrowHub"
-local CONFIG_FILE   = CONFIG_FOLDER .. "/GunArmoryTycoonConfig.json"
-
-local function EnsureFolder()
-    if not isfolder(CONFIG_FOLDER) then
-        makefolder(CONFIG_FOLDER)
+local clickStartPos = Vector2.new()
+LogoBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        clickStartPos = Vector2.new(input.Position.X, input.Position.Y)
     end
-end
+end)
+LogoBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local dist = (Vector2.new(input.Position.X, input.Position.Y) - clickStartPos).Magnitude
+        if dist < 10 then toggleUI() end
+    end
+end)
 
-local function SaveConfig()
-    pcall(function()
-        EnsureFolder()
-        local data = {
-            Features        = Features,
-            Values          = Values,
-            SilentAimSettings = {
-                Enabled         = SilentAimSettings.Enabled,
-                ShowFOV         = SilentAimSettings.ShowFOV,
-                FOVRadius       = SilentAimSettings.FOVRadius,
-                WallbangEnabled = SilentAimSettings.WallbangEnabled,
-            },
-            Config = Config,
-        }
-        writefile(CONFIG_FILE, HttpService:JSONEncode(data))
-    end)
-end
-
-local function LoadConfig()
-    pcall(function()
-        EnsureFolder()
-        if isfile(CONFIG_FILE) then
-            local decoded = HttpService:JSONDecode(readfile(CONFIG_FILE))
-            if type(decoded) ~= "table" then return end
-
-            if type(decoded.Features) == "table" then
-                for k, v in pairs(decoded.Features) do
-                    if Features[k] ~= nil then Features[k] = v end
-                end
-            end
-            if type(decoded.Values) == "table" then
-                for k, v in pairs(decoded.Values) do
-                    if Values[k] ~= nil then Values[k] = v end
-                end
-            end
-            if type(decoded.SilentAimSettings) == "table" then
-                for k, v in pairs(decoded.SilentAimSettings) do
-                    if SilentAimSettings[k] ~= nil then SilentAimSettings[k] = v end
-                end
-            end
-            if type(decoded.Config) == "table" then
-                for k, v in pairs(decoded.Config) do
-                    if Config[k] ~= nil then Config[k] = v end
-                end
-            end
-        end
-    end)
-end
-
-LoadConfig()
-
--- FOV CIRCLE GUI
 local fovGui = Instance.new("ScreenGui")
 fovGui.Name = "StarCrowFOV"
 fovGui.IgnoreGuiInset = true
@@ -215,16 +213,16 @@ fovCircle.BackgroundTransparency = 1
 fovCircle.Visible = false
 fovCircle.Parent = fovGui
 Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(1, 0)
+
 local fovStroke = Instance.new("UIStroke", fovCircle)
 fovStroke.Color = Color3.fromRGB(0, 255, 127)
 fovStroke.Thickness = 2
 
--- ESP LOGIC
 local espObjects = {}
 
 local function updateESP()
     if not Config.ESPEnabled then
-        for player, data in pairs(espObjects) do
+        for _, data in pairs(espObjects) do
             if data.bill  then data.bill:Destroy()  end
             if data.chams then data.chams:Destroy() end
         end
@@ -316,7 +314,6 @@ Players.PlayerRemoving:Connect(function(player)
     end
 end)
 
--- RENDERSTEPPED
 local currentTarget = nil
 local isHoldingGun  = false
 
@@ -354,7 +351,6 @@ RunService.RenderStepped:Connect(function()
     updateESP()
 end)
 
--- WALLBANG HOOK
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
@@ -388,7 +384,6 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return oldNamecall(self, ...)
 end)
 
--- ACS MOD LOGIC
 local function ModWeapon(tool)
     if not tool:IsA("Tool") then return end
     local mod = tool:FindFirstChild("ACS_Settings")
@@ -433,6 +428,7 @@ end
 task.spawn(function()
     while task.wait(0.5) do ApplyAll() end
 end)
+
 LocalPlayer.CharacterAdded:Connect(function(char)
     char.ChildAdded:Connect(function(item) ModWeapon(item) end)
 end)
@@ -441,51 +437,77 @@ if LocalPlayer.Character then
 end
 LocalPlayer.Backpack.ChildAdded:Connect(function(item) ModWeapon(item) end)
 
--- INFO TAB
+local Window = Fluent:CreateWindow({
+    Title       = "StarCrowHub",
+    SubTitle    = "Gun Armory Tycoon",
+    TabWidth    = 130,
+    Size        = UDim2.fromOffset(460, 400),
+    Acrylic     = false,
+    Theme       = Config.UITheme or "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl,
+})
+
+local Tabs = {
+    Info     = Window:AddTab({ Title = "Info",       Icon = "info"      }),
+    Combat   = Window:AddTab({ Title = "Silent Aim", Icon = "crosshair" }),
+    GunMod   = Window:AddTab({ Title = "Gun Mod",    Icon = "swords"    }),
+    ESP      = Window:AddTab({ Title = "ESP",        Icon = "eye"       }),
+    Settings = Window:AddTab({ Title = "Settings",   Icon = "settings"  }),
+}
+
 Tabs.Info:AddParagraph({
-    Title = "Join our Discord",
-    Content = "Discord is the best place to get updates and report bugs."
+    Title   = "Join our Discord",
+    Content = "Discord is the best place to get updates and report bugs.",
 })
 
 Tabs.Info:AddButton({
-    Title = "Copy Discord Link",
+    Title    = "Copy Discord Link",
     Callback = function()
         pcall(function()
             setclipboard("https://discord.com/invite/wXthjUsXns")
             Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 })
         end)
-    end
+    end,
 })
 
--- SILENT AIM TAB
 Tabs.Combat:AddToggle("T_SilentAim", { Title = "Enable Silent Aim", Default = SilentAimSettings.Enabled }):OnChanged(function(val)
     SilentAimSettings.Enabled = val
     SaveConfig()
 end)
+
 Tabs.Combat:AddToggle("T_ShowFOV", { Title = "Show FOV Circle", Default = SilentAimSettings.ShowFOV }):OnChanged(function(val)
     SilentAimSettings.ShowFOV = val
     SaveConfig()
 end)
+
 Tabs.Combat:AddSlider("S_FOVRadius", {
-    Title = "FOV Radius", Default = SilentAimSettings.FOVRadius, Min = 50, Max = 600, Rounding = 0,
+    Title    = "FOV Radius",
+    Default  = SilentAimSettings.FOVRadius,
+    Min      = 50,
+    Max      = 600,
+    Rounding = 0,
     Callback = function(val)
         SilentAimSettings.FOVRadius = val
         fovCircle.Size = UDim2.new(0, val * 2, 0, val * 2)
         SaveConfig()
-    end
+    end,
 })
 
--- GUN MOD TAB
-Tabs.GunMod:AddToggle("T_Wallbang", { Title = "Magic Bullet", Description = "The farther the target, the slower the bullet travels and hits.", Default = SilentAimSettings.WallbangEnabled }):OnChanged(function(val)
+Tabs.GunMod:AddToggle("T_Wallbang", {
+    Title       = "Magic Bullet",
+    Description = "The farther the target, the slower the bullet travels and hits.",
+    Default     = SilentAimSettings.WallbangEnabled,
+}):OnChanged(function(val)
     SilentAimSettings.WallbangEnabled = val
     SaveConfig()
 end)
-Tabs.GunMod:AddToggle("T_NoRecoil",    { Title = "No Recoil & Laser Aim",  Default = Features.NoRecoil      }):OnChanged(function(v) Features.NoRecoil      = v; ApplyAll(); SaveConfig() end)
-Tabs.GunMod:AddToggle("T_FullAuto",    { Title = "Force Full-Auto",         Default = Features.FullAuto      }):OnChanged(function(v) Features.FullAuto      = v; ApplyAll(); SaveConfig() end)
-Tabs.GunMod:AddToggle("T_NoJam",       { Title = "No Jam / Gun Break",      Default = Features.NoJam         }):OnChanged(function(v) Features.NoJam         = v; ApplyAll(); SaveConfig() end)
-Tabs.GunMod:AddToggle("T_ArmorPierce", { Title = "Armor Piercing",          Default = Features.ArmorPiercing }):OnChanged(function(v) Features.ArmorPiercing = v; ApplyAll(); SaveConfig() end)
 
-local SectionStats = Tabs.GunMod:AddSection("Custom Values Mods")
+Tabs.GunMod:AddToggle("T_NoRecoil",    { Title = "No Recoil & Laser Aim", Default = Features.NoRecoil      }):OnChanged(function(v) Features.NoRecoil      = v; ApplyAll(); SaveConfig() end)
+Tabs.GunMod:AddToggle("T_FullAuto",    { Title = "Force Full-Auto",        Default = Features.FullAuto      }):OnChanged(function(v) Features.FullAuto      = v; ApplyAll(); SaveConfig() end)
+Tabs.GunMod:AddToggle("T_NoJam",       { Title = "No Jam / Gun Break",     Default = Features.NoJam         }):OnChanged(function(v) Features.NoJam         = v; ApplyAll(); SaveConfig() end)
+Tabs.GunMod:AddToggle("T_ArmorPierce", { Title = "Armor Piercing",         Default = Features.ArmorPiercing }):OnChanged(function(v) Features.ArmorPiercing = v; ApplyAll(); SaveConfig() end)
+
+local SectionStats = Tabs.GunMod:AddSection("Custom Values")
 SectionStats:AddToggle("T_RapidFire", { Title = "Enable Rapid Fire", Default = Features.RapidFire }):OnChanged(function(v) Features.RapidFire = v; ApplyAll(); SaveConfig() end)
 SectionStats:AddInput("I_RapidFire",  { Title = "Rapid Fire (RPM) Value", Default = tostring(Values.ShootRate), Numeric = true, Finished = true, Callback = function(v) Values.ShootRate = tonumber(v) or 1200; ApplyAll(); SaveConfig() end })
 SectionStats:AddToggle("T_Ammo",      { Title = "Enable Inf Ammo", Default = Features.InfAmmo }):OnChanged(function(v) Features.InfAmmo = v; ApplyAll(); SaveConfig() end)
@@ -496,24 +518,35 @@ SectionVis:AddToggle("T_NoDrop",  { Title = "No Bullet Drop",  Default = Feature
 SectionVis:AddToggle("T_Rainbow", { Title = "Rainbow Tracer",  Default = Features.Rainbow      }):OnChanged(function(v) Features.Rainbow      = v; ApplyAll(); SaveConfig() end)
 SectionVis:AddToggle("T_NoFlash", { Title = "No Muzzle Flash", Default = Features.NoFlash      }):OnChanged(function(v) Features.NoFlash      = v; ApplyAll(); SaveConfig() end)
 
--- ESP TAB
 Tabs.ESP:AddToggle("ESPPlayers", {
-    Title = "ESP Players (Name | Dist | HP | Chams)", Default = Config.ESPEnabled,
+    Title    = "ESP Players (Name | Dist | HP | Chams)",
+    Default  = Config.ESPEnabled,
     Callback = function(v)
         Config.ESPEnabled = v
         SaveConfig()
-    end
+    end,
 })
 
--- SETTINGS TAB
-Tabs.Settings:AddButton({
-    Title = "Unload UI",
-    Description = "Remove FOV, Logo and Fluent UI",
-    Callback = function()
-        Window:Destroy()
-        if fovGui  then fovGui:Destroy()  end
-        if LogoGui then LogoGui:Destroy() end
-    end
+Tabs.Settings:AddKeybind("ToggleUIKeybind", {
+    Title           = "Minimize UI Keybind",
+    Mode            = "Toggle",
+    Default         = "LeftControl",
+    ChangedCallback = function(NewKey)
+        local keyCode = typeof(NewKey) == "EnumItem" and NewKey or Enum.KeyCode[tostring(NewKey)] or Enum.KeyCode.LeftControl
+        minimizeKey = keyCode
+        Window.MinimizeKey = keyCode
+    end,
+})
+
+Tabs.Settings:AddDropdown("UITheme", {
+    Title    = "UI Theme",
+    Values   = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose", "Mint" },
+    Default  = Config.UITheme or "Dark",
+    Callback = function(Value)
+        Config.UITheme = Value
+        SaveConfig()
+        Fluent:SetTheme(Value)
+    end,
 })
 
 Window:SelectTab(1)

@@ -113,11 +113,6 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
-if S.Config.IsBanned then
-    LocalPlayer:Kick("StarCrowHub Banned: " .. (S.Config.BanReason ~= "" and S.Config.BanReason or "Blacklisted Device"))
-    return
-end
-
 
 
 local currentTarget      = nil

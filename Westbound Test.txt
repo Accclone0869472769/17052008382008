@@ -46,7 +46,6 @@ local S = {
         ShowFloatAimNPC  = false,
         ShowFloatAura    = false,
         FloatButtonSize  = 50,
-        SpawnDelay       = 5, 
         FloatAuraPos     = {0.92, 0, 0.15, 0},
         FloatAimPos      = {0.82, 0, 0.15, 0},
         HeadboxEnabled   = false,
@@ -59,13 +58,13 @@ local S = {
         DynamiteTargetEnabled = false,
         DynamiteTeamCheck = true,
         ESPTextTransparency = 0,
-        UITheme = "Dark"
+        UITheme = "Dark",
+        AutoBankEnabled  = false,
+        SpawnDelay       = 2
     }
 }
 
 getgenv().StarConfig = S.Config
-getgenv().StarCrowSpawnDelay = S.Config.SpawnDelay
-getgenv().StarCrowAutoSpawn = S.Config.AutoSpawnEnabled
 
 local Players          = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -108,7 +107,6 @@ end
 
 LoadConfig()
 getgenv().StarCrowSpawnDelay = S.Config.SpawnDelay
-getgenv().StarCrowAutoSpawn = S.Config.AutoSpawnEnabled
 
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
@@ -120,53 +118,7 @@ if S.Config.IsBanned then
     return
 end
 
-if not _G.StarCrowProtectionHook then
-    _G.StarCrowProtectionHook = true
-    local a
-    a = hookfunction(Instance.new("RemoteEvent").FireServer,function(s,...)
-        local args = {...}
-        if (getgenv().StarCrowAutoBank or getgenv().AutoChestTP or getgenv().StarCrowAutoCash) and not checkcaller() and tostring(s) == "ChangeCharacter" and (args[1] == "Damage" or args[1] == "Ragdoll") then
-            return
-        end
-        return a(s,...)
-    end)
-    local m = getrawmetatable(game)
-    local n = m.__newindex
-    setreadonly(m,false)
-    m.__newindex = newcclosure(function(s,k,val)
-        if (getgenv().StarCrowAutoBank or getgenv().AutoChestTP or getgenv().StarCrowAutoCash) and not checkcaller() and s:IsA("Humanoid") and k == "Health" and val <= 0 then
-            return n(s,k,100)
-        end
-        return n(s,k,val)
-    end)
-    setreadonly(m,true)
-end
 
-local function setupSharedProtection(x)
-    local h = x:WaitForChild("Humanoid",9e9)
-    if h then
-        task.spawn(function()
-            while x and x.Parent and h.Health > 0 do
-                if getgenv().StarCrowAutoBank or getgenv().AutoChestTP or getgenv().StarCrowAutoCash then
-                    h:SetStateEnabled(Enum.HumanoidStateType.Dead,false)
-                    local s = LocalPlayer:FindFirstChild("States")
-                    if s then
-                        local bp = s:FindFirstChild("BackpackDisabled")
-                        if bp and bp.Value then bp.Value = false end
-                    end
-                    local rag = x:FindFirstChild("Ragdolled")
-                    if rag and rag.Value then rag.Value = false end
-                else
-                    h:SetStateEnabled(Enum.HumanoidStateType.Dead,true)
-                end
-                task.wait(.2)
-            end
-        end)
-    end
-end
-
-if not _G.SharedCharConn then _G.SharedCharConn = LocalPlayer.CharacterAdded:Connect(setupSharedProtection) end
-if LocalPlayer.Character then setupSharedProtection(LocalPlayer.Character) end
 
 local currentTarget      = nil
 local isHoldingGun       = false
@@ -436,6 +388,75 @@ local BlurEffect = Instance.new("BlurEffect")
 BlurEffect.Size = 0
 BlurEffect.Parent = Lighting
 
+local FarmOverlay = Instance.new("ScreenGui")
+FarmOverlay.Name = "StarCrowFarmOverlay"
+FarmOverlay.ResetOnSpawn = false
+FarmOverlay.IgnoreGuiInset = true
+FarmOverlay.DisplayOrder = 1000
+pcall(function() FarmOverlay.Parent = game:GetService("CoreGui") end)
+if not FarmOverlay.Parent then FarmOverlay.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+FarmOverlay.Enabled = false
+
+local OverlayFrame = Instance.new("Frame")
+OverlayFrame.Size = UDim2.new(1, 0, 1, 0)
+OverlayFrame.BackgroundTransparency = 0.4
+OverlayFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+OverlayFrame.Active = false
+OverlayFrame.Parent = FarmOverlay
+
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Parent = OverlayFrame
+ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+ListLayout.Padding = UDim.new(0, 10)
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Text = "StarCrow Hub"
+TitleText.TextColor3 = Color3.fromRGB(170, 85, 255)
+TitleText.TextSize = 50
+TitleText.Font = Enum.Font.FredokaOne
+TitleText.BackgroundTransparency = 1
+TitleText.Size = UDim2.new(1, 0, 0, 55)
+TitleText.Parent = OverlayFrame
+local TitleStroke = Instance.new("UIStroke", TitleText)
+TitleStroke.Thickness = 2.5
+TitleStroke.Color = Color3.fromRGB(0, 0, 0)
+
+local TimeText = Instance.new("TextLabel")
+TimeText.Text = "Time : 00:00:00"
+TimeText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TimeText.TextSize = 25
+TimeText.Font = Enum.Font.GothamBold
+TimeText.BackgroundTransparency = 1
+TimeText.Size = UDim2.new(1, 0, 0, 30)
+TimeText.Parent = OverlayFrame
+local TimeStroke = Instance.new("UIStroke", TimeText)
+TimeStroke.Thickness = 2
+TimeStroke.Color = Color3.fromRGB(0, 0, 0)
+
+local CashText = Instance.new("TextLabel")
+CashText.Text = "Total cash : $0"
+CashText.TextColor3 = Color3.fromRGB(255, 255, 255)
+CashText.TextSize = 25
+CashText.Font = Enum.Font.GothamBold
+CashText.BackgroundTransparency = 1
+CashText.Size = UDim2.new(1, 0, 0, 30)
+CashText.Parent = OverlayFrame
+local CashStroke = Instance.new("UIStroke", CashText)
+CashStroke.Thickness = 2
+CashStroke.Color = Color3.fromRGB(0, 0, 0)
+
+local StatusText = Instance.new("TextLabel")
+StatusText.Text = "Status : Syncing..."
+StatusText.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusText.TextSize = 25
+StatusText.Font = Enum.Font.GothamBold
+StatusText.BackgroundTransparency = 1
+StatusText.Size = UDim2.new(1, 0, 0, 30)
+StatusText.Parent = OverlayFrame
+local StatusStroke = Instance.new("UIStroke", StatusText)
+StatusStroke.Thickness = 2
+StatusStroke.Color = Color3.fromRGB(0, 0, 0)
 
 task.spawn(function()
     pcall(function()
@@ -859,10 +880,213 @@ function InitSilentAimHook()
     end)
 end
 
+local function IsBagFull()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        for _, desc in ipairs(playerGui:GetDescendants()) do
+            if desc:IsA("TextLabel") and desc.Visible and string.find(desc.Text, "Bag:") then
+                local cleanText = string.gsub(desc.Text, ",", "")
+                local current, max = string.match(cleanText, "%$?(%d+)%s*/%s*%$?(%d+)")
+                if current and max then return tonumber(current) >= tonumber(max) end
+            end
+        end
+    end
+    return false
+end
+
+local function GetPlayerMoneyStat()
+    local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+    if leaderstats then
+        local bestStat = leaderstats:FindFirstChild("Cash") or leaderstats:FindFirstChild("Money") or leaderstats:FindFirstChild("Coins") or leaderstats:FindFirstChild("Bounty") or leaderstats:FindFirstChild("$$")
+        if not bestStat then
+            for _, stat in ipairs(leaderstats:GetChildren()) do
+                if stat:IsA("IntValue") or stat:IsA("NumberValue") then bestStat = stat; break end
+            end
+        end
+        return bestStat
+    end
+    return nil
+end
+
+local farmStartTime = 0
+local farmEarnedCash = 0
+local uiRenderConn = nil
+local moneyTrackConn = nil
+
+local function UpdateFarmUI()
+    local active = getgenv().StarCrowAutoBank
+    if active then
+        if not FarmOverlay.Enabled then
+            farmStartTime = os.time()
+            farmEarnedCash = 0
+            BlurEffect.Size = 15
+            FarmOverlay.Enabled = true
+            ToggleFluentUI(false)
+            local moneyStat = GetPlayerMoneyStat()
+            if moneyStat then
+                local currentVal = moneyStat.Value
+                moneyTrackConn = moneyStat:GetPropertyChangedSignal("Value"):Connect(function()
+                    if moneyStat.Value > currentVal then
+                        farmEarnedCash = farmEarnedCash + (moneyStat.Value - currentVal)
+                    end
+                    currentVal = moneyStat.Value
+                end)
+            end
+            uiRenderConn = RunService.RenderStepped:Connect(function()
+                local elapsed = os.time() - farmStartTime
+                TimeText.Text = string.format("Time : %02d:%02d:%02d", math.floor(elapsed / 3600), math.floor((elapsed % 3600) / 60), elapsed % 60)
+                CashText.Text = "Total cash : $" .. tostring(farmEarnedCash):reverse():gsub("%d%d%d", "%1,"):reverse():gsub("^,", "")
+                local currentStat = GetPlayerMoneyStat()
+                if currentStat then
+                    StatusText.Text = "Status : " .. tostring(currentStat.Value):reverse():gsub("%d%d%d", "%1,"):reverse():gsub("^,", "")
+                else
+                    StatusText.Text = "Status : Syncing..."
+                end
+            end)
+        end
+    else
+        BlurEffect.Size = 0
+        FarmOverlay.Enabled = false
+        ToggleFluentUI(true)
+        if uiRenderConn then uiRenderConn:Disconnect(); uiRenderConn = nil end
+        if moneyTrackConn then moneyTrackConn:Disconnect(); moneyTrackConn = nil end
+    end
+end
+
+local function TriggerRob()
+    local robRemote = ReplicatedStorage:WaitForChild("GeneralEvents", 9e9):WaitForChild("Rob", 9e9)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChild("Humanoid")
+    if not root or not hum or hum.Health <= 0 then return end
+    for i = 1, 10 do
+        if not getgenv().StarCrowAutoBank then break end
+        if IsBagFull() then break end
+        char = LocalPlayer.Character
+        root = char and char:FindFirstChild("HumanoidRootPart")
+        hum = char and char:FindFirstChild("Humanoid")
+        if not root or not hum or hum.Health <= 0 then break end
+        local myPos = root.Position
+        local targets = GetRobTargets()
+        for _, target in ipairs(targets) do
+            if target.part and target.part.Parent and (myPos - target.part.Position).Magnitude <= 30 then
+                pcall(function()
+                    if target.isSafe then
+                        local r = target.obj:FindFirstChild("OpenSafe")
+                        if r and r:IsA("RemoteEvent") then r:FireServer("Complete") end
+                        robRemote:FireServer("Safe", target.obj)
+                    else
+                        robRemote:FireServer("Register", target.obj)
+                    end
+                end)
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+local bankActive = false
+local waitingForSpawn = false
+
+local function StartBankFarm()
+    if bankActive then return end
+    bankActive = true
+    task.spawn(function()
+        local SpawnEvent = ReplicatedStorage:WaitForChild("GeneralEvents", 9e9):WaitForChild("Spawn", 9e9)
+        local Banks = {
+            {spawn = "Tumbleweed", p1 = Vector3.new(-269.49, 13.35, -172.71), p2 = Vector3.new(-255.19, 13.35, -174.03)},
+            {spawn = "Grayridge",  p1 = Vector3.new(1578.65, 121.35, 1676.49), p2 = nil},
+            {spawn = "Plainview",  p1 = Vector3.new(-1.89, 51.79, 3023.91), p2 = Vector3.new(5.26, 51.79, 3027.07)},
+            {spawn = "StoneCreek", p1 = Vector3.new(873.77, 24.67, 198.60), p2 = nil},
+        }
+        local bankIndex = 1
+        local t0 = 0
+        while getgenv().StarCrowAutoBank do
+            if waitingForSpawn then task.wait(0.1); continue end
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChild("Humanoid")
+            if not char or not hrp or not hum or hum.Health <= 0 then
+                -- die xong reset ngay để không bị kẹt timeout
+                t0 = 0
+                task.wait(0.5)
+                continue
+            end
+            if IsBagFull() then
+                pcall(function() SpawnEvent:InvokeServer("FortCassidy", true, false) end)
+                repeat task.wait(0.5) until not IsBagFull() or not getgenv().StarCrowAutoBank
+            else
+                local bank = Banks[bankIndex]
+                waitingForSpawn = true
+                local conn
+                conn = LocalPlayer.CharacterAdded:Connect(function(newChar)
+                    task.wait(0.3)
+                    local newHrp = newChar:WaitForChild("HumanoidRootPart", 5)
+                    local newHum = newChar:WaitForChild("Humanoid", 5)
+                    if newHrp and newHum and newHum.Health > 0 then
+                        if bank.p1 and not IsBagFull() then
+                            newHrp.CFrame = CFrame.new(bank.p1)
+                            newHrp.AssemblyLinearVelocity = Vector3.zero
+                            if newHum then newHum:ChangeState(Enum.HumanoidStateType.Jumping) end
+                            task.wait(0.5)
+                            TriggerRob()
+                        end
+                        if bank.p2 and not IsBagFull() then
+                            newHrp.CFrame = CFrame.new(bank.p2)
+                            newHrp.AssemblyLinearVelocity = Vector3.zero
+                            if newHum then newHum:ChangeState(Enum.HumanoidStateType.Jumping) end
+                            task.wait(0.5)
+                            TriggerRob()
+                        end
+                    end
+                    conn:Disconnect()
+                    waitingForSpawn = false
+                    t0 = 0 -- thoát repeat ngay khi spawn xong
+                end)
+                pcall(function() SpawnEvent:InvokeServer(bank.spawn, false, false) end)
+                t0 = os.clock()
+                repeat task.wait(0.1) until not waitingForSpawn or os.clock() - t0 >= 8 or t0 == 0 or not getgenv().StarCrowAutoBank
+                if waitingForSpawn then conn:Disconnect(); waitingForSpawn = false end
+                bankIndex = bankIndex + 1
+                if bankIndex > #Banks then bankIndex = 1 end
+            end
+            task.wait(0.5)
+        end
+        waitingForSpawn = false
+        bankActive = false
+    end)
+end
+
+
+
+local autoSpawnActive = false
+local function StartAutoSpawn()
+    if autoSpawnActive then return end
+    autoSpawnActive = true
+    task.spawn(function()
+        local SpawnEvent = ReplicatedStorage:WaitForChild("GeneralEvents", 9e9):WaitForChild("Spawn", 9e9)
+        while getgenv().StarCrowAutoSpawn do
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            if not char or not hum or hum.Health <= 0 then
+                if getgenv().StarCrowAutoBank then
+                    task.wait(math.max(0, getgenv().StarCrowSpawnDelay or 2))
+                    if not getgenv().StarCrowAutoSpawn then break end
+                    pcall(function() SpawnEvent:InvokeServer(nil, true, false) end)
+                    task.wait(2)
+                end
+            end
+            task.wait(0.5)
+        end
+        autoSpawnActive = false
+    end)
+end
+
 local Window = Fluent:CreateWindow({ Title = "StarCrowHub", SubTitle = "West Bound", TabWidth = 130, Size = UDim2.fromOffset(460, 400), Acrylic = false, Theme = S.Config.UITheme or "Dark", MinimizeKey = Enum.KeyCode.LeftControl })
 
 local Tabs = {
     Info      = Window:AddTab({ Title = "Info",      Icon = "info" }),
+    AutoFarm  = Window:AddTab({ Title = "Auto Farm", Icon = "gem" }),
     Aim       = Window:AddTab({ Title = "Combat",    Icon = "crosshair" }),
     GunMod    = Window:AddTab({ Title = "Gun Mod",   Icon = "swords" }),
     Teleport  = Window:AddTab({ Title = "Teleport",  Icon = "map-pin" }),
@@ -875,6 +1099,48 @@ local Tabs = {
 
 Tabs.Info:AddParagraph({ Title = "Join our Discord", Content = "Discord is the best place to get updates and report bugs." })
 Tabs.Info:AddButton({ Title = "Copy Discord Link", Callback = function() pcall(function() setclipboard("https://discord.com/invite/wXthjUsXns"); Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 }) end) end })
+
+Tabs.AutoFarm:AddParagraph({ Title = "Auto Farm", Content = "Auto Farm might glitch, rejoin if it errors." })
+
+Tabs.AutoFarm:AddToggle("AutoSpawnToggle", {
+    Title = "Auto Spawn", Default = false,
+    Callback = function(v)
+        getgenv().StarCrowAutoSpawn = v
+        if v then StartAutoSpawn() end
+    end
+})
+
+Tabs.AutoFarm:AddToggle("AutoBankToggle", {
+    Title = "Auto Farm Banks", Default = S.Config.AutoBankEnabled,
+    Callback = function(v)
+        getgenv().StarCrowAutoBank = v
+        S.Config.AutoBankEnabled = v
+        UpdateFarmUI()
+        if v then StartBankFarm() end
+    end
+})
+
+Tabs.AutoFarm:AddInput("SpawnDelay", {
+    Title = "Death Spawn Delay", Default = tostring(S.Config.SpawnDelay), Numeric = true, Finished = false, Placeholder = "Seconds...",
+    Callback = function(Value)
+        local parsedValue = tonumber(Value)
+        if parsedValue then getgenv().StarCrowSpawnDelay = parsedValue; S.Config.SpawnDelay = parsedValue end
+    end
+})
+
+local MoneyStatus = Tabs.AutoFarm:AddParagraph({ Title = "Status", Content = "Syncing data..." })
+task.spawn(function()
+    while task.wait(1) do
+        local moneyStat = GetPlayerMoneyStat()
+        local moneyText = "Leaderboard data not found"
+        if moneyStat then
+            moneyText = moneyStat.Name .. ": " .. tostring(moneyStat.Value):reverse():gsub("%d%d%d", "%1,"):reverse():gsub("^,", "")
+        else
+            moneyText = "Valid currency stat not found"
+        end
+        pcall(function() MoneyStatus:SetDesc(moneyText) end)
+    end
+end)
 
 Tabs.Aim:AddParagraph({ Title = "Target Selection", Content = "" })
 Tabs.Aim:AddToggle("HeadboxToggle", { Title = "Enable Headbox", Default = S.Config.HeadboxEnabled, Callback = function(v) S.Config.HeadboxEnabled = v; SaveConfig() end })

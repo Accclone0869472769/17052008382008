@@ -26,7 +26,7 @@ local S = {
         IsTapping        = false,
         NoToolCheck      = false,
         Prediction       = false,
-        PredictionFactor = 0.15, 
+        PredictionFactor = 0.15,
         ESPEnabled       = false,
         NoFog            = false,
         FullBright       = false,
@@ -152,14 +152,14 @@ local function CreateFloatButton(name, text, defaultPos, configKey)
     local btn = Instance.new("TextButton")
     btn.Name = name
     btn.Size = UDim2.new(0, S.Config.FloatButtonSize, 0, S.Config.FloatButtonSize)
-    
+
     local savedPos = S.Config[configKey]
     if type(savedPos) == "table" and #savedPos == 4 then
         btn.Position = UDim2.new(savedPos[1], savedPos[2], savedPos[3], savedPos[4])
     else
         btn.Position = defaultPos
     end
-    
+
     btn.BackgroundColor3 = Color3.fromRGB(62, 62, 62)
     btn.BackgroundTransparency = 1
     btn.AutoButtonColor = false
@@ -276,7 +276,7 @@ local fovCircle = Instance.new("Frame")
 fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
 fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 fovCircle.BackgroundTransparency = 1
-fovCircle.BackgroundColor3 = Color3.fromRGB(0,0,0) 
+fovCircle.BackgroundColor3 = Color3.fromRGB(0,0,0)
 fovCircle.BorderSizePixel = 0
 fovCircle.ClipsDescendants = true
 fovCircle.Visible = false
@@ -463,9 +463,9 @@ task.spawn(function()
         end
         local oldDisable = Ragdoll.DisableRagdoll
         Ragdoll.DisableRagdoll = function(...)
-            if not S.Config.AntiFallDamage then 
+            if not S.Config.AntiFallDamage then
                 if oldDisable then return oldDisable(...) end
-                return 
+                return
             end
             local char = game.Players.LocalPlayer.Character
             if not char then return end
@@ -616,7 +616,7 @@ local function updateESP()
                     end
                     local hpColor = hp > 70 and "rgb(0, 255, 127)" or hp > 30 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
                     esp.NameText.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font> | %dm | <font color="%s">%d%%</font>', tR, tG, tB, player.DisplayName, dist, hpColor, hp)
-                    
+
                     if S.Config.HeadboxEnabled then
                         if chams then chams:Destroy() end
                     else
@@ -679,7 +679,7 @@ RunService.RenderStepped:Connect(function()
     end
 
     if S.Config.AimMode == "FOV" and (S.Config.AimPlayer or S.Config.AimNPC) then
-        fovCircle.Visible = true; 
+        fovCircle.Visible = true;
         fovCircle.Size = UDim2.new(0, S.Config.FOVRadius * 2, 0, S.Config.FOVRadius * 2)
         strokeCircle.Color = Color3.fromRGB(S.Config.FOVColor[1], S.Config.FOVColor[2], S.Config.FOVColor[3])
         strokeCircle.Transparency = S.Config.FOVTransparency
@@ -705,7 +705,7 @@ RunService.RenderStepped:Connect(function()
                 if humanoid and hrp then
                     local moveDir = humanoid.MoveDirection
                     if moveDir.Magnitude > 0 then
-                        humanoid.WalkSpeed = S.Config.HorseSprintSpeed 
+                        humanoid.WalkSpeed = S.Config.HorseSprintSpeed
                         local targetCFrame = CFrame.new(hrp.Position, hrp.Position + moveDir)
                         hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, S.Config.HorseTurnSens)
                     end
@@ -749,7 +749,7 @@ task.spawn(function()
                 local char = LocalPlayer.Character
                 local hum = char and char:FindFirstChildOfClass("Humanoid")
                 if hum then
-                    hum.UseJumpPower = true 
+                    hum.UseJumpPower = true
                     if hum.JumpPower ~= S.Config.JumpPower then hum.JumpPower = S.Config.JumpPower end
                     hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
                     local touchGui = LocalPlayer.PlayerGui:FindFirstChild("TouchGui")
@@ -1294,18 +1294,70 @@ Tabs.Aim:AddToggle("DynamiteTargetToggle", { Title = "Dynamite Target", Default 
 Tabs.Aim:AddToggle("DynamiteTeamCheckToggle", { Title = "Team Check Dynamite", Default = S.Config.DynamiteTeamCheck, Callback = function(v) S.Config.DynamiteTeamCheck = v; SaveConfig() end })
 
 Tabs.GunMod:AddParagraph({ Title = "Gun Mods", Content = "Gun Mods" })
+Tabs.GunMod:AddParagraph({
+    Title = "⚠ Fast Fire Note",
+    Content = "Shoot a little slower, don't spam shots too fast or your damage will bug out"
+})
 Tabs.GunMod:AddButton({
     Title = "Fast Reload + Fast Fire",
     Callback = function()
-        local function patchReload(stat) if setreadonly then pcall(setreadonly, stat, false) end; stat.FullReload = true; stat.ReloadSpeed = 0.01; stat.ReloadAnimationSpeed = 10; if setreadonly then pcall(setreadonly, stat, true) end end
-        local function patchFire(stat) if setreadonly then pcall(setreadonly, stat, false) end; stat.prepTime = 0.01; stat.equipTime = 0.01; stat.EquipDelay = 0.01; if setreadonly then pcall(setreadonly, stat, true) end end
+        local function patchReload(stat)
+            if setreadonly then pcall(setreadonly, stat, false) end
+            stat.FullReload = true
+            stat.ReloadSpeed = 0.01
+            stat.ReloadAnimationSpeed = 10
+            if setreadonly then pcall(setreadonly, stat, true) end
+        end
+
+        local function patchFire(stat)
+            if setreadonly then pcall(setreadonly, stat, false) end
+
+            stat.prepTime   = 0.01
+            stat.equipTime  = 0.01
+            stat.EquipDelay = 0.01
+
+
+
+
+
+
+            if stat.FireRate   ~= nil then stat.FireRate   = 0.18 end
+            if stat.fireRate   ~= nil then stat.fireRate   = 0.18 end
+            if stat.FireDelay  ~= nil then stat.FireDelay  = 0.18 end
+            if stat.RateOfFire ~= nil then stat.RateOfFire = 0.18 end
+
+            if setreadonly then pcall(setreadonly, stat, true) end
+        end
+
+
+        local function shouldPatch(stat)
+            local t = rawget(stat, "GunType")
+            return t == "Pistol" or t == "Rifle"
+        end
+
         pcall(function()
             local GunStats = require(ReplicatedStorage:WaitForChild("GunScripts"):WaitForChild("GunStats"))
-            if GunStats.FanFirePrepTime ~= nil then if setreadonly then pcall(setreadonly, GunStats, false) end; GunStats.FanFirePrepTime = 0.01; if setreadonly then pcall(setreadonly, GunStats, true) end end
-            for _, stat in pairs(GunStats) do if type(stat) == "table" and rawget(stat, "GunType") == "Pistol" then pcall(function() patchReload(stat); patchFire(stat) end) end end
+
+            if GunStats.FanFirePrepTime ~= nil then
+                if setreadonly then pcall(setreadonly, GunStats, false) end
+                GunStats.FanFirePrepTime = 0.18
+                if setreadonly then pcall(setreadonly, GunStats, true) end
+            end
+            for _, stat in pairs(GunStats) do
+                if type(stat) == "table" and shouldPatch(stat) then
+                    pcall(function() patchReload(stat); patchFire(stat) end)
+                end
+            end
         end)
-        for _, v in pairs(getgc(true)) do if type(v) == "table" and rawget(v, "GunType") == "Pistol" then pcall(function() patchReload(v); patchFire(v) end) end end
-        Fluent:Notify({ Title = "Fast Fire ON", Content = "Applies to ALL Pistols.", Duration = 6 })
+
+
+        for _, v in pairs(getgc(true)) do
+            if type(v) == "table" and shouldPatch(v) then
+                pcall(function() patchReload(v); patchFire(v) end)
+            end
+        end
+
+        Fluent:Notify({ Title = "Fast Fire ON", Content = "Applies to Pistols & Rifles.", Duration = 6 })
     end
 })
 
@@ -1388,7 +1440,7 @@ Tabs.Teleport:AddButton({ Title = "Plainview",   Callback = function() pcall(fun
 Tabs.Teleport:AddButton({ Title = "Silverton",   Callback = function() pcall(function() SpawnRemote:InvokeServer("Silverton",  false, false) end) end })
 
 Tabs.ESP:AddParagraph({ Title = "ESP Options", Content = "" })
-Tabs.ESP:AddToggle("ESPPlayers", { Title = "ESP Players (Name | Dist | HP | Chams)", Default = S.Config.ESPEnabled, Callback = function(v) S.Config.ESPEnabled = v; SaveConfig() end })
+Tabs.ESP:AddToggle("ESPPlayers", { Title = "ESP Players", Default = S.Config.ESPEnabled, Callback = function(v) S.Config.ESPEnabled = v; SaveConfig() end })
 Tabs.ESP:AddToggle("ESPAnimals", { Title = "ESP Animals", Default = S.Config.ESPAnimals, Callback = function(v) ESPAnimalsEnabled = v; S.Config.ESPAnimals = v; SaveConfig() end })
 
 do
@@ -1689,7 +1741,7 @@ Tabs.Westbound:AddToggle("AutoCollect", {
     Callback = function(v)
         AutoCollectEnabled = v; S.Config.AutoCollectEnabled = v; SaveConfig()
         if not v then return end
-        
+
         task.spawn(function()
             local invEvent = ReplicatedStorage:WaitForChild("GeneralEvents",9e9):WaitForChild("Inventory",9e9)
             while AutoCollectEnabled do
@@ -1703,7 +1755,7 @@ Tabs.Westbound:AddToggle("AutoCollect", {
                 task.wait()
             end
         end)
-        
+
         task.spawn(function()
             local pickupEvent = ReplicatedStorage:WaitForChild("GeneralEvents",9e9):WaitForChild("PickUpItem",9e9)
             while AutoCollectEnabled do
@@ -1723,7 +1775,7 @@ Tabs.Westbound:AddToggle("AutoCollect", {
                 task.wait(0.2)
             end
         end)
-        
+
         task.spawn(function()
             local skinEvent = ReplicatedStorage:WaitForChild("GeneralEvents",9e9):WaitForChild("SkinAnimal",9e9)
             while AutoCollectEnabled do
@@ -1740,7 +1792,7 @@ Tabs.Westbound:AddToggle("AutoCollect", {
                 task.wait(0.2)
             end
         end)
-        
+
         task.spawn(function()
             local RobEvent = ReplicatedStorage:WaitForChild("GeneralEvents",9e9):WaitForChild("Rob",9e9)
             while AutoCollectEnabled do
@@ -1755,10 +1807,10 @@ Tabs.Westbound:AddToggle("AutoCollect", {
                             local part = chest.PrimaryPart or chest:FindFirstChildWhichIsA("BasePart", true)
                             if part and (myPos - part.Position).Magnitude <= 25 then
                                 local prompt = chest:FindFirstChildWhichIsA("ProximityPrompt", true)
-                                if prompt then 
+                                if prompt then
                                     prompt.Enabled = true
                                     prompt.RequiresLineOfSight = false
-                                    pcall(function() fireproximityprompt(prompt) end) 
+                                    pcall(function() fireproximityprompt(prompt) end)
                                 end
                                 pcall(function() RobEvent:FireServer("TreasureChest", chest) end)
                             end
@@ -1768,7 +1820,7 @@ Tabs.Westbound:AddToggle("AutoCollect", {
                 task.wait(0.2)
             end
         end)
-        
+
         task.spawn(function()
             local invEvent = ReplicatedStorage:WaitForChild("GeneralEvents",9e9):WaitForChild("Inventory",9e9)
             local args = { [1] = "Sell" }

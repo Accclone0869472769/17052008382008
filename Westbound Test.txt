@@ -20,8 +20,6 @@ local S = {
         AimMode          = "FOV",
         AimPart          = "Head",
         FOVRadius        = 90,
-        FOVColor         = {0, 255, 127},
-        FOVTransparency  = 0,
         ClickToAim       = false,
         IsTapping        = false,
         NoToolCheck      = false,
@@ -57,7 +55,6 @@ local S = {
         HorseTurnSens    = 0.15,
         DynamiteTargetEnabled = false,
         DynamiteTeamCheck = true,
-        ESPTextTransparency = 0,
         UITheme = "Dark",
         AutoBankEnabled  = false,
         SpawnDelay       = 5
@@ -112,8 +109,6 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
-
-
 
 local currentTarget      = nil
 local isHoldingGun       = false
@@ -286,8 +281,8 @@ local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1, 0)
 corner.Parent = fovCircle
 local strokeCircle = Instance.new("UIStroke", fovCircle)
-strokeCircle.Color = Color3.fromRGB(S.Config.FOVColor[1], S.Config.FOVColor[2], S.Config.FOVColor[3])
-strokeCircle.Transparency = S.Config.FOVTransparency
+strokeCircle.Color = Color3.fromRGB(0, 255, 127)
+strokeCircle.Transparency = 0
 strokeCircle.Thickness = 2
 
 local LogoGui = Instance.new("ScreenGui")
@@ -603,7 +598,7 @@ local function updateESP()
                         esp = Instance.new("BillboardGui")
                         esp.Name = "StarCrowESP"; esp.Adornee = head; esp.Size = UDim2.new(0, 350, 0, 30); esp.StudsOffset = Vector3.new(0, 1.2, 0); esp.AlwaysOnTop = true; esp.MaxDistance = math.huge
                         local text = Instance.new("TextLabel")
-                        text.Name = "NameText"; text.Parent = esp; text.Size = UDim2.new(1, 0, 1, 0); text.BackgroundTransparency = 1; text.TextScaled = false; text.TextSize = 12; text.Font = Enum.Font.GothamBold; text.TextColor3 = Color3.fromRGB(255, 255, 255); text.TextTransparency = S.Config.ESPTextTransparency; text.TextStrokeTransparency = S.Config.ESPTextTransparency; text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0); text.RichText = true
+                        text.Name = "NameText"; text.Parent = esp; text.Size = UDim2.new(1, 0, 1, 0); text.BackgroundTransparency = 1; text.TextScaled = false; text.TextSize = 12; text.Font = Enum.Font.GothamBold; text.TextColor3 = Color3.fromRGB(255, 255, 255); text.TextTransparency = 0; text.TextStrokeTransparency = 0; text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0); text.RichText = true
                         esp.Parent = head
                     end
                     local dist = math.floor((Camera.CFrame.Position - head.Position).Magnitude)
@@ -649,7 +644,7 @@ local function updateAnimalESP()
                     esp = Instance.new("BillboardGui")
                     esp.Name = "AnimalESP"; esp.Adornee = torso; esp.Size = UDim2.new(0, 350, 0, 30); esp.StudsOffset = Vector3.new(0, 2, 0); esp.AlwaysOnTop = true
                     local text = Instance.new("TextLabel")
-                    text.Name = "NameText"; text.Parent = esp; text.Size = UDim2.new(1, 0, 1, 0); text.BackgroundTransparency = 1; text.TextColor3 = Color3.new(1,1,1); text.TextSize = 12; text.Font = Enum.Font.GothamBold; text.TextTransparency = S.Config.ESPTextTransparency; text.TextStrokeTransparency = S.Config.ESPTextTransparency; text.RichText = true
+                    text.Name = "NameText"; text.Parent = esp; text.Size = UDim2.new(1, 0, 1, 0); text.BackgroundTransparency = 1; text.TextColor3 = Color3.new(1,1,1); text.TextSize = 12; text.Font = Enum.Font.GothamBold; text.TextTransparency = 0; text.TextStrokeTransparency = 0; text.RichText = true
                     esp.Parent = torso
                 end
                 local dist = math.floor((Camera.CFrame.Position - torso.Position).Magnitude)
@@ -681,8 +676,7 @@ RunService.RenderStepped:Connect(function()
     if S.Config.AimMode == "FOV" and (S.Config.AimPlayer or S.Config.AimNPC) then
         fovCircle.Visible = true;
         fovCircle.Size = UDim2.new(0, S.Config.FOVRadius * 2, 0, S.Config.FOVRadius * 2)
-        strokeCircle.Color = Color3.fromRGB(S.Config.FOVColor[1], S.Config.FOVColor[2], S.Config.FOVColor[3])
-        strokeCircle.Transparency = S.Config.FOVTransparency
+
     else
         fovCircle.Visible = false
     end
@@ -1293,51 +1287,55 @@ Tabs.Aim:AddParagraph({ Title = "Dynamite Target", Content = "" })
 Tabs.Aim:AddToggle("DynamiteTargetToggle", { Title = "Dynamite Target", Default = S.Config.DynamiteTargetEnabled, Callback = function(v) S.Config.DynamiteTargetEnabled = v; SaveConfig() end })
 Tabs.Aim:AddToggle("DynamiteTeamCheckToggle", { Title = "Team Check Dynamite", Default = S.Config.DynamiteTeamCheck, Callback = function(v) S.Config.DynamiteTeamCheck = v; SaveConfig() end })
 
-Tabs.GunMod:AddParagraph({ Title = "Gun Mods", Content = "Gun Mods" })
 Tabs.GunMod:AddParagraph({
-    Title = "⚠ Fast Fire Note",
+    Title = "⚠ Gun Mods Note",
     Content = "Shoot a little slower, don't spam shots too fast or your damage will bug out"
 })
 Tabs.GunMod:AddButton({
-    Title = "Fast Reload + Fast Fire",
+    Title = "Gun Mods",
     Callback = function()
-        local function patchReload(stat)
-            if setreadonly then pcall(setreadonly, stat, false) end
-            stat.FullReload = true
-            stat.ReloadSpeed = 0.01
-            stat.ReloadAnimationSpeed = 10
-            if setreadonly then pcall(setreadonly, stat, true) end
-        end
-
-        local function patchFire(stat)
-            if setreadonly then pcall(setreadonly, stat, false) end
-
-            stat.prepTime   = 0.01
-            stat.equipTime  = 0.01
-            stat.EquipDelay = 0.01
-
-
-
-
-
-
-            if stat.FireRate   ~= nil then stat.FireRate   = 0.18 end
-            if stat.fireRate   ~= nil then stat.fireRate   = 0.18 end
-            if stat.FireDelay  ~= nil then stat.FireDelay  = 0.18 end
-            if stat.RateOfFire ~= nil then stat.RateOfFire = 0.18 end
-
-            if setreadonly then pcall(setreadonly, stat, true) end
-        end
-
-
         local function shouldPatch(stat)
             local t = rawget(stat, "GunType")
             return t == "Pistol" or t == "Rifle"
         end
 
+        local function patchAll(stat)
+            if type(stat) ~= "table" then return end
+            pcall(function()
+                if setreadonly then pcall(setreadonly, stat, false) end
+
+                stat.FullReload = true
+                stat.ReloadSpeed = 0.01
+                stat.ReloadAnimationSpeed = 10
+
+                stat.prepTime   = 0.01
+                stat.equipTime  = 0.01
+                stat.EquipDelay = 0
+
+                if stat.FireRate   ~= nil then stat.FireRate   = 0.18 end
+                if stat.fireRate   ~= nil then stat.fireRate   = 0.18 end
+                if stat.FireDelay  ~= nil then stat.FireDelay  = 0.18 end
+                if stat.RateOfFire ~= nil then stat.RateOfFire = 0.18 end
+
+                stat.Spread = 0
+                stat.HipFireAccuracy = 0
+                stat.ZoomAccuracy = 0
+                stat.camShakeResist = math.huge
+
+                for key, value in pairs(stat) do
+                    local lk = string.lower(key)
+                    if lk:find("recoil") or lk:find("kick") or lk:find("sway") or lk:find("shake") then
+                        if type(value) == "number" then stat[key] = 0
+                        elseif type(value) == "boolean" then stat[key] = false end
+                    end
+                end
+
+                if setreadonly then pcall(setreadonly, stat, true) end
+            end)
+        end
+
         pcall(function()
             local GunStats = require(ReplicatedStorage:WaitForChild("GunScripts"):WaitForChild("GunStats"))
-
             if GunStats.FanFirePrepTime ~= nil then
                 if setreadonly then pcall(setreadonly, GunStats, false) end
                 GunStats.FanFirePrepTime = 0.18
@@ -1345,80 +1343,18 @@ Tabs.GunMod:AddButton({
             end
             for _, stat in pairs(GunStats) do
                 if type(stat) == "table" and shouldPatch(stat) then
-                    pcall(function() patchReload(stat); patchFire(stat) end)
+                    patchAll(stat)
                 end
             end
         end)
-
 
         for _, v in pairs(getgc(true)) do
             if type(v) == "table" and shouldPatch(v) then
-                pcall(function() patchReload(v); patchFire(v) end)
+                patchAll(v)
             end
         end
 
-        Fluent:Notify({ Title = "Fast Fire ON", Content = "Applies to Pistols & Rifles.", Duration = 6 })
-    end
-})
-
-Tabs.GunMod:AddButton({
-    Title = "No Recoil",
-    Callback = function()
-        local function patchStats(stats)
-            if type(stats) ~= "table" then return end
-            pcall(function()
-                if setreadonly then pcall(setreadonly, stats, false) end
-                stats.Spread = 0; stats.HipFireAccuracy = 0; stats.ZoomAccuracy = 0; stats.camShakeResist = math.huge
-                for key, value in pairs(stats) do
-                    local lowerKey = string.lower(key)
-                    if lowerKey:find("recoil") or lowerKey:find("kick") or lowerKey:find("sway") or lowerKey:find("shake") then
-                        if type(value) == "number" then stats[key] = 0 elseif type(value) == "boolean" then stats[key] = false end
-                    end
-                end
-                if setreadonly then pcall(setreadonly, stats, true) end
-            end)
-        end
-        local success, gunStats = pcall(function() return require(ReplicatedStorage:WaitForChild("GunScripts"):WaitForChild("GunStats")) end)
-        if success and type(gunStats) == "table" then
-            for _, stats in pairs(gunStats) do
-                if type(stats) == "table" then
-                    local gType = rawget(stats, "GunType")
-                    if gType == "Pistol" or gType == "Rifle" then patchStats(stats) end
-                end
-            end
-        end
-        for _, v in pairs(getgc(true)) do
-            if type(v) == "table" then
-                local gType = rawget(v, "GunType")
-                if gType == "Pistol" or gType == "Rifle" then patchStats(v) end
-            end
-        end
-        Fluent:Notify({ Title = "No Recoil", Content = "Applied to Pistols and Rifles only.", Duration = 5 })
-    end
-})
-
-Tabs.GunMod:AddButton({
-    Title = "Fast Equit",
-    Callback = function()
-        local function patchEquip(stats)
-            if type(stats) ~= "table" then return end
-            pcall(function()
-                if setreadonly then pcall(setreadonly, stats, false) end
-                if stats.equipTime then stats.equipTime = 0.01 end
-                if stats.EquipDelay then stats.EquipDelay = 0 end
-                if setreadonly then pcall(setreadonly, stats, true) end
-            end)
-        end
-        pcall(function()
-            local GunStats = require(ReplicatedStorage:WaitForChild("GunScripts"):WaitForChild("GunStats"))
-            for _, stats in pairs(GunStats) do patchEquip(stats) end
-        end)
-        for _, v in pairs(getgc(true)) do
-            if type(v) == "table" and (rawget(v, "GunType") == "Pistol" or rawget(v, "GunType") == "Rifle") then
-                patchEquip(v)
-            end
-        end
-        Fluent:Notify({ Title = "Fast Equip ON", Content = "Applied to all guns.", Duration = 5 })
+        Fluent:Notify({ Title = "Gun Mods", Content = "No Recoil  |  Fast Fire  |  Fast Reload  |  Fast Equip", Duration = 6 })
     end
 })
 
@@ -1528,7 +1464,7 @@ do
         local billboard = Instance.new("BillboardGui")
         billboard.Name = "ChestESP"; billboard.AlwaysOnTop = true; billboard.Size = UDim2.new(0, 150, 0, 40); billboard.StudsOffset = Vector3.new(0, 2, 0)
         local label = Instance.new("TextLabel")
-        label.Parent = billboard; label.Size = UDim2.new(1, 0, 1, 0); label.BackgroundTransparency = 1; label.RichText = true; label.Font = chestSettings.Font; label.TextSize = chestSettings.TextSize; label.TextColor3 = chestSettings.Color; label.TextTransparency = S.Config.ESPTextTransparency; label.TextStrokeTransparency = S.Config.ESPTextTransparency
+        label.Parent = billboard; label.Size = UDim2.new(1, 0, 1, 0); label.BackgroundTransparency = 1; label.RichText = true; label.Font = chestSettings.Font; label.TextSize = chestSettings.TextSize; label.TextColor3 = chestSettings.Color; label.TextTransparency = 0; label.TextStrokeTransparency = 0
         local highlight = Instance.new("Highlight")
         highlight.Name = "ChestChams"; highlight.FillColor = chestSettings.Color; highlight.OutlineColor = Color3.fromRGB(255, 255, 255); highlight.FillTransparency = 0.8; highlight.OutlineTransparency = 0.2; highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop; highlight.Enabled = S.Config.ChestESP
 
@@ -1578,7 +1514,7 @@ do
         local billboard = Instance.new("BillboardGui")
         billboard.Name = "BagsESP"; billboard.Size = UDim2.new(0, 200, 0, 30); billboard.AlwaysOnTop = true; billboard.StudsOffset = Vector3.new(0, 1.5, 0); billboard.MaxDistance = math.huge; billboard.Enabled = S.Config.BagsESP; billboard.Parent = part
         local text = Instance.new("TextLabel")
-        text.Name = "NameText"; text.Size = UDim2.new(1, 0, 1, 0); text.BackgroundTransparency = 1; text.TextSize = 12; text.Font = Enum.Font.GothamBold; text.TextColor3 = Color3.fromRGB(255, 255, 255); text.TextTransparency = S.Config.ESPTextTransparency; text.TextStrokeTransparency = S.Config.ESPTextTransparency; text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0); text.RichText = true; text.Text = "Bags\n<font size='11' color='#cccccc'>[0 m]</font>"; text.Parent = billboard
+        text.Name = "NameText"; text.Size = UDim2.new(1, 0, 1, 0); text.BackgroundTransparency = 1; text.TextSize = 12; text.Font = Enum.Font.GothamBold; text.TextColor3 = Color3.fromRGB(255, 255, 255); text.TextTransparency = 0; text.TextStrokeTransparency = 0; text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0); text.RichText = true; text.Text = "Bags\n<font size='11' color='#cccccc'>[0 m]</font>"; text.Parent = billboard
 
         task.spawn(function()
             while item and item.Parent and part and part.Parent do
@@ -1842,69 +1778,11 @@ Tabs.Settings:AddDropdown("UITheme", {
     end
 })
 
-Tabs.Settings:AddColorpicker("FOVColor", {
-    Title = "FOV Color",
-    Default = Color3.fromRGB(S.Config.FOVColor[1], S.Config.FOVColor[2], S.Config.FOVColor[3]),
-    Callback = function(Value)
-        S.Config.FOVColor = {math.floor(Value.R * 255), math.floor(Value.G * 255), math.floor(Value.B * 255)}
-        SaveConfig()
-    end
-})
-
 local _saveDebounce = nil
 local function SaveConfigDebounced()
     if _saveDebounce then task.cancel(_saveDebounce) end
     _saveDebounce = task.delay(0.4, function() _saveDebounce = nil; SaveConfig() end)
 end
-
-Tabs.Settings:AddSlider("FOVTransparency", {
-    Title = "FOV Transparency",
-    Suffix = "%",
-    Default = S.Config.FOVTransparency,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        S.Config.FOVTransparency = Value
-        SaveConfigDebounced()
-    end
-})
-
-local function ApplyESPTextTransparency()
-    local t = S.Config.ESPTextTransparency
-    for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
-        local char = plr.Character
-        if char then
-            local head = char:FindFirstChild("Head")
-            if head then
-                local esp = head:FindFirstChild("StarCrowESP")
-                if esp then
-                    local label = esp:FindFirstChild("NameText")
-                    if label then label.TextTransparency = t; label.TextStrokeTransparency = t end
-                end
-            end
-        end
-    end
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("TextLabel") and obj.Name == "NameText" then
-            obj.TextTransparency = t; obj.TextStrokeTransparency = t
-        end
-    end
-end
-
-Tabs.Settings:AddSlider("ESPTextTransparency", {
-    Title = "ESP Transparency",
-    Suffix = "%",
-    Default = S.Config.ESPTextTransparency,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        S.Config.ESPTextTransparency = Value
-        ApplyESPTextTransparency()
-        SaveConfigDebounced()
-    end
-})
 
 Tabs.Settings:AddSlider("FloatButtonSize", {
     Title = "Float Size",

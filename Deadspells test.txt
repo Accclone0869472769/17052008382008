@@ -1737,7 +1737,7 @@ Tabs.Player:AddToggle("InfJumpToggle", {
 })
 
 Tabs.Teleport:AddSection("Tp Locations")
-Tabs.Teleport:AddButton({ Title = "Sky Island", Callback = function() teleportPlayer(CFrame.new(64.97, 3.00, 34971.64)) end })
+Tabs.Teleport:AddButton({ Title = "Sky Island", Callback = function() teleportPlayer(CFrame.new(-46.56, 81.52, 37536.83)) end })
 
 local tpLocations = {
     {"Castle 1", Vector3.new(44.00, 3.52, -39978.82)}, {"Castle 2", Vector3.new(33.43, 3.00, -29972.26)},
@@ -1752,7 +1752,7 @@ end
 
 local bossLocations = {
     {"Thief King", Vector3.new(81.00, 11.51, -18039.25)},
-    {"Master Samurai", Vector3.new(103.27, 40.89, -3560.05)}, {"Elder Vampire", Vector3.new(165.61, 3.00, 5058.65)},
+    {"Master Samurai", Vector3.new(103.27, 40.89, -3560.05)}, {"Elder Vampire", Vector3.new(103.08, 37.85, 7407.76)},
     {"Gnome", Vector3.new(37.76, 3.00, 13993.09)}, {"Steam Punk", Vector3.new(-15.31, 3.02, 27032.90)},
     {"King Ice", Vector3.new(24.27, 3.00, 45907.91)}
 }

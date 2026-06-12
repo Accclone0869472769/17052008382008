@@ -1694,6 +1694,38 @@ PlayerTab:AddToggle("JumpPowerToggle", {
         saveCustomConfig(true)
     end
 })
+local desyncToggleObj = PlayerTab:AddToggle("DesyncToggle", {
+    Title = "Desync",
+    Default = false,
+    Callback = function(Value)
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        if Value then
+            getgenv().DesyncActive = true
+            getgenv().FakeCFrame = hrp.CFrame
+            getgenv().RealCFrame = hrp.CFrame
+            RunService:BindToRenderStep("DesyncCamFix", Enum.RenderPriority.Camera.Value - 1, function()
+                if hrp then hrp.CFrame = getgenv().RealCFrame end
+            end)
+            getgenv().DesyncStepped = RunService.Stepped:Connect(function()
+                if hrp then hrp.CFrame = getgenv().RealCFrame end
+            end)
+            getgenv().DesyncHeartbeat = RunService.Heartbeat:Connect(function()
+                if hrp then
+                    getgenv().RealCFrame = hrp.CFrame
+                    hrp.CFrame = getgenv().FakeCFrame
+                end
+            end)
+        else
+            getgenv().DesyncActive = false
+            if getgenv().DesyncHeartbeat then getgenv().DesyncHeartbeat:Disconnect() end
+            if getgenv().DesyncStepped then getgenv().DesyncStepped:Disconnect() end
+            pcall(function() RunService:UnbindFromRenderStep("DesyncCamFix") end)
+            if getgenv().RealCFrame then hrp.CFrame = getgenv().RealCFrame end
+        end
+    end
+})
 local EspTab = Tabs.Esp
 EspTab:AddToggle("ESPNameToggle", {
     Title = "ESP Name",
@@ -3149,5 +3181,14 @@ Tabs.Settings:AddKeybind("FlyFloatKeybind", {
         flyToggleObj:SetValue(not flyToggleObj.Value)
     end
 })
+Tabs.Settings:AddKeybind("DesyncKeybind", {
+    Title = "Desync Keybind",
+    Mode = "Toggle",
+    Default = "None",
+    Callback = function()
+        if keybindsDisabled then return end
+        desyncToggleObj:SetValue(not desyncToggleObj.Value)
+    end
+})
 
-Window:SelectTab(1) 
+Window:SelectTab(1)

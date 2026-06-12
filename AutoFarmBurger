@@ -459,13 +459,13 @@ end)
 
 local bosses = {
     { n = "mastersamurai",  pos = CFrame.new(103.27,  40.89,  -3560.05) },
-    { n = "eldervampire",   pos = CFrame.new(165.61,   3.00,   5058.65) },
+    { n = "eldervampire",   pos = CFrame.new(103.08,  37.85,  7407.76) },
     { n = "gnomechampion",  pos = CFrame.new(37.76,    3.00,  13993.09) },
     { n = "steamborneczar", pos = CFrame.new(-15.31,   3.02,  27032.90) },
     { n = "kingice",        pos = CFrame.new(24.27,    3.00,  45907.91) },
 }
 
-local skyIslandPos   = CFrame.new(64.97, 3.00, 34971.64)
+local skyIslandPos   = CFrame.new(-46.56, 81.52, 37536.83)
 local currentIdx     = 1
 local hoverPos       = nil
 local visited        = false

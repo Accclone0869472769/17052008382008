@@ -208,6 +208,22 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     end
 })
 
+local keybindsDisabled = false
+Tabs.Settings:AddToggle("DisableKeybindsToggle", {
+    Title = "Disable Keybinds",
+    Default = false,
+    Callback = function(value)
+        keybindsDisabled = value
+    end
+})
+Tabs.Settings:AddToggle("UndragFloatToggle", {
+    Title = "Undraggable Float Buttons",
+    Default = false,
+    Callback = function(value)
+        S.floatLocked = value
+    end
+})
+
 Tabs.Settings:AddDropdown("UITheme", {
     Title = "UI Theme",
     Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose", "Mint" },
@@ -1879,6 +1895,16 @@ TrollTab:AddButton({
         trollDropdown:SetValues(getPlayerNames())
     end
 })
+
+local function refreshAllPlayerDropdowns()
+    local names = getPlayerNames()
+    specDropdown:SetValues(names)
+    tpDropdown:SetValues(names)
+    trollDropdown:SetValues(names)
+end
+Players.PlayerAdded:Connect(function() refreshAllPlayerDropdowns() end)
+Players.PlayerRemoving:Connect(function() task.defer(refreshAllPlayerDropdowns) end)
+
 local FlingActive = false
 local function SkidFling(TargetPlayer)
     local Character = LocalPlayer.Character
@@ -2013,12 +2039,18 @@ TrollTab:AddToggle("FlingToggle", {
 })
 local walkflinging = false
 local walkFlingHumanoidDiedConn = nil
-TrollTab:AddToggle("WalkFlingToggle", {
+local antiFlingToggleObj = nil -- forward declare
+local walkFlingAutoAntiFling = false
+local walkFlingToggleObj = TrollTab:AddToggle("WalkFlingToggle", {
     Title = "Walk Fling",
     Default = false,
     Callback = function(Value)
         walkflinging = Value
         if walkflinging then
+            if antiFlingToggleObj and not S.antiFlingEnabled then
+                walkFlingAutoAntiFling = true
+                antiFlingToggleObj:SetValue(true)
+            end
             local character = LocalPlayer.Character
             local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
             if walkFlingHumanoidDiedConn then
@@ -2055,6 +2087,10 @@ TrollTab:AddToggle("WalkFlingToggle", {
             if walkFlingHumanoidDiedConn then
                 walkFlingHumanoidDiedConn:Disconnect()
                 walkFlingHumanoidDiedConn = nil
+            end
+            if walkFlingAutoAntiFling and antiFlingToggleObj then
+                walkFlingAutoAntiFling = false
+                antiFlingToggleObj:SetValue(false)
             end
         end
     end
@@ -2211,7 +2247,7 @@ end
 local function disableAntiFling()
     if S.antiFlingConnection then S.antiFlingConnection:Disconnect() S.antiFlingConnection = nil end
 end
-MiscTab:AddToggle("AntiFlingToggle", {
+antiFlingToggleObj = MiscTab:AddToggle("AntiFlingToggle", {
     Title = "Anti Fling",
     Default = SavedCfg.antiFlingEnabled or false,
     Callback = function(Value)
@@ -3085,19 +3121,12 @@ Tabs.Settings:AddSlider("FlyFloatSize", {
     end
 })
 
-Tabs.Settings:AddToggle("UndragFloatToggle", {
-    Title = "Undraggable Float Buttons",
-    Default = false,
-    Callback = function(value)
-        S.floatLocked = value
-    end
-})
-
 Tabs.Settings:AddKeybind("InvisFloatKeybind", {
     Title = "Invisible Keybind",
     Mode = "Toggle",
     Default = "C",
     Callback = function()
+        if keybindsDisabled then return end
         invisToggleObj:SetValue(not invisToggleObj.Value)
     end
 })
@@ -3106,6 +3135,7 @@ Tabs.Settings:AddKeybind("NoclipFloatKeybind", {
     Mode = "Toggle",
     Default = "J",
     Callback = function()
+        if keybindsDisabled then return end
         noclipToggleObj:SetValue(not noclipToggleObj.Value)
     end
 })
@@ -3114,8 +3144,9 @@ Tabs.Settings:AddKeybind("FlyFloatKeybind", {
     Mode = "Toggle",
     Default = "F",
     Callback = function()
+        if keybindsDisabled then return end
         flyToggleObj:SetValue(not flyToggleObj.Value)
     end
 })
 
-Window:SelectTab(1) 
+Window:SelectTab(1)

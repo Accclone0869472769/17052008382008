@@ -197,6 +197,36 @@ Tabs.Info:AddButton({
     end
 })
 
+
+local saveCustomConfig
+local S = {
+    SpectatingPlayer = nil, spectating = false, specConnection = nil,
+    flyEnabled = false, flySpeed = 5, flyConnection = nil, jumpStateConnection = nil,
+    vehicleFlyEnabled = false, vFlyConnection = nil, vFlyBV = nil, vFlyBG = nil,
+    infJumpEnabled = false, infJumpConnection = nil,
+    noclipEnabled = false, noclipLoop = nil,
+    freezeBodyEnabled = false, freezeBodyConnection = nil, freezeBodyPrevSpeed = 16, freezeBodyPrevJump = 50,
+    cameraNoclipEnabled = false, _originalOcclusion = nil,
+    floatEnabled = false, floatLoop = nil, floatJumpConn = nil, floatPlatform = nil, isJumping = false, floatTargetY = 0,
+    jumpPowerEnabled = false, jumpPowerConnection = nil, jumpPowerValue = 50,
+    isInvisible = false,
+    loopspeedEnabled = false, loopspeedConnection = nil, loopspeedValue = 30,
+    autoHitboxEnabled = false, autoBodyHitboxEnabled = false, hitboxSize = 15,
+    nameESPEnabled = false, chamsEnabled = false, tracerESPEnabled = false,
+    nameESPObjects = {}, tracerESPObjects = {},
+    processedChars = {}, bodyHitboxChars = {},
+    selectedTPPlayers = {}, autoTPEnabled = false, autoTPConnection = nil, ctrlClickTPEnabled = false,
+    manualPositionCFrame = nil,
+    antiFlingEnabled = false, antiFlingConnection = nil,
+    antiVoidEnabled = false,
+    antiAfkEnabled = false,
+    loopFBEnabled = false,
+    instantBuyEnabled = false,
+    mobileShiftLockEnabled = false,
+    autoClickEnabled = false, autoClickConnection = nil,
+    btnRefs = {}
+}
+
 Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     Title = "Minimize UI Keybind",
     Mode = "Toggle",
@@ -234,35 +264,6 @@ Tabs.Settings:AddDropdown("UITheme", {
         Fluent:SetTheme(Value)
     end
 })
-
-local saveCustomConfig
-local S = {
-    SpectatingPlayer = nil, spectating = false, specConnection = nil,
-    flyEnabled = false, flySpeed = 5, flyConnection = nil, jumpStateConnection = nil,
-    vehicleFlyEnabled = false, vFlyConnection = nil, vFlyBV = nil, vFlyBG = nil,
-    infJumpEnabled = false, infJumpConnection = nil,
-    noclipEnabled = false, noclipLoop = nil,
-    freezeBodyEnabled = false, freezeBodyConnection = nil, freezeBodyPrevSpeed = 16, freezeBodyPrevJump = 50,
-    cameraNoclipEnabled = false, _originalOcclusion = nil,
-    floatEnabled = false, floatLoop = nil, floatJumpConn = nil, floatPlatform = nil, isJumping = false, floatTargetY = 0,
-    jumpPowerEnabled = false, jumpPowerConnection = nil, jumpPowerValue = 50,
-    isInvisible = false,
-    loopspeedEnabled = false, loopspeedConnection = nil, loopspeedValue = 30,
-    autoHitboxEnabled = false, autoBodyHitboxEnabled = false, hitboxSize = 15,
-    nameESPEnabled = false, chamsEnabled = false, tracerESPEnabled = false,
-    nameESPObjects = {}, tracerESPObjects = {},
-    processedChars = {}, bodyHitboxChars = {},
-    selectedTPPlayers = {}, autoTPEnabled = false, autoTPConnection = nil, ctrlClickTPEnabled = false,
-    manualPositionCFrame = nil,
-    antiFlingEnabled = false, antiFlingConnection = nil,
-    antiVoidEnabled = false,
-    antiAfkEnabled = false,
-    loopFBEnabled = false,
-    instantBuyEnabled = false,
-    mobileShiftLockEnabled = false,
-    autoClickEnabled = false, autoClickConnection = nil,
-    btnRefs = {}
-}
 
 local INVISIBILITY_POSITION = Vector3.new(-25.95, 84, 3537.55)
 
@@ -2039,7 +2040,7 @@ TrollTab:AddToggle("FlingToggle", {
 })
 local walkflinging = false
 local walkFlingHumanoidDiedConn = nil
-local antiFlingToggleObj = nil -- forward declare
+local antiFlingToggleObj = nil
 local walkFlingAutoAntiFling = false
 local walkFlingToggleObj = TrollTab:AddToggle("WalkFlingToggle", {
     Title = "Walk Fling",
@@ -2418,7 +2419,7 @@ MiscTab:AddButton({
             cam.CameraType = Enum.CameraType.Custom
         end
         LocalPlayer.CameraMinZoomDistance = 0.5
-        LocalPlayer.CameraMaxZoomDistance = 100000 
+        LocalPlayer.CameraMaxZoomDistance = 100000
         LocalPlayer.CameraMode = Enum.CameraMode.Classic
         if char and char:FindFirstChild("Head") then char.Head.Anchored = false end
         RunService:BindToRenderStep("StarCrow_UnlockCam_Force", Enum.RenderPriority.Camera.Value + 99, function()
@@ -2650,9 +2651,9 @@ ServerTab:AddButton({
                 for _, server in pairs(data.data) do
                     if server.id ~= JobID then
                         if server.playing < server.maxPlayers then
-                            table.insert(servers, 1, server.id) 
+                            table.insert(servers, 1, server.id)
                         else
-                            table.insert(servers, server.id)    
+                            table.insert(servers, server.id)
                         end
                     end
                     if #servers >= 5 then break end
@@ -2733,8 +2734,8 @@ ServerTab:AddButton({
             if x and y and z then
                 local char = LocalPlayer.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                if hrp then 
-                    hrp.CFrame = CFrame.new(x, y, z) 
+                if hrp then
+                    hrp.CFrame = CFrame.new(x, y, z)
                     Fluent:Notify({ Title = "StarCrow Says:", Content = "Teleported to position!", Duration = 3 })
                 end
             else
@@ -2807,8 +2808,8 @@ ServerTab:AddButton({
         local cf = savedPositions[savePosName]
         local char = LocalPlayer.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if hrp and cf then 
-            hrp.CFrame = cf 
+        if hrp and cf then
+            hrp.CFrame = cf
             Fluent:Notify({ Title = "StarCrow Says:", Content = "Teleported to: " .. savePosName, Duration = 3 })
         end
     end
@@ -3149,4 +3150,4 @@ Tabs.Settings:AddKeybind("FlyFloatKeybind", {
     end
 })
 
-Window:SelectTab(1)
+Window:SelectTab(1) 

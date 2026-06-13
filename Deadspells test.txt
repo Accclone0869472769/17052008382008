@@ -50,6 +50,9 @@ local Config = {
     AutoMineEnabled = false,
     OreESPEnabled = false,
     UITheme = "Dark",
+    DashFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = 160 },
+    DashPower = 80,
+    DashKeybind = "Q",
     BringItemRange = 100,
     ItemESPRarities = {
         Common = false,
@@ -1350,10 +1353,12 @@ local Tabs = {
     Player = Window:AddTab({ Title = "Player", Icon = "user" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "box" }),
+    AirWeld = Window:AddTab({ Title = "Interesting", Icon = "rbxassetid://6862780932" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
 local FastAttackToggleObj, FastAttackSliderObj, NPCHitboxToggleObj, NPCHitboxSliderObj
+local performDash
 
 Tabs.Info:AddParagraph({
     Title = "Join our Discord",
@@ -1862,6 +1867,28 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     end
 })
 
+Tabs.Settings:AddKeybind("DashKeybind", {
+    Title = "Dash Keybind",
+    Mode = "Toggle",
+    Default = Config.DashKeybind,
+    ChangedCallback = function(NewKey)
+        local keyCode = typeof(NewKey) == "EnumItem" and NewKey or Enum.KeyCode[tostring(NewKey)]
+        if keyCode then
+            Config.DashKeybind = keyCode.Name
+            SaveConfig()
+        end
+    end
+})
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+    local boundKey = Enum.KeyCode[Config.DashKeybind]
+    if boundKey and input.KeyCode == boundKey then
+        performDash()
+    end
+end)
+
 Tabs.Settings:AddDropdown("UITheme", {
     Title = "UI Theme",
     Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose", "Mint" },
@@ -1870,6 +1897,192 @@ Tabs.Settings:AddDropdown("UITheme", {
         Config.UITheme = Value
         SaveConfig()
         Fluent:SetTheme(Value)
+    end
+})
+
+local airWeldConn = nil
+local oldNamecall_aw
+oldNamecall_aw = nil
+
+local function makeDraggableFloat(b, posKey)
+    local dragging, moved, startPos, startBtnPos, activeInput = false, false, nil, nil, nil
+    b.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, moved, startPos, startBtnPos, activeInput = true, false, input.Position, b.Position, input
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    activeInput = nil
+                    if moved and posKey then
+                        local p = b.Position
+                        Config[posKey] = { xs = p.X.Scale, xo = p.X.Offset, ys = p.Y.Scale, yo = p.Y.Offset }
+                        SaveConfig()
+                    end
+                end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input == activeInput or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            local delta = input.Position - startPos
+            if delta.Magnitude > 6 then moved = true end
+            b.Position = UDim2.new(startBtnPos.X.Scale, startBtnPos.X.Offset + delta.X, startBtnPos.Y.Scale, startBtnPos.Y.Offset + delta.Y)
+        end
+    end)
+    return function() return moved end, function() moved = false end
+end
+
+local function setFloatStrokeActive(stroke, active)
+    if not stroke then return end
+    local oldGradient = stroke:FindFirstChildOfClass("UIGradient")
+    if oldGradient then oldGradient:Destroy() end
+    local gradient = Instance.new("UIGradient")
+    if active then
+        stroke.Color = Color3.fromRGB(255, 255, 255)
+        stroke.Thickness = 2.2
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(170, 70, 255)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 180, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(170, 70, 255)),
+        })
+        gradient.Parent = stroke
+        task.spawn(function()
+            TweenService:Create(gradient, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), { Rotation = 360 }):Play()
+        end)
+    else
+        stroke.Color = Color3.fromRGB(255, 255, 255)
+        stroke.Thickness = 1.6
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 0, 120)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 100, 200)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 0, 120)),
+        })
+        gradient.Parent = stroke
+        task.spawn(function()
+            TweenService:Create(gradient, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Rotation = 180 }):Play()
+        end)
+    end
+end
+
+local dashFloatBtn = Instance.new("TextButton")
+local dp = Config.DashFloatPos
+dashFloatBtn.Size = UDim2.new(0, 46, 0, 46)
+dashFloatBtn.Position = UDim2.new(dp.xs, dp.xo, dp.ys, dp.yo)
+dashFloatBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+dashFloatBtn.BackgroundTransparency = 0.88
+dashFloatBtn.BorderSizePixel = 0
+dashFloatBtn.Text = "Dash"
+dashFloatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+dashFloatBtn.TextScaled = false
+dashFloatBtn.TextSize = 13
+dashFloatBtn.Font = Enum.Font.GothamBold
+dashFloatBtn.ZIndex = 15
+dashFloatBtn.Parent = LogoGui
+Instance.new("UICorner", dashFloatBtn).CornerRadius = UDim.new(0, 8)
+local dashFloatStroke = Instance.new("UIStroke", dashFloatBtn)
+dashFloatStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+setFloatStrokeActive(dashFloatStroke, false)
+
+local getMoved, resetMoved = makeDraggableFloat(dashFloatBtn, "DashFloatPos")
+
+local lastDash = 0
+
+performDash = function()
+    local now = tick()
+    if now - lastDash < 0.5 then return end
+    lastDash = now
+
+    setFloatStrokeActive(dashFloatStroke, true)
+    task.delay(0.15, function()
+        setFloatStrokeActive(dashFloatStroke, false)
+    end)
+
+    local c = LocalPlayer.Character
+    if not c then return end
+    local hrp = c:FindFirstChild("HumanoidRootPart")
+    local hum = c:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum or hum.Health <= 0 then return end
+
+    local dir = Camera.CFrame.LookVector
+    dir = Vector3.new(dir.X, 0, dir.Z).Unit
+
+    local bv = Instance.new("BodyVelocity")
+    bv.Velocity = dir * Config.DashPower
+    bv.MaxForce = Vector3.new(1e5, 0, 1e5)
+    bv.P = 1e5
+    bv.Parent = hrp
+
+    task.delay(0.15, function()
+        if bv and bv.Parent then bv:Destroy() end
+    end)
+end
+
+dashFloatBtn.MouseButton1Click:Connect(function()
+    if getMoved() then resetMoved() return end
+    performDash()
+end)
+
+Tabs.AirWeld:AddSlider("DashPowerSlider", {
+    Title = "Dash Distance",
+    Default = Config.DashPower,
+    Min = 20,
+    Max = 1000,
+    Rounding = 0,
+    Callback = function(Value)
+        Config.DashPower = Value
+        SaveConfig()
+    end
+})
+
+Tabs.AirWeld:AddToggle("DashFloatToggle", {
+    Title = "Show Dash Button",
+    Default = true,
+    Callback = function(Value)
+        dashFloatBtn.Visible = Value
+    end
+})
+
+Tabs.AirWeld:AddToggle("AirWeldToggle", {
+    Title = "Air Weld",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            oldNamecall_aw = hookmetamethod(game, "__namecall", function(self, ...)
+                local method = getnamecallmethod()
+                local args = {...}
+                if method == "GetPartsInPart" and self == workspace and not checkcaller() then
+                    local params = args[2]
+                    if params and typeof(params) == "OverlapParams" then
+                        local filter = params.FilterDescendantsInstances
+                        if filter and type(filter) == "table" and filter[1] and filter[1].Name == "Cart" then
+                            local cart = workspace:FindFirstChild("Cart")
+                            if cart then
+                                local wagons = cart:FindFirstChild("Wagons")
+                                if wagons then
+                                    local targetPart = nil
+                                    for _, wagon in ipairs(wagons:GetChildren()) do
+                                        local floor = wagon:FindFirstChild("Floor")
+                                        if floor and floor:FindFirstChildWhichIsA("BasePart") then
+                                            targetPart = floor:FindFirstChildWhichIsA("BasePart")
+                                            break
+                                        end
+                                    end
+                                    if targetPart then
+                                        return {targetPart}
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                return oldNamecall_aw(self, ...)
+            end)
+        else
+            if oldNamecall_aw then
+                hookmetamethod(game, "__namecall", oldNamecall_aw)
+                oldNamecall_aw = nil
+            end
+        end
     end
 })
 

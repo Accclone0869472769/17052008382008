@@ -1726,6 +1726,64 @@ local desyncToggleObj = PlayerTab:AddToggle("DesyncToggle", {
         end
     end
 })
+-- Speed Glitch
+getgenv().SpeedGlitchActive = false
+getgenv().SpeedGlitchSpeed = 20
+getgenv().SpeedGlitchJumpConn = nil
+getgenv().SpeedGlitchStateConn = nil
+
+local function sgCleanup()
+    if getgenv().SpeedGlitchJumpConn then getgenv().SpeedGlitchJumpConn:Disconnect() getgenv().SpeedGlitchJumpConn = nil end
+    if getgenv().SpeedGlitchStateConn then getgenv().SpeedGlitchStateConn:Disconnect() getgenv().SpeedGlitchStateConn = nil end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = 16 end
+end
+
+PlayerTab:AddToggle("SpeedGlitchToggle", {
+    Title = "Auto Speed Glitch",
+    Default = false,
+    Callback = function(Value)
+        getgenv().SpeedGlitchActive = Value
+        if not Value then
+            sgCleanup()
+        else
+            sgCleanup()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if not hum then return end
+            -- Set speed khi nhảy
+            getgenv().SpeedGlitchJumpConn = UserInputService.JumpRequest:Connect(function()
+                if not getgenv().SpeedGlitchActive then return end
+                local c = LocalPlayer.Character
+                local h = c and c:FindFirstChildOfClass("Humanoid")
+                if h and h.Health > 0 then
+                    h.WalkSpeed = getgenv().SpeedGlitchSpeed
+                end
+            end)
+            -- Reset speed khi chạm đất
+            getgenv().SpeedGlitchStateConn = hum.StateChanged:Connect(function(_, new)
+                if new == Enum.HumanoidStateType.Landed or new == Enum.HumanoidStateType.Running then
+                    local c = LocalPlayer.Character
+                    local h = c and c:FindFirstChildOfClass("Humanoid")
+                    if h then h.WalkSpeed = 16 end
+                end
+            end)
+        end
+    end
+})
+
+PlayerTab:AddSlider("SpeedGlitchSlider", {
+    Title = "Speed Glitch",
+    Default = 20,
+    Min = 16,
+    Max = 500,
+    Rounding = 0,
+    Callback = function(Value)
+        getgenv().SpeedGlitchSpeed = Value
+    end
+})
+
 local EspTab = Tabs.Esp
 EspTab:AddToggle("ESPNameToggle", {
     Title = "ESP Name",

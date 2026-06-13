@@ -29,6 +29,8 @@ local Config = {
     AimSmoothness = 0.90,
     AimFOVOffsetX = 0,
     AimFOVOffsetY = -55,
+    SpeedGlitchEnabled = false,
+    SpeedGlitchSpeed = 20,
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -1727,8 +1729,8 @@ local desyncToggleObj = PlayerTab:AddToggle("DesyncToggle", {
     end
 })
 -- Speed Glitch
-getgenv().SpeedGlitchActive = false
-getgenv().SpeedGlitchSpeed = 20
+getgenv().SpeedGlitchActive = Config.SpeedGlitchEnabled
+getgenv().SpeedGlitchSpeed = Config.SpeedGlitchSpeed
 getgenv().SpeedGlitchJumpConn = nil
 getgenv().SpeedGlitchStateConn = nil
 
@@ -1742,9 +1744,11 @@ end
 
 PlayerTab:AddToggle("SpeedGlitchToggle", {
     Title = "Auto Speed Glitch",
-    Default = false,
+    Default = Config.SpeedGlitchEnabled,
     Callback = function(Value)
         getgenv().SpeedGlitchActive = Value
+        Config.SpeedGlitchEnabled = Value
+        SaveConfig()
         if not Value then
             sgCleanup()
         else
@@ -1773,14 +1777,38 @@ PlayerTab:AddToggle("SpeedGlitchToggle", {
     end
 })
 
+if Config.SpeedGlitchEnabled then
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        getgenv().SpeedGlitchJumpConn = UserInputService.JumpRequest:Connect(function()
+            if not getgenv().SpeedGlitchActive then return end
+            local c = LocalPlayer.Character
+            local h = c and c:FindFirstChildOfClass("Humanoid")
+            if h and h.Health > 0 then
+                h.WalkSpeed = getgenv().SpeedGlitchSpeed
+            end
+        end)
+        getgenv().SpeedGlitchStateConn = hum.StateChanged:Connect(function(_, new)
+            if new == Enum.HumanoidStateType.Landed or new == Enum.HumanoidStateType.Running then
+                local c = LocalPlayer.Character
+                local h = c and c:FindFirstChildOfClass("Humanoid")
+                if h then h.WalkSpeed = 16 end
+            end
+        end)
+    end
+end
+
 PlayerTab:AddSlider("SpeedGlitchSlider", {
     Title = "Speed Glitch",
-    Default = 20,
+    Default = Config.SpeedGlitchSpeed,
     Min = 16,
     Max = 500,
     Rounding = 0,
     Callback = function(Value)
         getgenv().SpeedGlitchSpeed = Value
+        Config.SpeedGlitchSpeed = Value
+        SaveConfig()
     end
 })
 

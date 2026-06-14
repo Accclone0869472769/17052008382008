@@ -50,7 +50,7 @@ local Config = {
     AutoMineEnabled = false,
     OreESPEnabled = false,
     UITheme = "Dark",
-    DashFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = 160 },
+    DashFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = 0 },
     DashFloatVisible = false,
     DashPower = 80,
     DashKeybind = "Q",

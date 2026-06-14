@@ -51,6 +51,7 @@ local Config = {
     OreESPEnabled = false,
     UITheme = "Dark",
     DashFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = 160 },
+    DashFloatVisible = false,
     DashPower = 80,
     DashKeybind = "Q",
     BringItemRange = 100,
@@ -1743,6 +1744,13 @@ Tabs.Player:AddToggle("InfJumpToggle", {
 
 Tabs.Teleport:AddSection("Tp Locations")
 Tabs.Teleport:AddButton({ Title = "Sky Island", Callback = function() teleportPlayer(CFrame.new(-46.56, 81.52, 37536.83)) end })
+Tabs.Teleport:AddButton({ Title = "Cart", Callback = function()
+    local cart = workspace:FindFirstChild("Cart")
+    if cart then
+        local pivot = cart:GetPivot()
+        teleportPlayer(pivot * CFrame.new(0, 6, 0))
+    end
+end })
 
 local tpLocations = {
     {"Castle 1", Vector3.new(44.00, 3.52, -39978.82)}, {"Castle 2", Vector3.new(33.43, 3.00, -29972.26)},
@@ -1977,6 +1985,7 @@ dashFloatBtn.TextScaled = false
 dashFloatBtn.TextSize = 13
 dashFloatBtn.Font = Enum.Font.GothamBold
 dashFloatBtn.ZIndex = 15
+dashFloatBtn.Visible = Config.DashFloatVisible
 dashFloatBtn.Parent = LogoGui
 Instance.new("UICorner", dashFloatBtn).CornerRadius = UDim.new(0, 8)
 local dashFloatStroke = Instance.new("UIStroke", dashFloatBtn)
@@ -2036,9 +2045,11 @@ Tabs.AirWeld:AddSlider("DashPowerSlider", {
 
 Tabs.AirWeld:AddToggle("DashFloatToggle", {
     Title = "Show Dash Button",
-    Default = true,
+    Default = Config.DashFloatVisible,
     Callback = function(Value)
         dashFloatBtn.Visible = Value
+        Config.DashFloatVisible = Value
+        SaveConfig()
     end
 })
 

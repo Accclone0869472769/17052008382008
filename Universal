@@ -31,6 +31,8 @@ local Config = {
     AimFOVOffsetY = -55,
     SpeedGlitchEnabled = false,
     SpeedGlitchSpeed = 20,
+    NPCHitboxEnabled = false,
+    NPCHitboxSize = 4,
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -3274,6 +3276,136 @@ Tabs.Settings:AddKeybind("DesyncKeybind", {
     Callback = function()
         if keybindsDisabled then return end
         desyncToggleObj:SetValue(not desyncToggleObj.Value)
+    end
+})
+
+local npcs = {}
+local origSizes = {}
+local NPCHitboxToggleObj, NPCHitboxSliderObj
+
+local function isValidNPC(model)
+    if not model or not model.Parent then return false end
+    if not model:IsA("Model") then return false end
+    if model == LocalPlayer.Character then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    local root = model:FindFirstChild("HumanoidRootPart")
+
+    if not hum or not root then return false end
+    if hum.Health <= 0 or hum.MaxHealth <= 0 then return false end
+    if root.Anchored then return false end
+
+    return true
+end
+
+local function cleanupNPC(npc)
+    local data = npcs[npc]
+    if not data then return end
+    if data.connection then data.connection:Disconnect() end
+    local head = data.head
+    if head and head.Parent then
+        head.Size = origSizes[head] or Vector3.new(2,1,1)
+        head.Transparency = 0
+        head.CanCollide = true
+        head.Massless = false
+
+        local outline = head:FindFirstChild("StarCrowHitboxOutline")
+        if outline then outline:Destroy() end
+    end
+    origSizes[head] = nil
+    npcs[npc] = nil
+end
+
+local function applyHitbox(npc)
+    if not isValidNPC(npc) then return end
+    if npcs[npc] then return end
+
+    local head = npc:FindFirstChild("Head") or npc:FindFirstChild("HumanoidRootPart")
+    local hum = npc:FindFirstChildOfClass("Humanoid")
+
+    if not head or not hum then return end
+
+    origSizes[head] = head.Size
+
+    local outline = Instance.new("SelectionBox")
+    outline.Name = "StarCrowHitboxOutline"
+    outline.Color3 = Color3.fromRGB(255, 50, 50)
+    outline.LineThickness = 0.05
+    outline.Transparency = 0.5
+    outline.SurfaceTransparency = 1
+    outline.Adornee = head
+    outline.Parent = head
+
+    local _hbThrottle = 0
+    local connection = RunService.Heartbeat:Connect(function(dt)
+        if not Config.NPCHitboxEnabled or not npc.Parent or hum.Health <= 0 then
+            cleanupNPC(npc)
+            return
+        end
+        _hbThrottle = _hbThrottle + dt
+        if _hbThrottle < 0.1 then return end
+        _hbThrottle = 0
+        local wanted = Vector3.new(Config.NPCHitboxSize, Config.NPCHitboxSize, Config.NPCHitboxSize)
+        if head.Size ~= wanted then
+            head.Size = wanted
+            head.Transparency = 1
+            head.CanCollide = false
+            head.Massless = true
+        end
+    end)
+
+    npcs[npc] = {
+        head = head,
+        connection = connection
+    }
+end
+
+local function scanNPCs()
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if isValidNPC(v) then
+            applyHitbox(v)
+        end
+    end
+end
+
+local function clearHitbox()
+    for npc in pairs(npcs) do
+        cleanupNPC(npc)
+    end
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if Config.NPCHitboxEnabled then
+            scanNPCs()
+        end
+    end
+end)
+
+Tabs.Combat:AddSection("NPC Hitbox")
+
+NPCHitboxToggleObj = Tabs.Combat:AddToggle("NPCHitboxToggle", {
+    Title = "Enable NPC Hitbox",
+    Default = Config.NPCHitboxEnabled,
+    Callback = function(Value)
+        Config.NPCHitboxEnabled = Value
+        SaveConfig()
+        if not Value then
+            clearHitbox()
+        end
+    end
+})
+
+NPCHitboxSliderObj = Tabs.Combat:AddSlider("NPCHitboxSlider", {
+    Title = "NPC Hitbox Size",
+    Default = Config.NPCHitboxSize,
+    Min = 2,
+    Max = 1000,
+    Rounding = 0,
+    Callback = function(Value)
+        Config.NPCHitboxSize = Value
+        SaveConfig()
     end
 })
 

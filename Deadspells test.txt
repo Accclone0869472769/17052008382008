@@ -1,17 +1,3 @@
-local teleport_func = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or getgenv().queue_on_teleport
-
-if teleport_func then
-    pcall(function()
-        teleport_func([[
-            repeat task.wait() until game:IsLoaded()
-            task.wait(1.5)
-            pcall(function()
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/Star-Crow-Hub/Noo/refs/heads/main/StarCrowHub"))()  
-            end)
-        ]])
-    end)
-end
-
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 local Players = game:GetService("Players")
@@ -50,8 +36,6 @@ local Config = {
     FastAttackEnabled = false,
     FastAttackMultiplier = 10,
     BringBurger = false,
-    AutoFarmEnabled = false,
-    AutoResetMinutes = 5,
     BringMana = false,
     BringHeal = false,
     AutoBringMobs = false,
@@ -67,7 +51,6 @@ local Config = {
     OreESPEnabled = false,
     UITheme = "Dark",
     DashFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = 160 },
-    DashFloatVisible = false,
     DashPower = 80,
     DashKeybind = "Q",
     BringItemRange = 100,
@@ -1129,266 +1112,6 @@ task.spawn(function()
     end
 end)
 
-task.spawn(function()
-    while task.wait(0.5) do
-        if not Config.AutoFarmEnabled then continue end
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if not pg then continue end
-        for _, v in ipairs(pg:GetDescendants()) do
-            if v:IsA("TextLabel") or v:IsA("TextButton") then
-                if string.find(string.lower(v.Text or ""), "play again") then
-                    local btn = v:IsA("TextButton") and v or v.Parent
-                    if btn and btn:IsA("GuiButton") and btn.Visible then
-                        pcall(function()
-                            if getconnections then
-                                for _, e in ipairs(getconnections(btn.Activated)) do e:Fire() end
-                                for _, e in ipairs(getconnections(btn.MouseButton1Click)) do e:Fire() end
-                                for _, e in ipairs(getconnections(btn.MouseButton1Down)) do e:Fire() end
-                            end
-                            if firesignal then
-                                firesignal(btn.Activated)
-                                firesignal(btn.MouseButton1Click)
-                                firesignal(btn.MouseButton1Down)
-                            end
-                            local absPos = btn.AbsolutePosition
-                            local absSize = btn.AbsoluteSize
-                            local inset = GuiService:GetGuiInset()
-                            local cx = absPos.X + absSize.X / 2
-                            local cy = absPos.Y + absSize.Y / 2 + inset.Y
-                            if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
-                                VirtualInputManager:SendTouchEvent(cx, cy, true)
-                                task.wait(0.1)
-                                VirtualInputManager:SendTouchEvent(cx, cy, false)
-                            else
-                                VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
-                                task.wait(0.1)
-                                VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
-                            end
-                        end)
-                    end
-                end
-            end
-        end
-    end
-end)
-
-local cachedAutoFarmBosses = {}
-
-local function getAutoFarmBossKey(model)
-    local name = string.gsub(string.lower(model.Name), "%s+", "")
-    for n in pairs(_bossTargets) do
-        if string.find(name, n) then return n end
-    end
-    return nil
-end
-
-local function registerAutoFarmBoss(v)
-    local key = getAutoFarmBossKey(v)
-    if not key then return end
-    local hum = v:FindFirstChildOfClass("Humanoid")
-    if hum and hum.Health > 0 then
-        cachedAutoFarmBosses[key] = v
-        hum.Died:Connect(function()
-            if cachedAutoFarmBosses[key] == v then cachedAutoFarmBosses[key] = nil end
-        end)
-    end
-end
-
-for _, v in ipairs(workspace:GetDescendants()) do
-    if v:IsA("Model") then registerAutoFarmBoss(v) end
-end
-
-workspace.DescendantAdded:Connect(function(v)
-    if v:IsA("Model") then registerAutoFarmBoss(v) end
-end)
-
-workspace.DescendantRemoving:Connect(function(v)
-    if not v:IsA("Model") then return end
-    local key = getAutoFarmBossKey(v)
-    if key and cachedAutoFarmBosses[key] == v then cachedAutoFarmBosses[key] = nil end
-end)
-
-local autoFarmBosses = {
-    { n = "mastersamurai",  pos = CFrame.new(103.27,  40.89,  -3560.05) },
-    { n = "eldervampire",   pos = CFrame.new(103.08,  37.85,  7407.76) },
-    { n = "gnomechampion",  pos = CFrame.new(37.76,    3.00,  13993.09) },
-    { n = "steamborneczar", pos = CFrame.new(-15.31,   3.02,  27032.90) },
-    { n = "kingice",        pos = CFrame.new(24.27,    3.00,  45907.91) },
-}
-
-local autoFarmSkyIslandPos = CFrame.new(-46.56, 81.52, 37536.83)
-local autoFarmCurrentIdx = 1
-local autoFarmHoverPos = nil
-local autoFarmVisited = false
-local autoFarmEngaged = false
-local autoFarmVisitedSkyIsland = false
-local autoFarmStartTime = 0
-local autoClickRunning = false
-
-local function autoFarmActivateHeldTool()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local tool = char:FindFirstChildWhichIsA("Tool")
-    if tool then pcall(function() tool:Activate() end) end
-end
-
-local function autoFarmStopAutoClick()
-    autoClickRunning = false
-end
-
-local function autoFarmStartAutoClick()
-    autoFarmStopAutoClick()
-    autoClickRunning = true
-    autoFarmStartTime = tick()
-    task.spawn(function()
-        while autoClickRunning do
-            autoFarmActivateHeldTool()
-            task.wait(1)
-        end
-    end)
-end
-
-RunService.Heartbeat:Connect(function()
-    local char = LocalPlayer.Character
-    if not char or not autoFarmHoverPos or not Config.AutoFarmEnabled then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.CFrame = autoFarmHoverPos
-        hrp.Velocity = Vector3.new(0, 0, 0)
-    end
-end)
-
-task.spawn(function()
-    while task.wait(0.1) do
-        if not Config.AutoFarmEnabled then
-            autoFarmHoverPos = nil
-            continue
-        end
-
-        local char = LocalPlayer.Character
-        if not char then continue end
-
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChild("Humanoid")
-        if not hrp or not hum then continue end
-
-        if autoFarmStartTime > 0 and tick() - autoFarmStartTime >= Config.AutoResetMinutes * 60 then
-            pcall(function()
-                local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
-                for _ = 1, 3 do
-                    Remotes.Reset.fireServer()
-                    task.wait(1)
-                end
-            end)
-            autoFarmHoverPos = nil
-            autoFarmVisited = false
-            autoFarmEngaged = false
-            autoFarmVisitedSkyIsland = false
-            autoFarmCurrentIdx = 1
-            autoFarmStartTime = tick()
-            continue
-        end
-
-        if hum.Health <= 0 then
-            autoFarmHoverPos = nil
-            autoFarmVisited = false
-            autoFarmEngaged = false
-            autoFarmVisitedSkyIsland = false
-            autoFarmCurrentIdx = 1
-            task.wait(1)
-            continue
-        end
-
-        if autoFarmCurrentIdx <= #autoFarmBosses then
-            local info = autoFarmBosses[autoFarmCurrentIdx]
-            local targetBoss = cachedAutoFarmBosses[info.n]
-
-            if targetBoss then
-                local bHrp = targetBoss:FindFirstChild("HumanoidRootPart")
-                local bHum = targetBoss:FindFirstChildOfClass("Humanoid")
-
-                if bHrp and bHum and bHum.Health > 0 then
-                    if not autoFarmVisited then
-                        autoFarmHoverPos = nil
-                        hrp.CFrame = info.pos
-                        hrp.Anchored = true
-                        task.wait(2)
-                        hrp.Anchored = false
-                        autoFarmVisited = true
-                    end
-                    autoFarmEngaged = true
-                    bHrp.CFrame = CFrame.new(info.pos.Position)
-                    bHrp.Velocity = Vector3.new(0, 0, 0)
-                    autoFarmHoverPos = CFrame.lookAt(info.pos.Position + Vector3.new(0, 15, 0), info.pos.Position)
-
-                    local tool = char:FindFirstChildOfClass("Tool")
-                    if not tool or not isMelee(tool) then
-                        for _, t in ipairs(LocalPlayer.Backpack:GetChildren()) do
-                            if t:IsA("Tool") and isMelee(t) then
-                                t.Parent = char
-                                break
-                            end
-                        end
-                    end
-
-                elseif bHum and bHum.Health <= 0 then
-                    task.wait(3)
-                    autoFarmEngaged = false
-                    autoFarmVisited = false
-                    autoFarmHoverPos = nil
-                    autoFarmCurrentIdx = autoFarmCurrentIdx + 1
-                end
-
-            else
-                if autoFarmEngaged then
-                    task.wait(3)
-                    autoFarmEngaged = false
-                    autoFarmVisited = false
-                    autoFarmHoverPos = nil
-                    autoFarmCurrentIdx = autoFarmCurrentIdx + 1
-                else
-                    if not autoFarmVisited then
-                        autoFarmHoverPos = nil
-                        hrp.CFrame = info.pos
-                        hrp.Anchored = true
-                        task.wait(2)
-                        hrp.Anchored = false
-                        autoFarmVisited = true
-                    end
-                    autoFarmHoverPos = CFrame.new(info.pos.Position + Vector3.new(0, 15, 0))
-                end
-            end
-
-        else
-            if not autoFarmVisitedSkyIsland then
-                autoFarmHoverPos = nil
-                hrp.CFrame = autoFarmSkyIslandPos
-                hrp.Anchored = true
-                task.wait(2)
-                hrp.Anchored = false
-                autoFarmVisitedSkyIsland = true
-                autoFarmHoverPos = autoFarmSkyIslandPos
-            end
-
-            if #itemQueue == 0 and currentTarget == nil then
-                task.wait(3)
-                if #itemQueue == 0 and currentTarget == nil then
-                    autoFarmHoverPos = nil
-                    autoFarmVisitedSkyIsland = false
-                    autoFarmCurrentIdx = 1
-                    autoFarmStartTime = tick()
-                    task.spawn(function()
-                        pcall(function()
-                            local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
-                            Remotes.Reset.fireServer()
-                        end)
-                    end)
-                end
-            end
-        end
-    end
-end)
-
 RunService.RenderStepped:Connect(function(deltaTime)
     if not Config.BringBurger then return end
 
@@ -1626,7 +1349,6 @@ local Window = Fluent:CreateWindow({
 local Tabs = {
     Info = Window:AddTab({ Title = "Info", Icon = "info" }),
     Main = Window:AddTab({ Title = "Main", Icon = "home" }),
-    AutoFarm = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
     ESP = Window:AddTab({ Title = "ESP", Icon = "eye" }),
     Player = Window:AddTab({ Title = "Player", Icon = "user" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map" }),
@@ -1636,7 +1358,6 @@ local Tabs = {
 }
 
 local FastAttackToggleObj, FastAttackSliderObj, NPCHitboxToggleObj, NPCHitboxSliderObj
-local AutoFarmBringBurgerToggleObj
 local performDash
 
 Tabs.Info:AddParagraph({
@@ -2045,58 +1766,12 @@ for _, loc in ipairs(bossLocations) do
     Tabs.Teleport:AddButton({ Title = loc[1], Callback = function() teleportPlayer(CFrame.new(loc[2])) end })
 end
 
-AutoFarmBringBurgerToggleObj = Tabs.Misc:AddToggle("BringBurgerToggle", {
+Tabs.Misc:AddToggle("BringBurgerToggle", {
     Title = "Bring Burger",
     Default = Config.BringBurger,
     Callback = function(Value)
         Config.BringBurger = Value
         SaveConfig()
-    end
-})
-
-Tabs.AutoFarm:AddParagraph({
-    Title = "Auto Farm Bosses",
-    Content = "You need a class with a melee weapon. Magic staves do not work.\nIf Auto Farm bugs after reset, just stay AFK."
-})
-
-Tabs.AutoFarm:AddToggle("AutoFarmEnabledToggle", {
-    Title = "Auto Farm",
-    Default = Config.AutoFarmEnabled,
-    Callback = function(Value)
-        Config.AutoFarmEnabled = Value
-        if Value then
-            Config.BringBurger = true
-            if AutoFarmBringBurgerToggleObj then AutoFarmBringBurgerToggleObj:SetValue(true) end
-
-            Config.FastAttackEnabled = true
-            Config.FastAttackMultiplier = 200
-            if FastAttackToggleObj then FastAttackToggleObj:SetValue(true) end
-            if FastAttackSliderObj then FastAttackSliderObj:SetValue(200) end
-
-            autoFarmStartAutoClick()
-
-            task.wait(0.2)
-            VirtualInputManager:SendKeyEvent(true, minimizeKey, false, game)
-            task.wait(0.05)
-            VirtualInputManager:SendKeyEvent(false, minimizeKey, false, game)
-        else
-            autoFarmStopAutoClick()
-        end
-        SaveConfig()
-    end
-})
-
-Tabs.AutoFarm:AddInput("AutoFarmResetInput", {
-    Title = "Reset (minutes)",
-    Default = tostring(Config.AutoResetMinutes),
-    Numeric = true,
-    Finished = true,
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num and num > 0 then
-            Config.AutoResetMinutes = num
-            SaveConfig()
-        end
     end
 })
 
@@ -2302,7 +1977,6 @@ dashFloatBtn.TextScaled = false
 dashFloatBtn.TextSize = 13
 dashFloatBtn.Font = Enum.Font.GothamBold
 dashFloatBtn.ZIndex = 15
-dashFloatBtn.Visible = Config.DashFloatVisible
 dashFloatBtn.Parent = LogoGui
 Instance.new("UICorner", dashFloatBtn).CornerRadius = UDim.new(0, 8)
 local dashFloatStroke = Instance.new("UIStroke", dashFloatBtn)
@@ -2362,11 +2036,9 @@ Tabs.AirWeld:AddSlider("DashPowerSlider", {
 
 Tabs.AirWeld:AddToggle("DashFloatToggle", {
     Title = "Show Dash Button",
-    Default = Config.DashFloatVisible,
+    Default = true,
     Callback = function(Value)
         dashFloatBtn.Visible = Value
-        Config.DashFloatVisible = Value
-        SaveConfig()
     end
 })
 

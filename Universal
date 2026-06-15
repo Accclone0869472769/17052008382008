@@ -16,6 +16,11 @@ local Config = {
     InvisFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = -80 },
     NoclipFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = 0 },
     FlyFloatPos    = { xs = 0.85, xo = 0, ys = 0.5, yo = 80 },
+    InvisFloatSize = 46,
+    NoclipFloatSize = 46,
+    FlyFloatSize = 46,
+    KeybindsDisabled = false,
+    FloatLocked = false,
     AimEnabled = false,
     AimFOV = 75,
     AimPart = "Head",
@@ -242,19 +247,23 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     end
 })
 
-local keybindsDisabled = false
+local keybindsDisabled = Config.KeybindsDisabled
 Tabs.Settings:AddToggle("DisableKeybindsToggle", {
     Title = "Disable Keybinds",
-    Default = false,
+    Default = Config.KeybindsDisabled,
     Callback = function(value)
         keybindsDisabled = value
+        Config.KeybindsDisabled = value
+        SaveConfig()
     end
 })
 Tabs.Settings:AddToggle("UndragFloatToggle", {
     Title = "Undraggable Float Buttons",
-    Default = false,
+    Default = Config.FloatLocked,
     Callback = function(value)
         S.floatLocked = value
+        Config.FloatLocked = value
+        SaveConfig()
     end
 })
 
@@ -2999,10 +3008,10 @@ task.spawn(function()
         end
     end
 end)
-S.floatLocked = false
-S.invisFloatSize = 46
-S.noclipFloatSize = 46
-S.flyFloatSize = 46
+S.floatLocked = Config.FloatLocked
+S.invisFloatSize = Config.InvisFloatSize
+S.noclipFloatSize = Config.NoclipFloatSize
+S.flyFloatSize = Config.FlyFloatSize
 
 local function floatTextSize(size)
     return math.clamp(math.floor(size * 0.28 + 0.5), 9, 14)
@@ -3175,16 +3184,18 @@ invisFloatToggle:OnChanged(function(value)
 end)
 Tabs.Settings:AddSlider("InvisFloatSize", {
     Title = "Float Size",
-    Default = 46,
+    Default = Config.InvisFloatSize,
     Min = 30,
     Max = 130,
     Rounding = 0,
     Callback = function(value)
         S.invisFloatSize = value
+        Config.InvisFloatSize = value
         if S.invisFloatBtn then
             S.invisFloatBtn.Size = UDim2.new(0, value, 0, value)
             S.invisFloatBtn.TextSize = floatTextSize(value)
         end
+        SaveConfig()
     end
 })
 
@@ -3202,16 +3213,18 @@ noclipFloatToggle:OnChanged(function(value)
 end)
 Tabs.Settings:AddSlider("NoclipFloatSize", {
     Title = " Float Size",
-    Default = 46,
+    Default = Config.NoclipFloatSize,
     Min = 30,
     Max = 130,
     Rounding = 0,
     Callback = function(value)
         S.noclipFloatSize = value
+        Config.NoclipFloatSize = value
         if S.noclipFloatBtn then
             S.noclipFloatBtn.Size = UDim2.new(0, value, 0, value)
             S.noclipFloatBtn.TextSize = floatTextSize(value)
         end
+        SaveConfig()
     end
 })
 
@@ -3229,16 +3242,18 @@ flyFloatToggle:OnChanged(function(value)
 end)
 Tabs.Settings:AddSlider("FlyFloatSize", {
     Title = " Float Size",
-    Default = 46,
+    Default = Config.FlyFloatSize,
     Min = 30,
     Max = 130,
     Rounding = 0,
     Callback = function(value)
         S.flyFloatSize = value
+        Config.FlyFloatSize = value
         if S.flyFloatBtn then
             S.flyFloatBtn.Size = UDim2.new(0, value, 0, value)
             S.flyFloatBtn.TextSize = floatTextSize(value)
         end
+        SaveConfig()
     end
 })
 

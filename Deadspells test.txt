@@ -16,11 +16,6 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local SharedSignals = require(ReplicatedStorage:WaitForChild("Classes"):WaitForChild("SharedSignals"))
 
-LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-end)
-
 local Config = {
     IsBanned = false,
     BanReason = "",
@@ -72,7 +67,9 @@ local Config = {
         Legendary = true,
         Mythical = true,
         Transcended = true,
-    }
+    },
+    KillAuraEnabled = false,
+    KillAuraDistance = 500
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -99,6 +96,26 @@ local function LoadConfig()
 end
 
 LoadConfig()
+
+pcall(function()
+    local ToolShared = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("ToolShared"))
+    local oldMeleeHitBox = ToolShared.meleeHitBox
+
+    ToolShared.meleeHitBox = function(p1, p2, p3, p4, p5, p6, p7, p8)
+        if Config.KillAuraEnabled then
+            local hackLength = Config.KillAuraDistance
+            local hackWidth = Config.KillAuraDistance
+            local hackHeight = Config.KillAuraDistance
+            return oldMeleeHitBox(p1, p2, hackLength, hackWidth, hackHeight, p6, p7, p8)
+        end
+        return oldMeleeHitBox(p1, p2, p3, p4, p5, p6, p7, p8)
+    end
+end)
+
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
 
 local LogoGui = Instance.new("ScreenGui")
 LogoGui.Name = "StarCrowLogoGui"
@@ -511,7 +528,7 @@ pcall(function()
         if Config.FastAttackEnabled then
             task.spawn(function()
                 for i = 1, Config.FastAttackMultiplier - 1 do
-                  task.wait(0.03)
+                    task.wait(0.03)
                     originalLaserHit(unpack(args))
                 end
             end)
@@ -591,7 +608,7 @@ local function applyHitbox(npc)
             head.Size = wanted
             head.Transparency = 1
             head.CanCollide = false
-           head.Massless = true
+            head.Massless = true
         end
     end)
 
@@ -2030,6 +2047,27 @@ dashFloatBtn.MouseButton1Click:Connect(function()
     if getMoved() then resetMoved() return end
     performDash()
 end)
+
+Tabs.AirWeld:AddToggle("KillAuraToggle", {
+    Title = "Kill Aura",
+    Default = Config.KillAuraEnabled,
+    Callback = function(Value)
+        Config.KillAuraEnabled = Value
+        SaveConfig()
+    end
+})
+
+Tabs.AirWeld:AddSlider("KillAuraDistanceSlider", {
+    Title = "Kill Aura Distance",
+    Default = Config.KillAuraDistance,
+    Min = 10,
+    Max = 2000,
+    Rounding = 0,
+    Callback = function(Value)
+        Config.KillAuraDistance = Value
+        SaveConfig()
+    end
+})
 
 Tabs.AirWeld:AddSlider("DashPowerSlider", {
     Title = "Dash Distance",

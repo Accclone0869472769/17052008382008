@@ -44,17 +44,22 @@ local CoreGui          = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local HttpService      = game:GetService("HttpService")
 local TweenService     = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera      = workspace.CurrentCamera
 
 local Config = {
-    SilentAimEnabled  = false,
-    ESPEnabled        = false,
-    NoSpreadEnabled   = false,
-    FastReloadEnabled = false,
-    FOVRadius         = 150,
-    UITheme           = "Dark",
+    SilentAimEnabled     = false,
+    ESPEnabled           = false,
+    ESPNameEnabled       = false,
+    NoSpreadEnabled      = false,
+    FastReloadEnabled    = false,
+    SpeedBoostEnabled    = false,
+    JumpBoostEnabled     = false,
+    AutoSpawnFastEnabled = false,
+    FOVRadius            = 150,
+    UITheme              = "Dark",
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -198,11 +203,22 @@ fovCircle.Parent = fovGui
 Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(1, 0)
 
 local fovStroke = Instance.new("UIStroke")
-fovStroke.Color = Color3.fromRGB(0, 255, 127)
+fovStroke.Color = Color3.fromRGB(255, 255, 255)
 fovStroke.Thickness = 2
 fovStroke.Parent = fovCircle
 
+local fovGrad = Instance.new("UIGradient", fovStroke)
+fovGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(130, 0, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 130, 255)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(130, 0, 255)),
+})
+task.spawn(function()
+    TweenService:Create(fovGrad, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Rotation = 180}):Play()
+end)
+
 local ESPBoxes = {}
+local ESPNameObjects = {}
 
 local function CreateESP(player)
     local box = Drawing.new("Square")
@@ -218,6 +234,45 @@ local function RemoveESP(player)
         ESPBoxes[player]:Remove()
         ESPBoxes[player] = nil
     end
+    if ESPNameObjects[player] then
+        pcall(function() ESPNameObjects[player]:Destroy() end)
+        ESPNameObjects[player] = nil
+    end
+end
+
+local function createNameESP(player)
+    if player == LocalPlayer then return end
+    local char = player.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+
+    if ESPNameObjects[player] then
+        pcall(function() ESPNameObjects[player]:Destroy() end)
+        ESPNameObjects[player] = nil
+    end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "NameESP"
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 200, 0, 22)
+    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 500
+    billboard.Parent = head
+
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Size = UDim2.new(1, 0, 1, 0)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Text = player.Name
+    infoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    infoLabel.TextStrokeTransparency = 0
+    infoLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    infoLabel.Font = Enum.Font.GothamBold
+    infoLabel.TextSize = 13
+    infoLabel.Parent = billboard
+
+    ESPNameObjects[player] = billboard
 end
 
 for _, v in pairs(Players:GetPlayers()) do
@@ -241,6 +296,7 @@ local Window = Fluent:CreateWindow({
 local Tabs = {
     Info     = Window:AddTab({ Title = "Info",     Icon = "info"      }),
     Main     = Window:AddTab({ Title = "Main",     Icon = "crosshair" }),
+    Player   = Window:AddTab({ Title = "Player",   Icon = "user"      }),
     ESP      = Window:AddTab({ Title = "ESP",      Icon = "eye"       }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings"  }),
 }
@@ -257,6 +313,54 @@ Tabs.Info:AddButton({
             setclipboard("https://discord.com/invite/wXthjUsXns")
             Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 })
         end)
+    end,
+})
+
+-- LOGIC AUTO SPAWN FAST
+local autoSpawnFastActive = false
+local function loopAutoSpawnFast()
+    if autoSpawnFastActive then return end
+    autoSpawnFastActive = true
+    task.spawn(function()
+        while Config.AutoSpawnFastEnabled do
+            local char = LocalPlayer.Character
+            local isDead = false
+
+            if not char then
+                isDead = true
+            else
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then
+                    isDead = true
+                end
+            end
+
+            if isDead then
+                pcall(function()
+                    ReplicatedStorage:WaitForChild("Remotes", 1):WaitForChild("Command", 1):FireServer("Play")
+                end)
+            end
+
+            task.wait(0.1)
+        end
+        autoSpawnFastActive = false
+    end)
+end
+
+-- Tự động bật nếu config cũ đã lưu là Bật
+if Config.AutoSpawnFastEnabled then
+    loopAutoSpawnFast()
+end
+
+Tabs.Main:AddToggle("AutoSpawnFastToggle", {
+    Title    = "Auto Spawn Fast",
+    Default  = Config.AutoSpawnFastEnabled,
+    Callback = function(state)
+        Config.AutoSpawnFastEnabled = state
+        SaveConfig()
+        if state then
+            loopAutoSpawnFast()
+        end
     end,
 })
 
@@ -302,12 +406,47 @@ Tabs.Main:AddSlider("FOVSlider", {
     end,
 })
 
+Tabs.Player:AddToggle("SpeedBoostToggle", {
+    Title    = "Speed Boost",
+    Default  = Config.SpeedBoostEnabled,
+    Callback = function(state)
+        Config.SpeedBoostEnabled = state
+        SaveConfig()
+    end,
+})
+
+Tabs.Player:AddToggle("JumpBoostToggle", {
+    Title    = "Jump Boost",
+    Default  = Config.JumpBoostEnabled,
+    Callback = function(state)
+        Config.JumpBoostEnabled = state
+        SaveConfig()
+    end,
+})
+
 Tabs.ESP:AddToggle("ESPToggle", {
     Title    = "ESP Outline",
     Default  = Config.ESPEnabled,
     Callback = function(state)
         Config.ESPEnabled = state
         SaveConfig()
+    end,
+})
+
+Tabs.ESP:AddToggle("ESPNameToggle", {
+    Title    = "ESP Name",
+    Default  = Config.ESPNameEnabled,
+    Callback = function(state)
+        Config.ESPNameEnabled = state
+        SaveConfig()
+        if not state then
+            for _, player in pairs(Players:GetPlayers()) do
+                if ESPNameObjects[player] then
+                    pcall(function() ESPNameObjects[player]:Destroy() end)
+                    ESPNameObjects[player] = nil
+                end
+            end
+        end
     end,
 })
 
@@ -356,6 +495,33 @@ end)
 local currentTarget  = nil
 local isHoldingGun   = false
 
+local wasSpeed = false
+local wasJump = false
+
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if hum and hum.Health > 0 then
+        if Config.SpeedBoostEnabled then
+            hum.WalkSpeed = 26
+            wasSpeed = true
+        elseif wasSpeed then
+            hum.WalkSpeed = 16
+            wasSpeed = false
+        end
+
+        if Config.JumpBoostEnabled then
+            hum.UseJumpPower = true
+            hum.JumpPower = 55
+            wasJump = true
+        elseif wasJump then
+            hum.JumpPower = 50
+            wasJump = false
+        end
+    end
+end)
+
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     isHoldingGun = char and char:FindFirstChildOfClass("Tool") ~= nil
@@ -389,7 +555,23 @@ RunService.RenderStepped:Connect(function()
         currentTarget = target
     end
 
-    fovStroke.Color = currentTarget and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 127)
+    if Config.ESPNameEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                local pChar = player.Character
+                if pChar and pChar:FindFirstChild("Head") and pChar:FindFirstChildOfClass("Humanoid") and pChar.Humanoid.Health > 0 then
+                    if not ESPNameObjects[player] or not ESPNameObjects[player].Parent then
+                        createNameESP(player)
+                    end
+                else
+                    if ESPNameObjects[player] then
+                        pcall(function() ESPNameObjects[player]:Destroy() end)
+                        ESPNameObjects[player] = nil
+                    end
+                end
+            end
+        end
+    end
 
     for player, box in pairs(ESPBoxes) do
         if Config.ESPEnabled and player.Character

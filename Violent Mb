@@ -8,7 +8,6 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
-local mouse = LocalPlayer:GetMouse()
 
 local Config = {
     UITheme = "Dark",
@@ -174,12 +173,12 @@ local S = {
     noclipEnabled = false, noclipLoop = nil,
     loopspeedEnabled = false, loopspeedConnection = nil, loopspeedValue = 30,
     nameESPEnabled = false, chamsEnabled = false, genESPEnabled = false, gateESPEnabled = false, hookESPEnabled = false,
-    autoRepairEnabled = false, autoAttackEnabled = false, autoParryEnabled = false, parryRange = 16,
+    autoRepairEnabled = false, autoAttackEnabled = false, autoParryEnabled = false, parryRange = 16, killAllEnabled = false,
     nameESPObjects = {}, genESPObjects = {}, gateESPObjects = {}, hookESPObjects = {},
     floatLocked = Config.FloatLocked, invisFloatSize = Config.InvisFloatSize,
     noclipFloatSize = Config.NoclipFloatSize, flyFloatSize = Config.FlyFloatSize,
     invisFloatBtn = nil, invisFloatStroke = nil, noclipFloatBtn = nil, noclipFloatStroke = nil,
-    flyFloatBtn = nil, flyFloatStroke = nil
+    flyFloatBtn = nil, flyFloatStroke = nil, AutoAttackToggleObj = nil
 }
 
 local SAVE_FILE_CUSTOM = "StarCrow/ViolenceDistrict.json"
@@ -644,7 +643,7 @@ local function createGenESP(gen)
     infoLabel.Size = UDim2.new(1, 0, 1, 0)
     infoLabel.BackgroundTransparency = 1
     infoLabel.RichText = true
-    infoLabel.Text = "<font color=\"#ffff00\">Generator</font>"
+    infoLabel.Text = "<font color=\"#ffff00\">Generator | 0%</font>"
     infoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     infoLabel.TextStrokeTransparency = 0
     infoLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
@@ -661,29 +660,64 @@ local function createGenESP(gen)
     hl.OutlineTransparency = 0
     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     pcall(function() hl.Parent = gen end)
-    S.genESPObjects[gen] = {billboard = billboard, highlight = hl}
+    
+    local conn = RunService.Heartbeat:Connect(function()
+        if not billboard or not billboard.Parent then
+            if S.genESPObjects[gen] and S.genESPObjects[gen].conn then
+                S.genESPObjects[gen].conn:Disconnect()
+            end
+            return
+        end
+        local progress = 0
+        local valObj = gen:FindFirstChild("Progress") or gen:FindFirstChild("RepairProgress") or gen:FindFirstChild("Percentage")
+        if valObj and (valObj:IsA("NumberValue") or valObj:IsA("IntValue")) then
+            progress = valObj.Value
+        else
+            local attr = gen:GetAttribute("Progress") or gen:GetAttribute("RepairProgress")
+            if type(attr) == "number" then
+                progress = attr
+            end
+        end
+        infoLabel.Text = string.format('<font color="#ffff00">Generator | %d%%</font>', math.floor(progress))
+    end)
+    
+    S.genESPObjects[gen] = {billboard = billboard, highlight = hl, conn = conn}
 end
 
 local function removeGenESP(gen)
     if S.genESPObjects[gen] then
         pcall(function() S.genESPObjects[gen].billboard:Destroy() end)
         pcall(function() S.genESPObjects[gen].highlight:Destroy() end)
+        if S.genESPObjects[gen].conn then
+            S.genESPObjects[gen].conn:Disconnect()
+        end
         S.genESPObjects[gen] = nil
     end
 end
 
 local function createGateESP(gate)
     if S.gateESPObjects[gate] then return end
-    local primaryPart = getPrimaryPart(gate)
-    if not primaryPart then return end
+    local targetPart = nil
+    for _, v in ipairs(gate:GetDescendants()) do
+        if v:IsA("BasePart") then
+            local vn = string.lower(v.Name)
+            if string.find(vn, "switch") or string.find(vn, "lever") or string.find(vn, "panel") or string.find(vn, "handle") then
+                targetPart = v
+                break
+            end
+        end
+    end
+    if not targetPart then targetPart = getPrimaryPart(gate) end
+    if not targetPart then return end
+    
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "GateESP"
-    billboard.Adornee = primaryPart
+    billboard.Adornee = targetPart
     billboard.Size = UDim2.new(0, 200, 0, 22)
-    billboard.StudsOffset = Vector3.new(0, 5, 0)
+    billboard.StudsOffset = Vector3.new(0, 1.5, 0)
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = math.huge
-    billboard.Parent = primaryPart
+    billboard.Parent = targetPart
     local infoLabel = Instance.new("TextLabel")
     infoLabel.Size = UDim2.new(1, 0, 1, 0)
     infoLabel.BackgroundTransparency = 1
@@ -698,13 +732,13 @@ local function createGateESP(gate)
     infoLabel.Parent = billboard
     local hl = Instance.new("Highlight")
     hl.Name = "GateChams"
-    hl.Adornee = gate
+    hl.Adornee = targetPart
     hl.FillColor = Color3.fromRGB(255, 0, 255)
     hl.FillTransparency = 0.7
     hl.OutlineColor = Color3.fromRGB(255, 0, 255)
     hl.OutlineTransparency = 0
     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    pcall(function() hl.Parent = gate end)
+    pcall(function() hl.Parent = targetPart end)
     S.gateESPObjects[gate] = {billboard = billboard, highlight = hl}
 end
 
@@ -824,6 +858,274 @@ task.spawn(function()
     end
 end)
 
+task.spawn(function()
+    local AttacksFolder = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 9e9):WaitForChild("Attacks", 9e9)
+    local BasicAttackEvent = AttacksFolder:WaitForChild("BasicAttack", 9e9)
+    local LungeEvent       = AttacksFolder:WaitForChild("Lunge", 9e9)
+    while true do
+        task.wait(0.05)
+        if not S.autoAttackEnabled then continue end
+        pcall(function() BasicAttackEvent:FireServer() end)
+        pcall(function() LungeEvent:FireServer() end)
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        local char = player.Character
+        if not char then continue end
+        if S.chamsEnabled and isAlive(char) then
+            local hl = char:FindFirstChild("StarCrowChams")
+            local teamColor = getTeamColor(player)
+            if not hl then
+                addChams(char, teamColor)
+            else
+                hl.FillColor    = teamColor
+                hl.OutlineColor = teamColor
+            end
+        end
+        if S.nameESPEnabled and not S.nameESPObjects[player] and isAlive(char) then
+            createNameESP(player, char)
+        end
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    removeNameESP(player)
+end)
+
+local circleParts = {}
+local circleFolder = nil
+local parryDebounce = false
+local parryClientInstance = nil
+local farAnimations = {}   
+local nearIdleAnims = {}   
+local standardIds = {"507766951","507766330","507766666","507766288","507765920","507765320","507765644"}
+
+for _, id in ipairs(standardIds) do
+    farAnimations["rbxassetid://"..id] = true
+    farAnimations["http://www.roblox.com/asset/?id="..id] = true
+    farAnimations[id] = true
+end
+
+local function createParryCircle()
+    if circleFolder and circleFolder.Parent then return end
+    if circleFolder then circleFolder:Destroy() end
+    circleParts = {}
+    local folder = Instance.new("Folder")
+    folder.Name = "ParryCircle"
+    folder.Parent = workspace
+    circleFolder = folder
+    local numSeg = 48
+    local angleStep = (2 * math.pi) / numSeg
+    for i = 1, numSeg do
+        local seg = Instance.new("Part")
+        seg.Anchored = true
+        seg.CanCollide = false
+        seg.CanTouch = false
+        seg.CanQuery = false
+        seg.CastShadow = false
+        seg.Material = Enum.Material.Neon
+        seg.Color = Color3.fromRGB(0, 255, 255)
+        seg.Transparency = 0.15
+        seg.Parent = folder
+        table.insert(circleParts, {part = seg, index = i, angleStep = angleStep})
+    end
+end
+
+local function updateCircle(rootPos)
+    local numSeg = 48
+    local segLen = (2 * math.pi * S.parryRange / numSeg) + 0.1
+    for _, data in ipairs(circleParts) do
+        data.part.Size = Vector3.new(0.12, 0.12, segLen)
+        local angle = (data.index - 0.5) * data.angleStep
+        local nextAngle = data.index * data.angleStep
+        local x = math.cos(angle) * S.parryRange
+        local z = math.sin(angle) * S.parryRange
+        local nx = math.cos(nextAngle) * S.parryRange
+        local nz = math.sin(nextAngle) * S.parryRange
+        local base = rootPos + Vector3.new(0, -2.8, 0)
+        data.part.CFrame = CFrame.new(
+            base + Vector3.new((x+nx)/2, 0, (z+nz)/2),
+            base + Vector3.new(nx, 0, nz)
+        )
+    end
+end
+
+local function setCircleVisible(v)
+    for _, data in ipairs(circleParts) do
+        data.part.Transparency = v and 0.15 or 1
+    end
+end
+
+local function findParryClient()
+    if parryClientInstance then return parryClientInstance end
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    local dagger = char:FindFirstChild("Parrying Dagger") or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Parrying Dagger"))
+    if not dagger then return nil end
+    local parryResult = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Items") and ReplicatedStorage.Remotes.Items:FindFirstChild("Parrying Dagger") and ReplicatedStorage.Remotes.Items["Parrying Dagger"]:FindFirstChild("parryResult")
+    if not parryResult then return nil end
+    for _, conn in ipairs(getconnections(parryResult.OnClientEvent)) do
+        local fn = conn.Function
+        if fn then
+            for i = 1, 20 do
+                local ok, _, val = pcall(getupvalue, fn, i)
+                if not ok then break end
+                if type(val) == "table" and val.parryEvent and val.Parry then
+                    parryClientInstance = val
+                    return val
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function autoEquipDagger()
+    local char = LocalPlayer.Character
+    if not char then return end
+    if char:FindFirstChild("Parrying Dagger") then return end
+    local bp = LocalPlayer:FindFirstChild("Backpack")
+    if not bp then return end
+    local d = bp:FindFirstChild("Parrying Dagger")
+    if not d then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then hum:EquipTool(d) end
+end
+
+local function doParry()
+    autoEquipDagger()
+    local client = findParryClient()
+    if client then
+        pcall(function()
+            client.isParryResolving = false
+            client.isParryOnCooldown = false
+            if client.parryTrack then
+                task.spawn(function()
+                    pcall(function() client.parryTrack:Play() end)
+                end)
+            end
+        end)
+    end
+    local gui = LocalPlayer:FindFirstChild("PlayerGui")
+    local survivorMob = gui and gui:FindFirstChild("Survivor-mob")
+    local controls = survivorMob and survivorMob:FindFirstChild("Controls")
+    if controls then
+        for _, child in ipairs(controls:GetChildren()) do
+            if child:IsA("ImageButton") and child.Name == "Gui-mob" then
+                pcall(firesignal, child.MouseButton1Down)
+                return 
+            end
+        end
+    end
+    pcall(function()
+        ReplicatedStorage.Remotes.Items["Parrying Dagger"].parry:FireServer()
+    end)
+end
+
+pcall(function()
+    ReplicatedStorage:WaitForChild("Remotes",10):WaitForChild("Items",10):WaitForChild("Parrying Dagger",10):WaitForChild("parryResult",10).OnClientEvent:Connect(function()
+        if parryClientInstance then
+            pcall(function() parryClientInstance.isParryResolving = false end)
+        end
+        parryDebounce = false
+    end)
+end)
+
+LocalPlayer.CharacterAdded:Connect(function()
+    parryClientInstance = nil
+    parryDebounce = false
+end)
+
+createParryCircle()
+
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+    if not S.autoParryEnabled or not hrp then
+        setCircleVisible(false)
+        return
+    end
+
+    createParryCircle()
+    setCircleVisible(true)
+    updateCircle(hrp.Position)
+
+    if parryDebounce then return end
+
+    local shouldParry = false
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if shouldParry then break end
+        if p == LocalPlayer or not p.Character then continue end
+        local eHrp = p.Character:FindFirstChild("HumanoidRootPart")
+        if not eHrp then continue end
+        local dist = (hrp.Position - eHrp.Position).Magnitude
+        local hum = p.Character:FindFirstChildOfClass("Humanoid")
+        local animator = hum and hum:FindFirstChildOfClass("Animator")
+        if not animator then continue end
+
+        local currentAnims = {}
+        local safeToLearnAnims = {}
+
+        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+            local id = track.Animation and track.Animation.AnimationId
+            if id and id ~= "" then
+                table.insert(currentAnims, id)
+                if track.Looped then
+                    table.insert(safeToLearnAnims, id)
+                end
+            end
+        end
+
+        if dist > 20 then
+            for _, id in ipairs(safeToLearnAnims) do
+                farAnimations[id] = true
+            end
+        elseif dist > 10 then
+            if eHrp.AssemblyLinearVelocity.Magnitude < 12 then
+                for _, id in ipairs(safeToLearnAnims) do
+                    if not nearIdleAnims[id] then
+                        nearIdleAnims[id] = true
+                    end
+                end
+            end
+            if eHrp.AssemblyLinearVelocity.Magnitude > 18 then
+                local relPos = (hrp.Position - eHrp.Position).Unit
+                local velDir = eHrp.AssemblyLinearVelocity.Unit
+                if relPos:Dot(velDir) > 0.75 then
+                    for _, id in ipairs(currentAnims) do
+                        if not farAnimations[id] and not nearIdleAnims[id] then
+                            shouldParry = true
+                            break
+                        end
+                    end
+                end
+            end
+        elseif dist <= 10 then
+            for _, id in ipairs(currentAnims) do
+                if not farAnimations[id] and not nearIdleAnims[id] then
+                    shouldParry = true
+                    break
+                end
+            end
+        end
+    end
+
+    if shouldParry then
+        parryDebounce = true
+        task.spawn(function()
+            pcall(doParry)
+        end)
+        task.delay(0.7, function() 
+            parryDebounce = false 
+        end)
+    end
+end)
+
 local AimSettings = {
     AimEnabled = Config.AimEnabled,
     FOV = Config.AimFOV,
@@ -871,6 +1173,9 @@ local function _aimAlive(char)
 end
 
 local AimFriendCache = {}
+Players.PlayerRemoving:Connect(function(player)
+    AimFriendCache[player.UserId] = nil
+end)
 
 local function _aimFriend(player)
     if not AimSettings.FriendCheck then return false end
@@ -1117,273 +1422,43 @@ local function createFlyFloat()
     updateFlyFloat()
 end
 
-RunService.Heartbeat:Connect(function()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player == LocalPlayer then continue end
-        local char = player.Character
-        if not char then continue end
-        if S.chamsEnabled and isAlive(char) then
-            local hl = char:FindFirstChild("StarCrowChams")
-            local teamColor = getTeamColor(player)
-            if not hl then
-                addChams(char, teamColor)
-            else
-                hl.FillColor    = teamColor
-                hl.OutlineColor = teamColor
-            end
-        end
-        if S.nameESPEnabled and not S.nameESPObjects[player] and isAlive(char) then
-            createNameESP(player, char)
-        end
-    end
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-    removeNameESP(player)
-    AimFriendCache[player.UserId] = nil
-end)
-
-local circleParts = {}
-local circleFolder = nil
-local parryDebounce = false
-local parryClientInstance = nil
-local farAnimations = {}   
-local nearIdleAnims = {}   
-local standardIds = {"507766951","507766330","507766666","507766288","507765920","507765320","507765644"}
-
-for _, id in ipairs(standardIds) do
-    farAnimations["rbxassetid://"..id] = true
-    farAnimations["http://www.roblox.com/asset/?id="..id] = true
-    farAnimations[id] = true
-end
-
-local function createParryCircle()
-    if circleFolder and circleFolder.Parent then return end
-    if circleFolder then circleFolder:Destroy() end
-    circleParts = {}
-    local folder = Instance.new("Folder")
-    folder.Name = "ParryCircle"
-    folder.Parent = workspace
-    circleFolder = folder
-    local numSeg = 48
-    local angleStep = (2 * math.pi) / numSeg
-    for i = 1, numSeg do
-        local seg = Instance.new("Part")
-        seg.Anchored = true
-        seg.CanCollide = false
-        seg.CanTouch = false
-        seg.CanQuery = false
-        seg.CastShadow = false
-        seg.Material = Enum.Material.Neon
-        seg.Color = Color3.fromRGB(0, 255, 255)
-        seg.Transparency = 0.15
-        seg.Parent = folder
-        table.insert(circleParts, {part = seg, index = i, angleStep = angleStep})
-    end
-end
-
-local function updateCircle(rootPos)
-    local numSeg = 48
-    local segLen = (2 * math.pi * S.parryRange / numSeg) + 0.1
-    for _, data in ipairs(circleParts) do
-        data.part.Size = Vector3.new(0.12, 0.12, segLen)
-        local angle = (data.index - 0.5) * data.angleStep
-        local nextAngle = data.index * data.angleStep
-        local x = math.cos(angle) * S.parryRange
-        local z = math.sin(angle) * S.parryRange
-        local nx = math.cos(nextAngle) * S.parryRange
-        local nz = math.sin(nextAngle) * S.parryRange
-        local base = rootPos + Vector3.new(0, -2.8, 0)
-        data.part.CFrame = CFrame.new(
-            base + Vector3.new((x+nx)/2, 0, (z+nz)/2),
-            base + Vector3.new(nx, 0, nz)
-        )
-    end
-end
-
-local function setCircleVisible(v)
-    for _, data in ipairs(circleParts) do
-        data.part.Transparency = v and 0.15 or 1
-    end
-end
-
-local function findParryClient()
-    if parryClientInstance then return parryClientInstance end
-    local char = LocalPlayer.Character
-    if not char then return nil end
-    local dagger = char:FindFirstChild("Parrying Dagger") or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Parrying Dagger"))
-    if not dagger then return nil end
-    local parryResult = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Items") and ReplicatedStorage.Remotes.Items:FindFirstChild("Parrying Dagger") and ReplicatedStorage.Remotes.Items["Parrying Dagger"]:FindFirstChild("parryResult")
-    if not parryResult then return nil end
-    for _, conn in ipairs(getconnections(parryResult.OnClientEvent)) do
-        local fn = conn.Function
-        if fn then
-            for i = 1, 20 do
-                local ok, _, val = pcall(getupvalue, fn, i)
-                if not ok then break end
-                if type(val) == "table" and val.parryEvent and val.Parry then
-                    parryClientInstance = val
-                    return val
-                end
-            end
-        end
-    end
-    return nil
-end
-
-local function autoEquipDagger()
-    local char = LocalPlayer.Character
-    if not char then return end
-    if char:FindFirstChild("Parrying Dagger") then return end
-    local bp = LocalPlayer:FindFirstChild("Backpack")
-    if not bp then return end
-    local d = bp:FindFirstChild("Parrying Dagger")
-    if not d then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then hum:EquipTool(d) end
-end
-
-local function doParry()
-    autoEquipDagger()
-    local client = findParryClient()
-    if client then
-        pcall(function()
-            client.isParryResolving = false
-            client.isParryOnCooldown = false
-            if client.parryTrack then
-                task.spawn(function()
-                    pcall(function() client.parryTrack:Play() end)
-                end)
-            end
-        end)
-    end
-    local gui = LocalPlayer:FindFirstChild("PlayerGui")
-    local survivorMob = gui and gui:FindFirstChild("Survivor-mob")
-    local controls = survivorMob and survivorMob:FindFirstChild("Controls")
-    if controls then
-        for _, child in ipairs(controls:GetChildren()) do
-            if child:IsA("ImageButton") and child.Name == "Gui-mob" then
-                pcall(firesignal, child.MouseButton1Down)
-                return 
-            end
-        end
-    end
-    pcall(function()
-        ReplicatedStorage.Remotes.Items["Parrying Dagger"].parry:FireServer()
-    end)
-end
-
-pcall(function()
-    ReplicatedStorage:WaitForChild("Remotes",10):WaitForChild("Items",10):WaitForChild("Parrying Dagger",10):WaitForChild("parryResult",10).OnClientEvent:Connect(function()
-        if parryClientInstance then
-            pcall(function() parryClientInstance.isParryResolving = false end)
-        end
-        parryDebounce = false
-    end)
-end)
-
-LocalPlayer.CharacterAdded:Connect(function()
-    parryClientInstance = nil
-    parryDebounce = false
-end)
-
-createParryCircle()
-
-RunService.Heartbeat:Connect(function()
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
-    if not S.autoParryEnabled or not hrp then
-        setCircleVisible(false)
-        return
-    end
-
-    createParryCircle()
-    setCircleVisible(true)
-    updateCircle(hrp.Position)
-
-    if parryDebounce then return end
-
-    local shouldParry = false
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        if shouldParry then break end
-        if p == LocalPlayer or not p.Character then continue end
-        local eHrp = p.Character:FindFirstChild("HumanoidRootPart")
-        if not eHrp then continue end
-        local dist = (hrp.Position - eHrp.Position).Magnitude
-        local hum = p.Character:FindFirstChildOfClass("Humanoid")
-        local animator = hum and hum:FindFirstChildOfClass("Animator")
-        if not animator then continue end
-
-        local currentAnims = {}
-        local safeToLearnAnims = {}
-
-        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-            local id = track.Animation and track.Animation.AnimationId
-            if id and id ~= "" then
-                table.insert(currentAnims, id)
-                if track.Looped then
-                    table.insert(safeToLearnAnims, id)
-                end
-            end
-        end
-
-        if dist > 20 then
-            for _, id in ipairs(safeToLearnAnims) do
-                farAnimations[id] = true
-            end
-        elseif dist > 10 then
-            if eHrp.AssemblyLinearVelocity.Magnitude < 12 then
-                for _, id in ipairs(safeToLearnAnims) do
-                    if not nearIdleAnims[id] then
-                        nearIdleAnims[id] = true
-                    end
-                end
-            end
-            if eHrp.AssemblyLinearVelocity.Magnitude > 18 then
-                local relPos = (hrp.Position - eHrp.Position).Unit
-                local velDir = eHrp.AssemblyLinearVelocity.Unit
-                if relPos:Dot(velDir) > 0.75 then
-                    for _, id in ipairs(currentAnims) do
-                        if not farAnimations[id] and not nearIdleAnims[id] then
-                            shouldParry = true
-                            break
+task.spawn(function()
+    while task.wait(0.05) do
+        if not S.killAllEnabled then continue end
+        if not LocalPlayer.Team or LocalPlayer.Team.Name ~= "Killer" then continue end
+        
+        local myChar = LocalPlayer.Character
+        local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHrp then continue end
+        
+        local target = nil
+        local closestDist = math.huge
+        
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Team and p.Team.Name == "Survivors" then
+                local char = p.Character
+                if char and isAlive(char) then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        local hpPercent = (hum.Health / hum.MaxHealth) * 100
+                        if hpPercent > 20 then
+                            local hrp = char:FindFirstChild("HumanoidRootPart")
+                            if hrp then
+                                local dist = (myHrp.Position - hrp.Position).Magnitude
+                                if dist < closestDist then
+                                    closestDist = dist
+                                    target = hrp
+                                end
+                            end
                         end
                     end
                 end
             end
-        elseif dist <= 10 then
-            for _, id in ipairs(currentAnims) do
-                if not farAnimations[id] and not nearIdleAnims[id] then
-                    shouldParry = true
-                    break
-                end
-            end
         end
-    end
-
-    if shouldParry then
-        parryDebounce = true
-        task.spawn(function()
-            pcall(doParry)
-        end)
-        task.delay(0.7, function() 
-            parryDebounce = false 
-        end)
-    end
-end)
-
-task.spawn(function()
-    local AttacksFolder = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 9e9):WaitForChild("Attacks", 9e9)
-    local BasicAttackEvent = AttacksFolder:WaitForChild("BasicAttack", 9e9)
-    local LungeEvent       = AttacksFolder:WaitForChild("Lunge", 9e9)
-
-    while true do
-        task.wait(0.05)
-        if not S.autoAttackEnabled then continue end
-        pcall(function() BasicAttackEvent:FireServer() end)
-        pcall(function() LungeEvent:FireServer() end)
+        
+        if target then
+            myHrp.CFrame = target.CFrame * CFrame.new(0, 0, 2.5)
+        end
     end
 end)
 
@@ -1443,7 +1518,7 @@ local Tabs = {
 }
 
 Tabs.Main:AddToggle("AutoRepairToggle", {
-    Title    = "Auto Skill Check",
+    Title    = "Auto Repair Skill Check",
     Default  = S.autoRepairEnabled,
     Callback = function(Value)
         S.autoRepairEnabled = Value
@@ -1451,7 +1526,7 @@ Tabs.Main:AddToggle("AutoRepairToggle", {
     end,
 })
 
-Tabs.Main:AddToggle("AutoAttackToggle", {
+S.AutoAttackToggleObj = Tabs.Main:AddToggle("AutoAttackToggle", {
     Title    = "Attack No Cooldown",
     Default  = S.autoAttackEnabled,
     Callback = function(Value)
@@ -1482,6 +1557,17 @@ Tabs.Main:AddInput("ParryRangeInput", {
             saveCustomConfig()
         end
     end,
+})
+
+Tabs.Combat:AddToggle("KillAllToggle", {
+    Title = "Kill All (Killer Only)",
+    Default = false,
+    Callback = function(Value)
+        S.killAllEnabled = Value
+        if S.AutoAttackToggleObj then
+            S.AutoAttackToggleObj:SetValue(Value)
+        end
+    end
 })
 
 Tabs.Info:AddParagraph({

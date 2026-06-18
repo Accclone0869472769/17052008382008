@@ -340,6 +340,48 @@ local function stopNoclip()
     if S.noclipLoop then S.noclipLoop:Disconnect() S.noclipLoop = nil end
 end
 
+local function processElement(element, hide)
+    if element:IsA("BasePart") then
+        if not element:GetAttribute("OrigTrans") then element:SetAttribute("OrigTrans", element.Transparency) end
+        if not element:GetAttribute("OrigLTM") then element:SetAttribute("OrigLTM", element.LocalTransparencyModifier) end
+        element.Transparency = hide and 1 or element:GetAttribute("OrigTrans")
+        element.LocalTransparencyModifier = hide and 1 or element:GetAttribute("OrigLTM")
+    elseif element:IsA("SelectionBox") or element:IsA("BoxHandleAdornment") or element:IsA("SelectionSphere") or element:IsA("SelectionPartLasso") then
+        if not element:GetAttribute("OrigVisible") then element:SetAttribute("OrigVisible", element.Visible) end
+        element.Visible = hide and false or element:GetAttribute("OrigVisible")
+    elseif element:IsA("Decal") or element:IsA("Texture") then
+        if not element:GetAttribute("OrigTrans") then element:SetAttribute("OrigTrans", element.Transparency) end
+        element.Transparency = hide and 1 or element:GetAttribute("OrigTrans")
+    elseif element:IsA("ParticleEmitter") or element:IsA("Trail") or element:IsA("Beam") then
+        if not element:GetAttribute("OrigEnabled") then element:SetAttribute("OrigEnabled", element.Enabled) end
+        element.Enabled = hide and false or element:GetAttribute("OrigEnabled")
+    elseif element:IsA("BillboardGui") or element:IsA("SurfaceGui") then
+        if not element:GetAttribute("OrigEnabled") then element:SetAttribute("OrigEnabled", element.Enabled) end
+        element.Enabled = hide and false or element:GetAttribute("OrigEnabled")
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    local isInvis = workspace:FindFirstChild("invischair") ~= nil
+    local char = LocalPlayer.Character
+    local targets = {}
+    if char then
+        for _, obj in ipairs(char:GetDescendants()) do
+            if obj.Name == "HRP_Clone" then table.insert(targets, obj) end
+        end
+    end
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj.Name == "HRP_Clone" then table.insert(targets, obj) end
+    end
+    for _, clone in ipairs(targets) do
+        processElement(clone, isInvis)
+        for _, child in ipairs(clone:GetDescendants()) do
+            processElement(child, isInvis)
+        end
+    end
+end)
+
+
 local function updateNoclipFloat()
     if S.noclipFloatStroke then
         local oldGradient = S.noclipFloatStroke:FindFirstChildOfClass("UIGradient")

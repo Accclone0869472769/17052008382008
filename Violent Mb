@@ -679,6 +679,104 @@ local function removeHookESP(hook)
     end
 end
 
+local teleportState = {
+    gateIndex = 1,
+    geneIndex = 1,
+}
+
+local function getTeleportTargets()
+    local gens = {}
+    local gates = {}
+    local mapFolder = workspace:FindFirstChild("Map")
+    if mapFolder then
+        for _, obj in ipairs(mapFolder:GetDescendants()) do
+            local name = string.lower(obj.Name)
+            if name == "generatorpoint1" or name == "generatorpoint2" then
+                local target = obj.Parent
+                if target and (target:IsA("Model") or target:IsA("Folder")) and not table.find(gens, target) then
+                    table.insert(gens, target)
+                end
+            elseif name == "generator" and (obj:IsA("Model") or obj:IsA("Folder")) then
+                if not table.find(gens, obj) then
+                    table.insert(gens, obj)
+                end
+            end
+            if name == "exit" or name == "gate" or name == "exitgate" then
+                local target = (obj:IsA("Model") or obj:IsA("Folder")) and obj or obj.Parent
+                if target and (target:IsA("Model") or target:IsA("Folder")) and not table.find(gates, target) then
+                    table.insert(gates, target)
+                end
+            end
+        end
+    end
+    return gens, gates
+end
+
+local function teleportToGate()
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local _, gates = getTeleportTargets()
+    if #gates > 0 then
+        teleportState.gateIndex = teleportState.gateIndex % #gates + 1
+        local targetGate = gates[teleportState.gateIndex]
+        if targetGate then
+            local hitbox = targetGate:FindFirstChild("Hitbox")
+            if hitbox then
+                hrp.CFrame = hitbox.CFrame
+            else
+                hrp.CFrame = CFrame.new(targetGate:GetBoundingBox().p)
+            end
+        end
+    end
+end
+
+local function teleportToGene()
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local gens = getTeleportTargets()
+    if #gens > 0 then
+        teleportState.geneIndex = teleportState.geneIndex % #gens + 1
+        local targetGen = gens[teleportState.geneIndex]
+        if targetGen then
+            local hitbox = targetGen:FindFirstChild("Hitbox") or targetGen:FindFirstChild("GeneratorPoint1") or targetGen:FindFirstChild("GeneratorPoint2")
+            if hitbox then
+                hrp.CFrame = hitbox.CFrame
+            else
+                hrp.CFrame = CFrame.new(targetGen:GetBoundingBox().p)
+            end
+        end
+    end
+end
+
+local function teleportToHook()
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local mapFolder = workspace:FindFirstChild("Map")
+    local hooks = {}
+    if mapFolder then
+        for _, obj in ipairs(mapFolder:GetDescendants()) do
+            if string.lower(obj.Name) == "hookpoint" then
+                local target = obj.Parent
+                if target and target:IsA("Model") and not table.find(hooks, target) then
+                    table.insert(hooks, target)
+                end
+            end
+        end
+    end
+    if #hooks > 0 then
+        teleportState.hookIndex = (teleportState.hookIndex or 0) % #hooks + 1
+        local targetHook = hooks[teleportState.hookIndex]
+        if targetHook then
+            local hookpoint = targetHook:FindFirstChild("HookPoint")
+            if hookpoint then
+                hrp.CFrame = hookpoint.CFrame
+            else
+                hrp.CFrame = CFrame.new(targetHook:GetBoundingBox().p)
+            end
+        end
+    end
+end
+
 local function updateWorldESP()
     local foundGens = {}
     local foundGates = {}
@@ -1372,6 +1470,7 @@ local Tabs = {
     Player = Window:AddTab({ Title = "Player", Icon = "user" }),
     Combat = Window:AddTab({ Title = "Combat", Icon = "sword" }),
     Esp = Window:AddTab({ Title = "ESP", Icon = "eye" }),
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "map" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
@@ -1784,6 +1883,27 @@ Tabs.Settings:AddSlider("FlyFloatSize", {
             S.flyFloatBtn.TextSize = floatTextSize(value)
         end
         SaveConfig()
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "TP Gate",
+    Callback = function()
+        teleportToGate()
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "TP Generator",
+    Callback = function()
+        teleportToGene()
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "TP Hook",
+    Callback = function()
+        teleportToHook()
     end
 })
 

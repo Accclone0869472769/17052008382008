@@ -12,13 +12,10 @@ local LocalPlayer = Players.LocalPlayer
 local Config = {
     UITheme = "Dark",
     KeybindsDisabled = false,
-    InvisFloatEnabled = false,
     NoclipFloatEnabled = false,
     FlyFloatEnabled = false,
-    InvisFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = -80 },
     NoclipFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = 0 },
     FlyFloatPos    = { xs = 0.85, xo = 0, ys = 0.5, yo = 80 },
-    InvisFloatSize = 46,
     NoclipFloatSize = 46,
     FlyFloatSize = 46,
     FloatLocked = false,
@@ -169,15 +166,14 @@ end)
 
 local S = {
     flyEnabled = false, flySpeed = 5, flyConnection = nil, jumpStateConnection = nil,
-    isInvisible = false,
     noclipEnabled = false, noclipLoop = nil,
     loopspeedEnabled = false, loopspeedConnection = nil, loopspeedValue = 30,
     nameESPEnabled = false, chamsEnabled = false, genESPEnabled = false, gateESPEnabled = false, hookESPEnabled = false,
     autoRepairEnabled = false, autoAttackEnabled = false, autoParryEnabled = false, parryRange = 16, killAllEnabled = false,
     nameESPObjects = {}, genESPObjects = {}, gateESPObjects = {}, hookESPObjects = {},
-    floatLocked = Config.FloatLocked, invisFloatSize = Config.InvisFloatSize,
+    floatLocked = Config.FloatLocked,
     noclipFloatSize = Config.NoclipFloatSize, flyFloatSize = Config.FlyFloatSize,
-    invisFloatBtn = nil, invisFloatStroke = nil, noclipFloatBtn = nil, noclipFloatStroke = nil,
+    noclipFloatBtn = nil, noclipFloatStroke = nil,
     flyFloatBtn = nil, flyFloatStroke = nil, AutoAttackToggleObj = nil
 }
 
@@ -225,165 +221,6 @@ local function saveCustomConfig()
         }
         writefile(SAVE_FILE_CUSTOM, HttpService:JSONEncode(cfg))
     end)
-end
-
-local INVISIBILITY_POSITION = Vector3.new(-25.95, 84, 3537.55)
-
-local function getHumanoidRootPart()
-    local character = LocalPlayer.Character
-    if not character then return nil end
-    return character:FindFirstChild("HumanoidRootPart")
-end
-
-local function setCharacterTransparency(character, transparency)
-    if not character then return end
-    for _, d in character:GetDescendants() do
-        if d:FindFirstAncestorOfClass("Accessory") then continue end
-        if d:IsA("BasePart") then
-            if d.Name == "HumanoidRootPart" then
-                d.Transparency = 1
-            elseif d.Name == "Head" then
-                d.Transparency = 0
-            else
-                d.Transparency = transparency
-            end
-        elseif d:IsA("Decal") then
-            if d.Name == "face" and d.Parent and d.Parent.Name == "Head" then
-                d.Transparency = 0
-            else
-                d.Transparency = transparency
-            end
-        end
-    end
-end
-
-local function processElement(element, hide)
-    if element:IsA("BasePart") then
-        if not element:GetAttribute("OrigTrans") then element:SetAttribute("OrigTrans", element.Transparency) end
-        if not element:GetAttribute("OrigLTM") then element:SetAttribute("OrigLTM", element.LocalTransparencyModifier) end
-        element.Transparency = hide and 1 or element:GetAttribute("OrigTrans")
-        element.LocalTransparencyModifier = hide and 1 or element:GetAttribute("OrigLTM")
-    elseif element:IsA("SelectionBox") or element:IsA("BoxHandleAdornment") or element:IsA("SelectionSphere") or element:IsA("SelectionPartLasso") then
-        if not element:GetAttribute("OrigVisible") then element:SetAttribute("OrigVisible", element.Visible) end
-        element.Visible = hide and false or element:GetAttribute("OrigVisible")
-    elseif element:IsA("Decal") or element:IsA("Texture") then
-        if not element:GetAttribute("OrigTrans") then element:SetAttribute("OrigTrans", element.Transparency) end
-        element.Transparency = hide and 1 or element:GetAttribute("OrigTrans")
-    elseif element:IsA("ParticleEmitter") or element:IsA("Trail") or element:IsA("Beam") then
-        if not element:GetAttribute("OrigEnabled") then element:SetAttribute("OrigEnabled", element.Enabled) end
-        element.Enabled = hide and false or element:GetAttribute("OrigEnabled")
-    elseif element:IsA("BillboardGui") or element:IsA("SurfaceGui") then
-        if not element:GetAttribute("OrigEnabled") then element:SetAttribute("OrigEnabled", element.Enabled) end
-        element.Enabled = hide and false or element:GetAttribute("OrigEnabled")
-    end
-end
-
-RunService.RenderStepped:Connect(function()
-    local isInvis = workspace:FindFirstChild("invischair") ~= nil
-    local char = LocalPlayer.Character
-    local targets = {}
-    
-    if char then
-        for _, obj in ipairs(char:GetDescendants()) do
-            if obj.Name == "HRP_Clone" then
-                table.insert(targets, obj)
-            end
-        end
-    end
-    
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj.Name == "HRP_Clone" then
-            table.insert(targets, obj)
-        end
-    end
-    
-    for _, clone in ipairs(targets) do
-        processElement(clone, isInvis)
-        for _, child in ipairs(clone:GetDescendants()) do
-            processElement(child, isInvis)
-        end
-    end
-end)
-
-local function updateInvisFloat()
-    if S.invisFloatStroke then
-        local oldGradient = S.invisFloatStroke:FindFirstChildOfClass("UIGradient")
-        if oldGradient then oldGradient:Destroy() end
-        local gradient = Instance.new("UIGradient")
-        if S.isInvisible then
-            S.invisFloatStroke.Color = Color3.fromRGB(255, 255, 255)
-            S.invisFloatStroke.Thickness = 2.2
-            gradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(170, 70, 255)),
-                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 180, 255)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(170, 70, 255)),
-            })
-            gradient.Parent = S.invisFloatStroke
-            task.spawn(function()
-                TweenService:Create(gradient, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), { Rotation = 360 }):Play()
-            end)
-        else
-            S.invisFloatStroke.Color = Color3.fromRGB(255, 255, 255)
-            S.invisFloatStroke.Thickness = 1.6
-            gradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 0, 120)),
-                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 100, 200)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 0, 120)),
-            })
-            gradient.Parent = S.invisFloatStroke
-            task.spawn(function()
-                TweenService:Create(gradient, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Rotation = 180 }):Play()
-            end)
-        end
-    end
-end
-
-local function toggleInvisibility()
-    if not LocalPlayer.Character then return end
-    S.isInvisible = not S.isInvisible
-    local cam = workspace.CurrentCamera
-    if S.isInvisible then
-        local hrp = getHumanoidRootPart()
-        if not hrp then return end
-        local savedCFrame = hrp.CFrame
-        local savedCamCFrame = cam.CFrame
-        cam.CameraType = Enum.CameraType.Scriptable
-        cam.CFrame = savedCamCFrame
-        LocalPlayer.Character:MoveTo(INVISIBILITY_POSITION)
-        task.wait(0.1)
-        local seat = Instance.new("Seat")
-        seat.Name = "invischair"
-        seat.Anchored = false
-        seat.CanCollide = false
-        seat.Transparency = 1
-        seat.Size = Vector3.new(2, 0.5, 2)
-        seat.Position = INVISIBILITY_POSITION
-        seat.Parent = workspace
-        local weld = Instance.new("Weld")
-        weld.Part0 = seat
-        weld.Part1 = hrp
-        weld.Parent = seat
-        task.wait()
-        task.defer(function()
-            if seat and seat.Parent then seat.CFrame = savedCFrame end
-        end)
-        cam.CameraType = Enum.CameraType.Custom
-        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then cam.CameraSubject = humanoid end
-        setCharacterTransparency(LocalPlayer.Character, 0.5)
-        hrp.Transparency = 1
-    else
-        local chair = workspace:FindFirstChild("invischair")
-        if chair then chair:Destroy() end
-        if LocalPlayer.Character then
-            setCharacterTransparency(LocalPlayer.Character, 0)
-            local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then hrp.Transparency = 1 end
-            local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then cam.CameraSubject = humanoid end
-        end
-    end
-    updateInvisFloat()
 end
 
 local function startNoclip()
@@ -1385,33 +1222,6 @@ local function makeDraggableFloat(b, posKey)
     return function() return moved end, function() moved = false end
 end
 
-local function createInvisFloat()
-    if S.invisFloatBtn then S.invisFloatBtn:Destroy() S.invisFloatBtn = nil end
-    local p = Config.InvisFloatPos
-    S.invisFloatBtn = Instance.new("TextButton")
-    S.invisFloatBtn.Size = UDim2.new(0, S.invisFloatSize, 0, S.invisFloatSize)
-    S.invisFloatBtn.Position = UDim2.new(p.xs, p.xo, p.ys, p.yo)
-    S.invisFloatBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    S.invisFloatBtn.BackgroundTransparency = 0.88
-    S.invisFloatBtn.BorderSizePixel = 0
-    S.invisFloatBtn.Text = "Invisible"
-    S.invisFloatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    S.invisFloatBtn.TextScaled = false
-    S.invisFloatBtn.TextSize = floatTextSize(S.invisFloatSize)
-    S.invisFloatBtn.Font = Enum.Font.GothamBold
-    S.invisFloatBtn.ZIndex = 15
-    S.invisFloatBtn.Parent = LogoGui
-    Instance.new("UICorner", S.invisFloatBtn).CornerRadius = UDim.new(0, 8)
-    S.invisFloatStroke = Instance.new("UIStroke", S.invisFloatBtn)
-    S.invisFloatStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    local getMoved, resetMoved = makeDraggableFloat(S.invisFloatBtn, "InvisFloatPos")
-    S.invisFloatBtn.MouseButton1Click:Connect(function()
-        if getMoved() then resetMoved() return end
-        toggleInvisibility()
-    end)
-    updateInvisFloat()
-end
-
 local function createNoclipFloat()
     if S.noclipFloatBtn then S.noclipFloatBtn:Destroy() S.noclipFloatBtn = nil end
     local p = Config.NoclipFloatPos
@@ -1566,7 +1376,7 @@ local Tabs = {
 }
 
 Tabs.Main:AddToggle("AutoRepairToggle", {
-    Title    = "Auto Repair Skill Check",
+    Title    = "Auto Skill Check",
     Default  = S.autoRepairEnabled,
     Callback = function(Value)
         S.autoRepairEnabled = Value
@@ -1685,7 +1495,7 @@ Tabs.Player:AddInput("FlySpeedInput", {
     Callback = function(Value)
         local val = tonumber(Value)
         if val then
-            S.flySpeed = val
+             S.flySpeed = val
             saveCustomConfig()
         end
     end,
@@ -1710,14 +1520,6 @@ local noclipToggleObj = Tabs.Player:AddToggle("NoclipToggle", {
         if Value then startNoclip() else stopNoclip() end
         updateNoclipFloat()
         saveCustomConfig()
-    end,
-})
-
-local invisToggleObj = Tabs.Player:AddToggle("InvisToggle", {
-    Title    = "Invisible",
-    Default  = false,
-    Callback = function(Value)
-        if S.isInvisible ~= Value then toggleInvisibility() end
     end,
 })
 
@@ -1925,36 +1727,6 @@ Tabs.Settings:AddDropdown("UITheme", {
 
 Tabs.Settings:AddSection("Float Button")
 
-local invisFloatToggle = Tabs.Settings:AddToggle("InvisFloatToggle", { Title = "Invisible Float", Default = Config.InvisFloatEnabled })
-invisFloatToggle:OnChanged(function(value)
-    Config.InvisFloatEnabled = value
-    SaveConfig()
-    if value then
-        createInvisFloat()
-    elseif S.invisFloatBtn then
-        S.invisFloatBtn:Destroy()
-        S.invisFloatBtn = nil
-        S.invisFloatStroke = nil
-    end
-end)
-
-Tabs.Settings:AddSlider("InvisFloatSize", {
-    Title = "Float Size",
-    Default = Config.InvisFloatSize,
-    Min = 30,
-    Max = 130,
-    Rounding = 0,
-    Callback = function(value)
-        S.invisFloatSize = value
-        Config.InvisFloatSize = value
-        if S.invisFloatBtn then
-            S.invisFloatBtn.Size = UDim2.new(0, value, 0, value)
-            S.invisFloatBtn.TextSize = floatTextSize(value)
-        end
-        SaveConfig()
-    end
-})
-
 local noclipFloatToggle = Tabs.Settings:AddToggle("NoclipFloatToggle", { Title = "Noclip Float", Default = Config.NoclipFloatEnabled })
 noclipFloatToggle:OnChanged(function(value)
     Config.NoclipFloatEnabled = value
@@ -2017,16 +1789,6 @@ Tabs.Settings:AddSlider("FlyFloatSize", {
 
 Tabs.Settings:AddSection("Keybinds")
 
-Tabs.Settings:AddKeybind("InvisFloatKeybind", {
-    Title = "Invisible Keybind",
-    Mode = "Toggle",
-    Default = "C",
-    Callback = function()
-        if keybindsDisabled then return end
-        invisToggleObj:SetValue(not invisToggleObj.Value)
-    end
-})
-
 Tabs.Settings:AddKeybind("NoclipFloatKeybind", {
     Title = "Noclip Keybind",
     Mode = "Toggle",
@@ -2047,7 +1809,6 @@ Tabs.Settings:AddKeybind("FlyFloatKeybind", {
     end
 })
 
-if Config.InvisFloatEnabled then createInvisFloat() end
 if Config.NoclipFloatEnabled then createNoclipFloat() end
 if Config.FlyFloatEnabled then createFlyFloat() end
 

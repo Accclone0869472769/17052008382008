@@ -2605,7 +2605,7 @@ local function destroyMobileShiftLockButton()
 end
 local function stopMobileShiftLock()
     mobileShiftLockActive = false
-    if mobileShiftLockConnection then mobileShiftLockConnection:Disconnect() mobileShiftLockConnection = nil end
+    if mobileShiftLockConnection then RunService:UnbindFromRenderStep("MobileShiftLockRotate") mobileShiftLockConnection = nil end
     local character = LocalPlayer.Character
     if character then
         local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -2631,7 +2631,7 @@ local function startMobileShiftLock()
     if not humanoid or not rootPart or not currentCamera then return end
     humanoid.AutoRotate = false
     humanoid.CameraOffset = Vector3.new(1.75, 0, 0)
-    mobileShiftLockConnection = RunService.RenderStepped:Connect(function()
+    RunService:BindToRenderStep("MobileShiftLockRotate", Enum.RenderPriority.Camera.Value - 1, function()
         local char = LocalPlayer.Character
         if not char then return end
         local hum = char:FindFirstChildOfClass("Humanoid")
@@ -2645,6 +2645,7 @@ local function startMobileShiftLock()
             root.CFrame = CFrame.new(root.Position, root.Position + flatLook)
         end
     end)
+    mobileShiftLockConnection = true
 end
 local function toggleMobileShiftLockActive()
     if not S.mobileShiftLockEnabled then return end
@@ -3424,4 +3425,4 @@ NPCHitboxSliderObj = Tabs.Combat:AddSlider("NPCHitboxSlider", {
     end
 })
 
-Window:SelectTab(1)
+Window:SelectTab(1) 

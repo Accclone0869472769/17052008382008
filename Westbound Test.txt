@@ -29,7 +29,6 @@ local S = {
         WalkSpeed        = 30,
         InfJumpEnabled   = false,
         NoclipEnabled    = false,
-        AntiFallDamage   = false,
         ESPAnimals       = false,
         ItemMansionESP   = false,
         ChestESP         = false,
@@ -421,77 +420,6 @@ StatusText.Parent = OverlayFrame
 local StatusStroke = Instance.new("UIStroke", StatusText)
 StatusStroke.Thickness = 2
 StatusStroke.Color = Color3.fromRGB(0, 0, 0)
-
-task.spawn(function()
-    pcall(function()
-        local RagdollModule = require(ReplicatedStorage:WaitForChild("SharedModules", 10):WaitForChild("Ragdoll", 10))
-        if setreadonly then setreadonly(RagdollModule, false) end
-        local oldEnableRagdoll = RagdollModule.EnableRagdoll
-        RagdollModule.EnableRagdoll = function(self, targetPlayer, ...)
-            if S.Config.AntiFallDamage and targetPlayer == LocalPlayer then return end
-            return oldEnableRagdoll(self, targetPlayer, ...)
-        end
-        
-        local function setupCharacter(char)
-            local ragdolledVal = char:WaitForChild("Ragdolled", 5)
-            if ragdolledVal then
-                ragdolledVal:GetPropertyChangedSignal("Value"):Connect(function()
-                    if S.Config.AntiFallDamage and ragdolledVal.Value == true then
-                        task.spawn(function() RagdollModule:DisableRagdoll(LocalPlayer) end)
-                    end
-                end)
-            end
-            local humanoid = char:WaitForChild("Humanoid", 5)
-            if humanoid then
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-                humanoid.StateChanged:Connect(function(_, newState)
-                    if S.Config.AntiFallDamage and (newState == Enum.HumanoidStateType.PlatformStanding or newState == Enum.HumanoidStateType.Ragdoll) then
-                        humanoid:ChangeState(Enum.HumanoidStateType.Running)
-                    end
-                end)
-            end
-        end
-        
-        if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
-        LocalPlayer.CharacterAdded:Connect(setupCharacter)
-        
-        local stateConfig = LocalPlayer:WaitForChild("StateConfig", 5)
-        if stateConfig then
-            local horseVal = stateConfig:WaitForChild("Horse", 5)
-            if horseVal then
-                local function protectHorse()
-                    if S.Config.AntiFallDamage and horseVal.Value then
-                        local horseHum = horseVal.Value:FindFirstChild("Humanoid")
-                        if horseHum then
-                            horseHum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-                            horseHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-                        end
-                    end
-                end
-                horseVal:GetPropertyChangedSignal("Value"):Connect(protectHorse)
-                protectHorse()
-            end
-        end
-    end)
-end)
-
-local oldNamecallFall
-oldNamecallFall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    if S.Config.AntiFallDamage and not checkcaller() and method == "FireServer" then
-        if args[1] == "Damage" or args[1] == "Ragdoll" then
-            pcall(function()
-                local RagdollModule = require(ReplicatedStorage:WaitForChild("SharedModules", 10):WaitForChild("Ragdoll", 10))
-                RagdollModule:DisableRagdoll(LocalPlayer)
-            end)
-            return
-        end
-    end
-    if oldNamecallFall then return oldNamecallFall(self, ...) end
-end)
 
 local processedChars = {}
 
@@ -1492,7 +1420,6 @@ Tabs.Player:AddToggle("LoopSpeed", { Title = "Enable Loop Speed", Default = S.Co
 Tabs.Player:AddSlider("WalkSpeed", { Title = "Walk Speed", Default = S.Config.WalkSpeed, Min = 16, Max = 250, Rounding = 0, Callback = function(v) S.Config.WalkSpeed = v; SaveConfig() end })
 Tabs.Player:AddToggle("InfJump", { Title = "Infinite Jump", Default = S.Config.InfJumpEnabled, Callback = function(v) S.Config.InfJumpEnabled = v; SaveConfig() end })
 Tabs.Player:AddToggle("Noclip", { Title = "Noclip", Default = S.Config.NoclipEnabled, Callback = function(v) S.Config.NoclipEnabled = v; SaveConfig() end })
-Tabs.Player:AddToggle("AntiFallDamage", { Title = "Anti Fall Damage", Default = S.Config.AntiFallDamage, Callback = function(v) S.Config.AntiFallDamage = v; SaveConfig() end })
 
 Tabs.Horse:AddParagraph({ Title = "Horse Config", Content = "" })
 Tabs.Horse:AddToggle("HorseHackToggle", { Title = "Horse Speed", Default = S.Config.HorseHackEnabled, Callback = function(v) S.Config.HorseHackEnabled = v; SaveConfig() end })
@@ -1792,4 +1719,4 @@ workspace.ChildAdded:Connect(function(v)
     end
 end)
 
-Window:SelectTab(1)
+Window:SelectTab(1) 

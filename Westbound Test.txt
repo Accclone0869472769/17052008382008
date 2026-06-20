@@ -198,7 +198,7 @@ local function CreateFloatButton(name, text, defaultPos, configKey)
     return btn, grad
 end
 
-local AuraBtn,    auraGrad = CreateFloatButton("AuraBtn",    "Aura",    UDim2.new(0.92, 0, 0.15, 0), "FloatAuraPos")
+local AuraBtn, auraGrad = CreateFloatButton("AuraBtn", "Aura", UDim2.new(0.92, 0, 0.15, 0), "FloatAuraPos")
 
 local isRobbing = false
 AuraBtn.MouseButton1Click:Connect(function()
@@ -424,46 +424,74 @@ StatusStroke.Color = Color3.fromRGB(0, 0, 0)
 
 task.spawn(function()
     pcall(function()
-        local Ragdoll = require(game:GetService("ReplicatedStorage"):WaitForChild("SharedModules", 10):WaitForChild("Ragdoll", 10))
-        local oldEnable = Ragdoll.EnableRagdoll
-        Ragdoll.EnableRagdoll = function(...)
-            if S.Config.AntiFallDamage then return end
-            if oldEnable then return oldEnable(...) end
+        local RagdollModule = require(ReplicatedStorage:WaitForChild("SharedModules", 10):WaitForChild("Ragdoll", 10))
+        if setreadonly then setreadonly(RagdollModule, false) end
+        local oldEnableRagdoll = RagdollModule.EnableRagdoll
+        RagdollModule.EnableRagdoll = function(self, targetPlayer, ...)
+            if S.Config.AntiFallDamage and targetPlayer == LocalPlayer then return end
+            return oldEnableRagdoll(self, targetPlayer, ...)
         end
-        local oldDisable = Ragdoll.DisableRagdoll
-        Ragdoll.DisableRagdoll = function(...)
-            if not S.Config.AntiFallDamage then
-                if oldDisable then return oldDisable(...) end
-                return
+        
+        local function setupCharacter(char)
+            local ragdolledVal = char:WaitForChild("Ragdolled", 5)
+            if ragdolledVal then
+                ragdolledVal:GetPropertyChangedSignal("Value"):Connect(function()
+                    if S.Config.AntiFallDamage and ragdolledVal.Value == true then
+                        task.spawn(function() RagdollModule:DisableRagdoll(LocalPlayer) end)
+                    end
+                end)
             end
-            local char = game.Players.LocalPlayer.Character
-            if not char then return end
-            local hum = char:FindFirstChild("Humanoid")
-            if hum then
-                hum.PlatformStand = false; hum.AutoRotate = true; hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-                pcall(function() hum.EvaluateStateMachine = true end)
+            local humanoid = char:WaitForChild("Humanoid", 5)
+            if humanoid then
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+                humanoid.StateChanged:Connect(function(_, newState)
+                    if S.Config.AntiFallDamage and (newState == Enum.HumanoidStateType.PlatformStanding or newState == Enum.HumanoidStateType.Ragdoll) then
+                        humanoid:ChangeState(Enum.HumanoidStateType.Running)
+                    end
+                end)
             end
-            local rag = char:FindFirstChild("Ragdolled")
-            if rag then rag.Value = false end
-            for _,v in pairs(char:GetDescendants()) do
-                if v:IsA("BallSocketConstraint") or v:IsA("HingeConstraint") then v.Enabled = false end
+        end
+        
+        if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
+        LocalPlayer.CharacterAdded:Connect(setupCharacter)
+        
+        local stateConfig = LocalPlayer:WaitForChild("StateConfig", 5)
+        if stateConfig then
+            local horseVal = stateConfig:WaitForChild("Horse", 5)
+            if horseVal then
+                local function protectHorse()
+                    if S.Config.AntiFallDamage and horseVal.Value then
+                        local horseHum = horseVal.Value:FindFirstChild("Humanoid")
+                        if horseHum then
+                            horseHum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+                            horseHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+                        end
+                    end
+                end
+                horseVal:GetPropertyChangedSignal("Value"):Connect(protectHorse)
+                protectHorse()
             end
         end
     end)
 end)
 
-local mt = getrawmetatable(game)
-local oldNamecallFall = mt.__namecall
-setreadonly(mt, false)
-mt.__namecall = newcclosure(function(self, ...)
-    local args = {...}
+local oldNamecallFall
+oldNamecallFall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
-    if S.Config.AntiFallDamage and method == "FireServer" and self.Name == "ChangeCharacter" then
-        if args[1] == "Ragdoll" or args[1] == "Damage" then return end
+    local args = {...}
+    if S.Config.AntiFallDamage and not checkcaller() and method == "FireServer" then
+        if args[1] == "Damage" or args[1] == "Ragdoll" then
+            pcall(function()
+                local RagdollModule = require(ReplicatedStorage:WaitForChild("SharedModules", 10):WaitForChild("Ragdoll", 10))
+                RagdollModule:DisableRagdoll(LocalPlayer)
+            end)
+            return
+        end
     end
-    return oldNamecallFall(self, ...)
+    if oldNamecallFall then return oldNamecallFall(self, ...) end
 end)
-setreadonly(mt, true)
 
 local processedChars = {}
 
@@ -637,19 +665,8 @@ local function updateAnimalESP()
 end
 
 RunService.RenderStepped:Connect(function()
-    if S.Config.AntiFallDamage then
-        local char = game.Players.LocalPlayer.Character
-        if char then
-            local hum = char:FindFirstChild("Humanoid")
-            if hum then hum.PlatformStand = false; hum.AutoRotate = true end
-            local rag = char:FindFirstChild("Ragdolled")
-            if rag then rag.Value = false end
-        end
-    end
-
     if S.Config.AimPlayer then
         fovCircle.Visible = true; fovCircle.Size = UDim2.new(0, S.Config.FOVRadius * 2, 0, S.Config.FOVRadius * 2)
-
     else
         fovCircle.Visible = false
     end
@@ -694,11 +711,9 @@ _G.VelocityConnection = RunService.Heartbeat:Connect(function()
                 if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
             end
         end
-        
         if S.Config.LoopSpeedEnabled then
             local hrp = char:FindFirstChild("HumanoidRootPart")
             local hum = char:FindFirstChildOfClass("Humanoid")
-            
             if hum and hrp and hum.Health > 0 and hum.MoveDirection.Magnitude > 0 then
                 local moveDir = hum.MoveDirection
                 local currentY = hrp.AssemblyLinearVelocity.Y 

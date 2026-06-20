@@ -13,12 +13,9 @@ local S = {
         KillAuraDist = 100,
         KillAuraTeamCheck = false,
         AimPlayer        = false,
-        AimNPC           = false,
         TeamCheck        = false,
         FriendCheck      = false,
         WallCheck        = false,
-        AimMode          = "FOV",
-        AimPart          = "Head",
         FOVRadius        = 90,
         ClickToAim       = false,
         IsTapping        = false,
@@ -41,11 +38,9 @@ local S = {
         FastHealEnabled  = false,
         AutoBreakLasso   = false,
         AutoCollectEnabled = false,
-        ShowFloatAimNPC  = false,
         ShowFloatAura    = false,
         FloatButtonSize  = 50,
         FloatAuraPos     = {0.92, 0, 0.15, 0},
-        FloatAimPos      = {0.82, 0, 0.15, 0},
         HeadboxEnabled   = false,
         HeadboxSize      = 15,
         NoJumpCooldownEnabled = false,
@@ -112,9 +107,7 @@ end)
 
 local currentTarget      = nil
 local isHoldingGun       = false
-local NPCCache           = {}
 local FriendCache        = {}
-local SilentAimNPCToggle = nil
 local RobTargetsCache = {}
 local LastCacheUpdate = 0
 
@@ -206,7 +199,6 @@ local function CreateFloatButton(name, text, defaultPos, configKey)
 end
 
 local AuraBtn,    auraGrad = CreateFloatButton("AuraBtn",    "Aura",    UDim2.new(0.92, 0, 0.15, 0), "FloatAuraPos")
-local AimNPCBtn, aimGrad  = CreateFloatButton("AimNPCBtn", "Aim NPC", UDim2.new(0.82, 0, 0.15, 0), "FloatAimPos")
 
 local isRobbing = false
 AuraBtn.MouseButton1Click:Connect(function()
@@ -240,24 +232,6 @@ AuraBtn.MouseButton1Click:Connect(function()
         AuraBtn.Text = "Aura"; isRobbing = false
     end)
 end)
-
-AimNPCBtn.MouseButton1Click:Connect(function()
-    if SilentAimNPCToggle then SilentAimNPCToggle:SetValue(not S.Config.AimNPC) end
-end)
-
-local function AddToCache(obj)
-    if obj:IsA("Model") then
-        task.delay(1, function()
-            if obj and obj.Parent and obj:FindFirstChildOfClass("Humanoid") and (obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart")) then
-                if not Players:GetPlayerFromCharacter(obj) and obj ~= LocalPlayer.Character then
-                    if not table.find(NPCCache, obj) then table.insert(NPCCache, obj) end
-                end
-            end
-        end)
-    end
-end
-for _, obj in ipairs(workspace:GetDescendants()) do AddToCache(obj) end
-workspace.DescendantAdded:Connect(AddToCache)
 
 local fovGui = Instance.new("ScreenGui")
 fovGui.Name = "StarCrowUI"
@@ -673,9 +647,8 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    if S.Config.AimMode == "FOV" and (S.Config.AimPlayer or S.Config.AimNPC) then
-        fovCircle.Visible = true;
-        fovCircle.Size = UDim2.new(0, S.Config.FOVRadius * 2, 0, S.Config.FOVRadius * 2)
+    if S.Config.AimPlayer then
+        fovCircle.Visible = true; fovCircle.Size = UDim2.new(0, S.Config.FOVRadius * 2, 0, S.Config.FOVRadius * 2)
 
     else
         fovCircle.Visible = false
@@ -709,21 +682,11 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local mt = getrawmetatable(game)
-local oldIndex = mt.__index
-if not getgenv().StarCrowSpeedHook then
-    getgenv().StarCrowSpeedHook = true
-    setreadonly(mt, false)
-    mt.__index = newcclosure(function(t, k)
-        if tostring(t) == "Humanoid" and k == "WalkSpeed" then
-            if t.Parent and t.Parent == game.Players.LocalPlayer.Character then return 30 end
-        end
-        return oldIndex(t, k)
-    end)
-    setreadonly(mt, true)
+if _G.VelocityConnection then
+    _G.VelocityConnection:Disconnect()
 end
 
-RunService.Heartbeat:Connect(function()
+_G.VelocityConnection = RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     if char then
         if S.Config.NoclipEnabled then
@@ -731,8 +694,17 @@ RunService.Heartbeat:Connect(function()
                 if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
             end
         end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum and S.Config.LoopSpeedEnabled then hum.WalkSpeed = S.Config.WalkSpeed end
+        
+        if S.Config.LoopSpeedEnabled then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            
+            if hum and hrp and hum.Health > 0 and hum.MoveDirection.Magnitude > 0 then
+                local moveDir = hum.MoveDirection
+                local currentY = hrp.AssemblyLinearVelocity.Y 
+                hrp.AssemblyLinearVelocity = Vector3.new(moveDir.X * S.Config.WalkSpeed, currentY, moveDir.Z * S.Config.WalkSpeed)
+            end
+        end
     end
 end)
 
@@ -793,18 +765,17 @@ task.spawn(function()
         local char = LocalPlayer.Character
         isHoldingGun = char and char:FindFirstChildOfClass("Tool") ~= nil
 
-        if not (S.Config.AimPlayer or S.Config.AimNPC) then currentTarget = nil; continue end
+        if not S.Config.AimPlayer then currentTarget = nil; continue end
         if not char or not char:FindFirstChild("HumanoidRootPart") then currentTarget = nil; continue end
         if not (S.Config.NoToolCheck or isHoldingGun) then currentTarget = nil; continue end
 
-        local myPos = char.HumanoidRootPart.Position
         local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
         local bestTarget = nil
         local shortest = math.huge
 
         local function process(obj, isPlayer)
             local hum = obj:FindFirstChildOfClass("Humanoid")
-            local part = obj:FindFirstChild(S.Config.AimPart) or obj:FindFirstChild("Head")
+            local part = obj:FindFirstChild("Head")
             if not hum or hum.Health <= 0 or not part then return end
             if isPlayer then
                 local plr = Players:GetPlayerFromCharacter(obj)
@@ -817,24 +788,15 @@ task.spawn(function()
 
             local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
             if not onScreen then return end
-            if S.Config.AimMode == "FOV" then
-                local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                if dist < S.Config.FOVRadius and dist < shortest then shortest = dist; bestTarget = part end
-            else
-                local dist3 = (part.Position - myPos).Magnitude
-                if dist3 < shortest then shortest = dist3; bestTarget = part end
-            end
+            
+            local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+            if dist < S.Config.FOVRadius and dist < shortest then shortest = dist; bestTarget = part end
         end
 
         if S.Config.AimPlayer then
             for _, p in ipairs(Players:GetPlayers()) do if p.Character then process(p.Character, true) end end
         end
-        if S.Config.AimNPC then
-            for i = #NPCCache, 1, -1 do
-                local npc = NPCCache[i]
-                if npc and npc.Parent and not Players:GetPlayerFromCharacter(npc) then process(npc, false) else table.remove(NPCCache, i) end
-            end
-        end
+
         currentTarget = bestTarget
     end
 end)
@@ -846,7 +808,7 @@ function InitSilentAimHook()
     if isNamecallHooked then return end
     isNamecallHooked = true
     oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-        if not (S.Config.AimPlayer or S.Config.AimNPC) then return oldNamecall(self, ...) end
+        if not S.Config.AimPlayer then return oldNamecall(self, ...) end
         local method = getnamecallmethod()
         if not checkcaller() and self == workspace and currentTarget and (not S.Config.ClickToAim or S.Config.IsTapping) and (S.Config.NoToolCheck or isHoldingGun) then
             if method == "Raycast" or method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" then
@@ -1167,11 +1129,18 @@ task.spawn(function()
     end
 end)
 
-Tabs.Aim:AddParagraph({ Title = "Target Selection", Content = "" })
+Tabs.Aim:AddParagraph({ Title = "Silent Aim Player", Content = "" })
+Tabs.Aim:AddToggle("AimPlayer", { Title = "Silent Aim Player", Default = S.Config.AimPlayer, Callback = function(v) S.Config.AimPlayer = v; if v then InitSilentAimHook() end; SaveConfig() end })
+Tabs.Aim:AddSlider("FOVRadius", { Title = "FOV Radius", Default = S.Config.FOVRadius, Min = 50, Max = 600, Rounding = 0, Callback = function(v) S.Config.FOVRadius = v; SaveConfig() end })
+Tabs.Aim:AddToggle("TeamCheck", { Title = "Team Check", Default = S.Config.TeamCheck, Callback = function(v) S.Config.TeamCheck = v; SaveConfig() end })
+Tabs.Aim:AddToggle("FriendCheck", { Title = "Friend Check", Default = S.Config.FriendCheck, Callback = function(v) S.Config.FriendCheck = v; SaveConfig() end })
+Tabs.Aim:AddToggle("WallCheck", { Title = "Wall Check", Default = S.Config.WallCheck, Callback = function(v) S.Config.WallCheck = v; SaveConfig() end })
+
+Tabs.Aim:AddParagraph({ Title = "Headbox", Content = "" })
 Tabs.Aim:AddToggle("HeadboxToggle", { Title = "Enable Headbox", Default = S.Config.HeadboxEnabled, Callback = function(v) S.Config.HeadboxEnabled = v; SaveConfig() end })
 Tabs.Aim:AddSlider("HeadboxSize", { Title = "Headbox Size", Default = S.Config.HeadboxSize, Min = 2, Max = 200, Rounding = 1, Callback = function(v) S.Config.HeadboxSize = v; SaveConfig() end })
-Tabs.Aim:AddToggle("AimPlayer", { Title = "Silent Aim Player", Default = S.Config.AimPlayer, Callback = function(v) S.Config.AimPlayer = v; if v then InitSilentAimHook() end; SaveConfig() end })
 
+Tabs.Aim:AddParagraph({ Title = "Kill Aura", Content = "" })
 Tabs.Aim:AddToggle("KillAura", {
     Title = "Kill Aura",
     Default = false,
@@ -1184,29 +1153,21 @@ Tabs.Aim:AddToggle("KillAura", {
             task.spawn(function()
                 while getgenv().KillAura do
                     task.wait(0.05)
-
                     local Character = LocalPlayer.Character
                     local Root = Character and Character:FindFirstChild("HumanoidRootPart")
-
                     if not Character or not Root then continue end
-
                     local Tool = Character:FindFirstChild("Knife") or Character:FindFirstChild("Machete")
                     if not Tool then continue end
-
                     local Handle = Tool:FindFirstChild("Handle") or Tool:FindFirstChildWhichIsA("BasePart")
                     if not Handle then continue end
-
                     for _, Player in ipairs(Players:GetPlayers()) do
                         if Player == LocalPlayer or not Player.Character then continue end
                         if Player.Team and string.match(string.lower(Player.Team.Name), "civilian") then continue end
                         if S.Config.KillAuraTeamCheck and LocalPlayer.Team and Player.Team == LocalPlayer.Team then continue end
-
                         local EnemyHumanoid = Player.Character:FindFirstChildOfClass("Humanoid")
                         local EnemyRoot = Player.Character:FindFirstChild("HumanoidRootPart")
-
                         if EnemyHumanoid and EnemyRoot and EnemyHumanoid.Health > 0 then
                             local Distance = (Root.Position - EnemyRoot.Position).Magnitude
-
                             if Distance <= S.Config.KillAuraDist then
                                 pcall(function()
                                     if Tool.Name == "Knife" then
@@ -1251,46 +1212,10 @@ Tabs.Aim:AddToggle("KillAuraTeamCheck", {
     end
 })
 
-SilentAimNPCToggle = Tabs.Aim:AddToggle("AimNPC", {
-    Title = "Silent Aim NPC", Default = S.Config.AimNPC,
-    Callback = function(v)
-        S.Config.AimNPC = v; if v then InitSilentAimHook() end
-        if v then
-            aimGrad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(170, 70, 255)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 180, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(170, 70, 255)) })
-        else
-            aimGrad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 0, 120)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 100, 200)), ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 0, 120)) })
-        end
-        SaveConfig()
-    end
-})
-
-local isFirstLoadAim = true
-Tabs.Aim:AddToggle("ShowFloatAimNPC", {
-    Title = "Show Float Aim NPC", Default = S.Config.ShowFloatAimNPC,
-    Callback = function(v)
-        AimNPCBtn.Visible = v
-        if v and not isFirstLoadAim then AimNPCBtn.Position = UDim2.new(0.82, 0, 0.15, 0); S.Config.FloatAimPos = {0.82, 0, 0.15, 0} end
-        isFirstLoadAim = false; S.Config.ShowFloatAimNPC = v; SaveConfig()
-    end
-})
-
-Tabs.Aim:AddToggle("TeamCheck", { Title = "Team Check", Default = S.Config.TeamCheck, Callback = function(v) S.Config.TeamCheck = v; SaveConfig() end })
-Tabs.Aim:AddToggle("FriendCheck", { Title = "Friend Check", Default = S.Config.FriendCheck, Callback = function(v) S.Config.FriendCheck = v; SaveConfig() end })
-Tabs.Aim:AddToggle("WallCheck", { Title = "Wall Check", Default = S.Config.WallCheck, Callback = function(v) S.Config.WallCheck = v; SaveConfig() end })
-Tabs.Aim:AddDropdown("TargetMode", { Title = "Target Mode", Values = {"FOV", "Global"}, Default = S.Config.AimMode == "Global" and 2 or 1, Callback = function(v) S.Config.AimMode = v; SaveConfig() end })
-
-Tabs.Aim:AddParagraph({ Title = "Weapon Logic & Trigger", Content = "" })
-Tabs.Aim:AddDropdown("AimPart", { Title = "Aim Part", Values = {"Head", "Body"}, Default = (S.Config.AimPart == "HumanoidRootPart") and 2 or 1, Callback = function(v) S.Config.AimPart = (v == "Body") and "HumanoidRootPart" or "Head"; SaveConfig() end })
-Tabs.Aim:AddSlider("FOVRadius", { Title = "FOV Radius", Default = S.Config.FOVRadius, Min = 50, Max = 600, Rounding = 0, Callback = function(v) S.Config.FOVRadius = v; SaveConfig() end })
-
 Tabs.Aim:AddParagraph({ Title = "Dynamite Target", Content = "" })
 Tabs.Aim:AddToggle("DynamiteTargetToggle", { Title = "Dynamite Target", Default = S.Config.DynamiteTargetEnabled, Callback = function(v) S.Config.DynamiteTargetEnabled = v; SaveConfig() end })
 Tabs.Aim:AddToggle("DynamiteTeamCheckToggle", { Title = "Team Check Dynamite", Default = S.Config.DynamiteTeamCheck, Callback = function(v) S.Config.DynamiteTeamCheck = v; SaveConfig() end })
 
-Tabs.GunMod:AddParagraph({
-    Title = "⚠ Gun Mods Note",
-    Content = "Shoot a little slower, don't spam shots too fast or your damage will bug out"
-})
 Tabs.GunMod:AddButton({
     Title = "Gun Mods",
     Callback = function()
@@ -1794,7 +1719,6 @@ Tabs.Settings:AddSlider("FloatButtonSize", {
     Callback = function(Value)
         S.Config.FloatButtonSize = Value
         if AuraBtn then AuraBtn.Size = UDim2.new(0, Value, 0, Value) end
-        if AimNPCBtn then AimNPCBtn.Size = UDim2.new(0, Value, 0, Value) end
         SaveConfigDebounced()
     end
 })

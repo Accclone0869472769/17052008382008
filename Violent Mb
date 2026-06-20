@@ -35,7 +35,7 @@ local Config = {
 }
 
 local SAVE_FOLDER = "StarCrowHub"
-local SAVE_FILE = SAVE_FOLDER .. "/ViolenceDistrict.json"
+local SAVE_FILE = SAVE_FOLDER .. "/ViolenceDistrictMB.json"
 
 local function SaveConfig()
     pcall(function()
@@ -177,7 +177,7 @@ local S = {
     flyFloatBtn = nil, flyFloatStroke = nil, AutoAttackToggleObj = nil
 }
 
-local SAVE_FILE_CUSTOM = "StarCrow/ViolenceDistrict.json"
+local SAVE_FILE_CUSTOM = "StarCrow/ViolenceDistrictMB.json"
 
 local SavedCfg = {}
 pcall(function()
@@ -1456,7 +1456,7 @@ end)
 
 local Window = Fluent:CreateWindow({
     Title       = "StarCrowHub",
-    SubTitle    = "Violence District",
+    SubTitle    = "Violence District Mobile",
     TabWidth    = 130,
     Size        = UDim2.fromOffset(460, 400),
     Acrylic     = false,
@@ -1787,6 +1787,84 @@ Tabs.Esp:AddToggle("ESPHookToggle", {
         saveCustomConfig()
     end,
 })
+
+if S.palletESPEnabled == nil then S.palletESPEnabled = false end
+
+local function applyPalletESP(obj)
+    if not obj:FindFirstChild("PalletChams") then
+        local chams = Instance.new("Highlight")
+        chams.Name = "PalletChams"
+        chams.Adornee = obj
+        chams.FillColor = Color3.fromRGB(255, 0, 0)
+        chams.FillTransparency = 0.5
+        chams.OutlineColor = Color3.fromRGB(255, 255, 255)
+        chams.OutlineTransparency = 0
+        chams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        chams.Parent = obj
+    end
+    if not obj:FindFirstChild("PalletName") then
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "PalletName"
+        billboard.Adornee = obj
+        billboard.Size = UDim2.new(0, 100, 0, 40)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        local text = Instance.new("TextLabel")
+        text.Parent = billboard
+        text.Size = UDim2.new(1, 0, 1, 0)
+        text.BackgroundTransparency = 1
+        text.Text = "Pallet"
+        text.TextColor3 = Color3.fromRGB(255, 255, 0)
+        text.TextStrokeTransparency = 0
+        text.TextSize = 14
+        text.Font = Enum.Font.SourceSansBold
+        billboard.Parent = obj
+    end
+end
+
+local function removePalletESP(obj)
+    local chams = obj:FindFirstChild("PalletChams")
+    if chams then chams:Destroy() end
+    local nameTag = obj:FindFirstChild("PalletName")
+    if nameTag then nameTag:Destroy() end
+end
+
+local function isValidPallet(obj)
+    if not string.find(obj.Name, "Pallet") then return false end
+    local isInteractable = obj:FindFirstChildWhichIsA("ProximityPrompt", true) or obj:FindFirstChildWhichIsA("ClickDetector", true)
+    if isInteractable or (obj:IsA("Model") and #obj:GetChildren() > 1) then return true end
+    return false
+end
+
+Tabs.Esp:AddToggle("ESPPalletsToggle", {
+    Title    = "Esp Pallets",
+    Default  = false,
+    Callback = function(Value)
+        S.palletESPEnabled = Value
+        local mapFolder = workspace:FindFirstChild("Map")
+        if mapFolder then
+            for _, obj in ipairs(mapFolder:GetDescendants()) do
+                if isValidPallet(obj) then
+                    if Value then
+                        applyPalletESP(obj)
+                    else
+                        removePalletESP(obj)
+                    end
+                end
+            end
+        end
+    end,
+})
+
+workspace.DescendantAdded:Connect(function(obj)
+    task.wait(0.5)
+    if S.palletESPEnabled then
+        local mapFolder = workspace:FindFirstChild("Map")
+        if mapFolder and obj:IsDescendantOf(mapFolder) and isValidPallet(obj) then
+            applyPalletESP(obj)
+        end
+    end
+end)
 
 Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     Title           = "Minimize UI Keybind",

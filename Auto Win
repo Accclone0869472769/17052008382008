@@ -59,83 +59,6 @@ end
 
 LoadConfig()
 
-local GIST_ID = "92086d0c65244c07ccb9afbfd7743c57"
-local GIST_FILE = "bans.json"
-
-local function FetchBanList()
-    local fn = request or syn and syn.request or http and http.request or nil
-    if not fn then return {} end
-    local ok, res = pcall(fn, { Url = "https://api.github.com/gists/" .. GIST_ID, Method = "GET", Headers = { ["Accept"] = "application/vnd.github+json" } })
-    if not ok or not res or res.StatusCode ~= 200 then return {} end
-    local ok2, data = pcall(HttpService.JSONDecode, HttpService, res.Body)
-    if not ok2 or not data or not data.files or not data.files[GIST_FILE] then return {} end
-    local ok3, list = pcall(HttpService.JSONDecode, HttpService, data.files[GIST_FILE].content)
-    return (ok3 and type(list) == "table") and list or {}
-end
-
-local cachedBanList = FetchBanList()
-local playerName = LocalPlayer.Name
-local playerId = tostring(LocalPlayer.UserId)
-
-for _, entry in ipairs(cachedBanList) do
-    if (type(entry) == "table" and (tostring(entry.name) == playerName or tostring(entry.id) == playerId))
-    or (type(entry) == "string" and (entry == playerName or entry == playerId)) then
-        local reason = type(entry) == "table" and entry.reason or ""
-        LocalPlayer:Kick("StarCrowHub Banned: " .. (reason ~= "" and reason or "Banned from using this script."))
-        return
-    end
-end
-
-task.spawn(function()
-    local WebhookURL = "https://whsecurity.phongngao903.workers.dev"
-    local req = request or syn and syn.request or http and http.request or http_request or fluxus and fluxus.request
-    if not req then return end
-
-    local execName = "Unknown"
-    pcall(function()
-        if type(identifyexecutor) == "function" then
-            local name, version = identifyexecutor()
-            execName = tostring(name) .. (version and (" " .. tostring(version)) or "")
-        end
-    end)
-    
-    local avatarUrl = ""
-    pcall(function()
-        local res = req({
-            Url = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. playerId .. "&size=420x420&format=Png&isCircular=false",
-            Method = "GET"
-        })
-        if res and res.StatusCode == 200 then
-            local d = HttpService:JSONDecode(res.Body)
-            if d and d.data and d.data[1] then avatarUrl = d.data[1].imageUrl end
-        end
-    end)
-    
-    local gameName = tostring(game.PlaceId)
-    pcall(function() gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
-    
-    local embedData = {
-        ["title"] = "StarCrow Hub Executed",
-        ["color"] = 8519935,
-        ["fields"] = {
-            { ["name"] = "Player", ["value"] = "[" .. LocalPlayer.Name .. "](https://www.roblox.com/users/" .. playerId .. "/profile)", ["inline"] = true },
-            { ["name"] = "UserID", ["value"] = playerId, ["inline"] = true },
-            { ["name"] = "Executor", ["value"] = execName, ["inline"] = true },
-            { ["name"] = "Game", ["value"] = gameName, ["inline"] = true }
-        }
-    }
-    if avatarUrl ~= "" then embedData["thumbnail"] = { ["url"] = avatarUrl } end
-    
-    pcall(function()
-        req({
-            Url = WebhookURL,
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = HttpService:JSONEncode({ ["embeds"] = { embedData } })
-        })
-    end)
-end)
-
 pcall(function()
     local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 
@@ -670,9 +593,6 @@ local function runAutoWin()
 
     local waitStart = tick()
 
-    farmEarlyMob("ShadowCreature", 15)
-    farmEarlyMob("ShadowStalker", 15)
-
     awWaitPrompt("Break", 30)
     task.wait(1)
     awWaitPrompt("Activate", 30)
@@ -685,7 +605,7 @@ local function runAutoWin()
         game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents", 9e9):WaitForChild("Portal", 9e9):WaitForChild("RemoteEvent", 9e9):FireServer("FadeAckVoid")
     end)
 
-    while tick() - waitStart < 180 do
+    while tick() - waitStart < 186 do
         if not autoWinRunning then return end
         task.wait(1)
     end
@@ -787,5 +707,4 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     end
 })
 
-Window:SelectTab(1)
- 
+Window:SelectTab(1) 

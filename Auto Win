@@ -6,7 +6,7 @@ if teleport_func then
             repeat task.wait() until game:IsLoaded()
             task.wait(1.5)
             pcall(function()
-                loadstring(game:HttpGet("https://api.jnkie.com/api/v1/luascripts/public/f839826919ec423285d515aef8082dce2a756a907d8e7931c3c05d987bdf20e1/download"))() 
+               loadstring(game:HttpGet("https://raw.githubusercontent.com/user-null-0/test-repo-08888/refs/heads/main/Auto%20Win"))()
             end)
         ]])
     end)
@@ -381,6 +381,8 @@ local autoWinThread = nil
 local autoAttackRunning = false
 local autoAttackThread = nil
 local meteorThread = nil
+local autoJumpRunning = false
+local autoJumpThread = nil
 
 local function awTp(cframePos)
     local char = LocalPlayer.Character
@@ -586,6 +588,29 @@ local function stopAutoAttack()
     end
 end
 
+local function startAutoJump()
+    if autoJumpRunning then return end
+    autoJumpRunning = true
+    autoJumpThread = task.spawn(function()
+        while autoJumpRunning do
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.Jump = true
+            end
+            task.wait(0.3)
+        end
+    end)
+end
+
+local function stopAutoJump()
+    autoJumpRunning = false
+    if autoJumpThread then
+        task.cancel(autoJumpThread)
+        autoJumpThread = nil
+    end
+end
+
 local function runAutoWin()
     local mainPos = CFrame.new(18.15, 45.24, 47112.82)
     awTp(mainPos)
@@ -673,6 +698,7 @@ Tabs.Main:AddToggle("AutoWinToggle", {
         if Value then
             startAutoAttack()
             startMeteorDodge()
+            startAutoJump()
             if uiVisible then
                 task.wait(0.2)
                 toggleUI()
@@ -688,6 +714,7 @@ Tabs.Main:AddToggle("AutoWinToggle", {
         else
             stopAutoAttack()
             stopMeteorDodge()
+            stopAutoJump()
             if autoWinThread then
                 task.cancel(autoWinThread)
                 autoWinThread = nil
@@ -707,4 +734,4 @@ Tabs.Settings:AddKeybind("ToggleUIKeybind", {
     end
 })
 
-Window:SelectTab(1) 
+Window:SelectTab(1)

@@ -6,7 +6,7 @@ if teleport_func then
             repeat task.wait() until game:IsLoaded()
             task.wait(1.5)
             pcall(function()
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/user-null-0/test-repo-08888/refs/heads/main/Auto%20Win"))()
+               loadstring(game:HttpGet("https://raw.githubusercontent.com/user-null-0/test-repo-08888/refs/heads/main/Auto%20Win"))()
             end)
         ]])
     end)
@@ -381,7 +381,8 @@ local autoWinThread = nil
 local autoAttackRunning = false
 local autoAttackThread = nil
 local meteorThread = nil
-local autoJumpConnection = nil
+local autoJumpRunning = false
+local autoJumpThread = nil
 
 local function awTp(cframePos)
     local char = LocalPlayer.Character
@@ -588,22 +589,25 @@ local function stopAutoAttack()
 end
 
 local function startAutoJump()
-    if autoJumpConnection then return end
-    autoJumpConnection = RunService.Heartbeat:Connect(function()
-        local char = LocalPlayer.Character
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if hum and hrp and hum.FloorMaterial ~= Enum.Material.Air then
-            local v = hrp.AssemblyLinearVelocity
-            hrp.AssemblyLinearVelocity = Vector3.new(v.X, 50, v.Z)
+    if autoJumpRunning then return end
+    autoJumpRunning = true
+    autoJumpThread = task.spawn(function()
+        while autoJumpRunning do
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.Jump = true
+            end
+            task.wait(0.3)
         end
     end)
 end
 
 local function stopAutoJump()
-    if autoJumpConnection then
-        autoJumpConnection:Disconnect()
-        autoJumpConnection = nil
+    autoJumpRunning = false
+    if autoJumpThread then
+        task.cancel(autoJumpThread)
+        autoJumpThread = nil
     end
 end
 
@@ -626,7 +630,7 @@ local function runAutoWin()
         game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents", 9e9):WaitForChild("Portal", 9e9):WaitForChild("RemoteEvent", 9e9):FireServer("FadeAckVoid")
     end)
 
-    while tick() - waitStart < 186 do
+    while tick() - waitStart < 190 do
         if not autoWinRunning then return end
         task.wait(1)
     end

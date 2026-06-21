@@ -543,7 +543,7 @@ local function createGenESP(gen)
     infoLabel.Size = UDim2.new(1, 0, 1, 0)
     infoLabel.BackgroundTransparency = 1
     infoLabel.RichText = true
-    infoLabel.Text = "<font color=\"#ffff00\">Generator | 0%</font>"
+    infoLabel.Text = "<font color=\"#ffff00\">0%</font>"
     infoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     infoLabel.TextStrokeTransparency = 0
     infoLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
@@ -578,7 +578,7 @@ local function createGenESP(gen)
                 progress = attr
             end
         end
-        infoLabel.Text = string.format('<font color="#ffff00">Generator | %d%%</font>', math.floor(progress))
+        infoLabel.Text = string.format('<font color="#ffff00">%d%%</font>', math.floor(progress))
     end)
     
     S.genESPObjects[gen] = {billboard = billboard, highlight = hl, conn = conn}
@@ -1819,31 +1819,11 @@ local function applyPalletESP(obj)
         chams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         chams.Parent = obj
     end
-    if not obj:FindFirstChild("PalletName") then
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "PalletName"
-        billboard.Adornee = obj
-        billboard.Size = UDim2.new(0, 100, 0, 40)
-        billboard.StudsOffset = Vector3.new(0, 3, 0)
-        billboard.AlwaysOnTop = true
-        local text = Instance.new("TextLabel")
-        text.Parent = billboard
-        text.Size = UDim2.new(1, 0, 1, 0)
-        text.BackgroundTransparency = 1
-        text.Text = "Pallet"
-        text.TextColor3 = Color3.fromRGB(255, 255, 0)
-        text.TextStrokeTransparency = 0
-        text.TextSize = 14
-        text.Font = Enum.Font.SourceSansBold
-        billboard.Parent = obj
-    end
 end
 
 local function removePalletESP(obj)
     local chams = obj:FindFirstChild("PalletChams")
     if chams then chams:Destroy() end
-    local nameTag = obj:FindFirstChild("PalletName")
-    if nameTag then nameTag:Destroy() end
 end
 
 local function isValidPallet(obj)

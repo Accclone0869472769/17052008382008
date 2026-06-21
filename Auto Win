@@ -6,7 +6,7 @@ if teleport_func then
             repeat task.wait() until game:IsLoaded()
             task.wait(1.5)
             pcall(function()
-               loadstring(game:HttpGet("https://raw.githubusercontent.com/user-null-0/test-repo-08888/refs/heads/main/Auto%20Win"))()
+               loadstring(game:HttpGet("https://api.jnkie.com/api/v1/luascripts/public/e1e99d1204a9a0328e104dc64c31636c33ac03a7c9848aab83c89dd29c169fab/download"))()
             end)
         ]])
     end)

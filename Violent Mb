@@ -174,7 +174,8 @@ local S = {
     floatLocked = Config.FloatLocked,
     noclipFloatSize = Config.NoclipFloatSize, flyFloatSize = Config.FlyFloatSize,
     noclipFloatBtn = nil, noclipFloatStroke = nil,
-    flyFloatBtn = nil, flyFloatStroke = nil, AutoAttackToggleObj = nil
+    flyFloatBtn = nil, flyFloatStroke = nil, AutoAttackToggleObj = nil,
+    crosshairEnabled = false, crosshairGui = nil
 }
 
 local SAVE_FILE_CUSTOM = "StarCrow/ViolenceDistrictMB.json"
@@ -199,6 +200,7 @@ if SavedCfg.genESPEnabled ~= nil then S.genESPEnabled = SavedCfg.genESPEnabled e
 if SavedCfg.gateESPEnabled ~= nil then S.gateESPEnabled = SavedCfg.gateESPEnabled end
 if SavedCfg.hookESPEnabled ~= nil then S.hookESPEnabled = SavedCfg.hookESPEnabled end
 if SavedCfg.noclipEnabled ~= nil then S.noclipEnabled = SavedCfg.noclipEnabled end
+if SavedCfg.crosshairEnabled ~= nil then S.crosshairEnabled = SavedCfg.crosshairEnabled end
 
 local function saveCustomConfig()
     pcall(function()
@@ -218,10 +220,51 @@ local function saveCustomConfig()
             autoAttackEnabled = S.autoAttackEnabled,
             autoParryEnabled  = S.autoParryEnabled,
             parryRange        = S.parryRange,
+            crosshairEnabled  = S.crosshairEnabled,
         }
         writefile(SAVE_FILE_CUSTOM, HttpService:JSONEncode(cfg))
     end)
 end
+
+local function removeCrosshair()
+    if S.crosshairGui then S.crosshairGui:Destroy() S.crosshairGui = nil end
+    local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if playerGui then
+        local existing = playerGui:FindFirstChild("StarCrowCrosshairGui")
+        if existing then existing:Destroy() end
+    end
+end
+
+local function createCrosshair()
+    removeCrosshair()
+    local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if not playerGui then return end
+    local crosshairGui = Instance.new("ScreenGui")
+    crosshairGui.Name = "StarCrowCrosshairGui"
+    crosshairGui.ResetOnSpawn = false
+    crosshairGui.IgnoreGuiInset = true
+    crosshairGui.DisplayOrder = 999999
+    crosshairGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    crosshairGui.Parent = playerGui
+    local crosshair = Instance.new("ImageLabel")
+    crosshair.Name = "StarCrowCrosshair"
+    crosshair.Size = UDim2.new(0, 24, 0, 24)
+    crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
+    crosshair.Position = UDim2.new(0.5, 0, 0.5, 0)
+    crosshair.BackgroundTransparency = 1
+    crosshair.BorderSizePixel = 0
+    crosshair.ZIndex = 999999
+    crosshair.Image = "rbxthumb://type=Asset&id=11719595129&w=420&h=420"
+    crosshair.ScaleType = Enum.ScaleType.Fit
+    crosshair.Parent = crosshairGui
+    S.crosshairGui = crosshairGui
+end
+
+if S.crosshairEnabled then createCrosshair() end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if S.crosshairEnabled then task.wait(1) createCrosshair() end
+end)
 
 local function startNoclip()
     S.noclipLoop = RunService.Stepped:Connect(function()
@@ -438,7 +481,7 @@ local function createNameESP(player, char)
     infoLabel.Size = UDim2.new(1, 0, 1, 0)
     infoLabel.BackgroundTransparency = 1
     infoLabel.RichText = true
-    infoLabel.Text = player.Name .. " | 0m | <font color=\"#00ff00\">100%</font>"
+    infoLabel.Text = player.Name
     infoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     infoLabel.TextStrokeTransparency = 0
     infoLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
@@ -451,27 +494,13 @@ local function createNameESP(player, char)
         if not billboard or not billboard.Parent then conn:Disconnect() return end
         if not isAlive(char) then billboard.Enabled = false return end
         billboard.Enabled = true
-        local myChar = LocalPlayer.Character
-        if myChar and myChar:FindFirstChild("Head") and head and head.Parent then
-            local dist = math.floor((head.Position - myChar.Head.Position).Magnitude)
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            local hpPercent = 100
-            local hpColor = "#00ff00"
-            if hum then
-                hpPercent = math.floor((hum.Health / hum.MaxHealth) * 100)
-                hpColor = hpPercent > 60 and "#00ff00" or hpPercent > 30 and "#ffaa00" or "#ff3300"
-            end
-            local nc = getTeamColor(player)
-            local nameHex = string.format("#%02x%02x%02x",
-                math.clamp(math.floor(nc.R * 255), 0, 255),
-                math.clamp(math.floor(nc.G * 255), 0, 255),
-                math.clamp(math.floor(nc.B * 255), 0, 255)
-            )
-            infoLabel.Text = string.format(
-                '<font color="%s">%s</font> | %dm | <font color="%s">%d%%</font>',
-                nameHex, player.Name, dist, hpColor, hpPercent
-            )
-        end
+        local nc = getTeamColor(player)
+        local nameHex = string.format("#%02x%02x%02x",
+            math.clamp(math.floor(nc.R * 255), 0, 255),
+            math.clamp(math.floor(nc.G * 255), 0, 255),
+            math.clamp(math.floor(nc.B * 255), 0, 255)
+        )
+        infoLabel.Text = string.format('<font color="%s">%s</font>', nameHex, player.Name)
     end)
     S.nameESPObjects[player] = billboard
 end
@@ -1982,6 +2011,16 @@ Tabs.Teleport:AddButton({
     Title = "TP Hook",
     Callback = function()
         teleportToHook()
+    end
+})
+
+Tabs.Main:AddToggle("CrosshairToggle", {
+    Title = "Crosshair",
+    Default = S.crosshairEnabled,
+    Callback = function(Value)
+        S.crosshairEnabled = Value
+        if Value then createCrosshair() else removeCrosshair() end
+        saveCustomConfig()
     end
 })
 

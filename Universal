@@ -222,6 +222,7 @@ local S = {
     loopspeedEnabled = false, loopspeedConnection = nil, loopspeedValue = 30,
     autoHitboxEnabled = false, autoBodyHitboxEnabled = false, hitboxSize = 15,
     nameESPEnabled = false, chamsEnabled = false, tracerESPEnabled = false,
+    espNameOnly = true, espHpOnly = true, espDistOnly = true,
     nameESPObjects = {}, tracerESPObjects = {},
     processedChars = {}, bodyHitboxChars = {},
     selectedTPPlayers = {}, autoTPEnabled = false, autoTPConnection = nil, ctrlClickTPEnabled = false,
@@ -598,7 +599,7 @@ local function createNameESP(player, char)
     infoLabel.Position = UDim2.new(0, 0, 0, 0)
     infoLabel.BackgroundTransparency = 1
     infoLabel.RichText = true
-    infoLabel.Text = player.Name .. " | 0m | <font color=\"#00ff00\">100%</font>"
+    infoLabel.Text = player.Name
     infoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     infoLabel.TextStrokeTransparency = 0
     infoLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
@@ -615,32 +616,31 @@ local function createNameESP(player, char)
             billboard.Enabled = false return
         end
         billboard.Enabled = true
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") and head and head.Parent then
+        local nc = getTeamColor(player)
+        local nameHex = string.format("#%02x%02x%02x",
+            math.clamp(math.floor(nc.R * 255), 0, 255),
+            math.clamp(math.floor(nc.G * 255), 0, 255),
+            math.clamp(math.floor(nc.B * 255), 0, 255)
+        )
+        local parts = {}
+        if S.espNameOnly then
+            parts[#parts + 1] = string.format('<font color="%s">%s</font>', nameHex, player.Name)
+        end
+        if S.espDistOnly and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") and head and head.Parent then
             local dist = math.floor((head.Position - LocalPlayer.Character.Head.Position).Magnitude)
+            parts[#parts + 1] = dist .. "m"
+        end
+        if S.espHpOnly then
             local humanoid = char:FindFirstChildOfClass("Humanoid")
             local hpPercent = 100
             local hpColor = "#00ff00"
             if humanoid then
                 hpPercent = math.floor((humanoid.Health / humanoid.MaxHealth) * 100)
-                if hpPercent > 60 then
-                    hpColor = "#00ff00"
-                elseif hpPercent > 30 then
-                    hpColor = "#ffaa00"
-                else
-                    hpColor = "#ff3300"
-                end
+                hpColor = hpPercent > 60 and "#00ff00" or hpPercent > 30 and "#ffaa00" or "#ff3300"
             end
-            local nc = getTeamColor(player)
-            local nameHex = string.format("#%02x%02x%02x",
-                math.clamp(math.floor(nc.R * 255), 0, 255),
-                math.clamp(math.floor(nc.G * 255), 0, 255),
-                math.clamp(math.floor(nc.B * 255), 0, 255)
-            )
-            infoLabel.Text = string.format(
-                '<font color="%s">%s</font> | %dm | <font color="%s">%d%%</font>',
-                nameHex, player.Name, dist, hpColor, hpPercent
-            )
+            parts[#parts + 1] = string.format('<font color="%s">%d%%</font>', hpColor, hpPercent)
         end
+        infoLabel.Text = table.concat(parts, " | ")
     end)
     S.nameESPObjects[player] = billboard
 end
@@ -1090,6 +1090,9 @@ saveCustomConfig = function(silent)
         infJumpEnabled      = S.infJumpEnabled,
         noclipEnabled       = S.noclipEnabled,
         nameESPEnabled      = S.nameESPEnabled,
+        espNameOnly         = S.espNameOnly,
+        espHpOnly           = S.espHpOnly,
+        espDistOnly         = S.espDistOnly,
         chamsEnabled        = S.chamsEnabled,
         tracerESPEnabled    = S.tracerESPEnabled,
         antiFlingEnabled    = S.antiFlingEnabled,
@@ -1824,25 +1827,45 @@ PlayerTab:AddSlider("SpeedGlitchSlider", {
 })
 
 local EspTab = Tabs.Esp
-EspTab:AddToggle("ESPNameToggle", {
-    Title = "ESP Name",
-    Default = SavedCfg.nameESPEnabled or false,
-    Flag = "ESPNameToggle",
-    Callback = function(Value)
-        S.nameESPEnabled = Value
-        if S.nameESPEnabled then
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character and isAlive(player.Character) then
+local function refreshNameESP()
+    local anyOn = S.espNameOnly or S.espHpOnly or S.espDistOnly
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if anyOn and player.Character and isAlive(player.Character) then
+                if not S.nameESPObjects[player] then
                     createNameESP(player, player.Character)
                 end
-            end
-        else
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer then
-                    removeNameESP(player)
-                end
+            elseif not anyOn then
+                removeNameESP(player)
             end
         end
+    end
+end
+
+EspTab:AddToggle("ESPShowName", {
+    Title = "Name",
+    Default = SavedCfg.espNameOnly ~= nil and SavedCfg.espNameOnly or true,
+    Callback = function(Value)
+        S.espNameOnly = Value
+        refreshNameESP()
+        saveCustomConfig(true)
+    end
+})
+EspTab:AddToggle("ESPShowHp", {
+    Title = "HP",
+    Default = SavedCfg.espHpOnly ~= nil and SavedCfg.espHpOnly or true,
+    Callback = function(Value)
+        S.espHpOnly = Value
+        refreshNameESP()
+        saveCustomConfig(true)
+    end
+})
+EspTab:AddToggle("ESPShowDist", {
+    Title = "Distance",
+    Default = SavedCfg.espDistOnly ~= nil and SavedCfg.espDistOnly or true,
+    Callback = function(Value)
+        S.espDistOnly = Value
+        refreshNameESP()
         saveCustomConfig(true)
     end
 })
@@ -2980,7 +3003,7 @@ task.spawn(function()
                     if S.chamsEnabled and not char:FindFirstChild("StarCrowChams") then
                         addChams(char, getTeamColor(player))
                     end
-                    if S.nameESPEnabled then
+                    if S.espNameOnly or S.espHpOnly or S.espDistOnly then
                         local head = char:FindFirstChild("Head")
                         if head and not head:FindFirstChild("NameESP") then
                             createNameESP(player, char)
@@ -3425,4 +3448,4 @@ NPCHitboxSliderObj = Tabs.Combat:AddSlider("NPCHitboxSlider", {
     end
 })
 
-Window:SelectTab(1) 
+Window:SelectTab(1)

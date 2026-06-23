@@ -744,34 +744,35 @@ task.spawn(function()
     end
 end)
 
-local isNamecallHooked = false
-local oldNamecall
+local isSilentAimHooked = false
 
 function InitSilentAimHook()
-    if isNamecallHooked then return end
-    isNamecallHooked = true
-    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-        if not S.Config.AimPlayer then return oldNamecall(self, ...) end
-        local method = getnamecallmethod()
-        if not checkcaller() and self == workspace and currentTarget and (not S.Config.ClickToAim or S.Config.IsTapping) and (S.Config.NoToolCheck or isHoldingGun) then
-            if method == "Raycast" or method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" then
-                local args = {...}
-                local targetPos = currentTarget.Position
-                if S.Config.Prediction then
-                    local velocity = currentTarget.AssemblyLinearVelocity
-                    if velocity then targetPos = targetPos + (velocity * S.Config.PredictionFactor) end
-                end
-                if method == "Raycast" and typeof(args[2]) == "Vector3" and args[2].Magnitude > 30 then
-                    args[2] = (targetPos - args[1]).Unit * args[2].Magnitude
-                    return oldNamecall(self, unpack(args))
-                elseif (method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay") and args[1] and args[1].Direction.Magnitude > 30 then
-                    args[1] = Ray.new(args[1].Origin, (targetPos - args[1].Origin).Unit * args[1].Direction.Magnitude)
-                    return oldNamecall(self, unpack(args))
-                end
-            end
-        end
-        return oldNamecall(self, ...)
+    if isSilentAimHooked then return end
+    isSilentAimHooked = true
+
+    local ok, CreateShotModule = pcall(function()
+        return require(
+            game:GetService("ReplicatedStorage")
+                :WaitForChild("GunScripts")
+                :WaitForChild("CreateShot")
+        )
     end)
+    if not ok then return end
+
+    local origCreateShot = CreateShotModule.CreateShot
+    CreateShotModule.CreateShot = function(data)
+        if S.Config.AimPlayer and currentTarget and data and data.cframe then
+            local handlePos = data.cframe.Position
+            local targetPos = currentTarget.Position
+            if S.Config.Prediction then
+                local vel = currentTarget.AssemblyLinearVelocity
+                if vel then targetPos = targetPos + vel * S.Config.PredictionFactor end
+            end
+            local dir = (targetPos - handlePos).Unit
+            data.cframe = CFrame.new(handlePos, handlePos + dir)
+        end
+        return origCreateShot(data)
+    end
 end
 
 local function IsBagFull()

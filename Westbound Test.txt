@@ -902,7 +902,6 @@ local Tabs = {
     AutoFarm  = Window:AddTab({ Title = "Auto Farm", Icon = "gem" }),
     Aim       = Window:AddTab({ Title = "Combat",    Icon = "crosshair" }),
     GunMod    = Window:AddTab({ Title = "Gun Mod",   Icon = "swords" }),
-    Teleport  = Window:AddTab({ Title = "Teleport",  Icon = "map-pin" }),
     ESP       = Window:AddTab({ Title = "ESP",       Icon = "eye" }),
     Player    = Window:AddTab({ Title = "Player",    Icon = "user" }),
     Horse     = Window:AddTab({ Title = "Horse",     Icon = "wind" }),
@@ -1227,22 +1226,6 @@ Tabs.GunMod:AddButton({
     end
 })
 
-local SpawnRemote = ReplicatedStorage:WaitForChild("GeneralEvents", 9e9):WaitForChild("Spawn", 9e9)
-
-Tabs.Teleport:AddParagraph({ Title = "Outlaws", Content = "" })
-
-Tabs.Teleport:AddButton({ Title = "Fort Arthur",   Callback = function() pcall(function() SpawnRemote:InvokeServer("FortArthur",  true,  false) end) end })
-Tabs.Teleport:AddButton({ Title = "Fort Cassidy",  Callback = function() pcall(function() SpawnRemote:InvokeServer("FortCassidy", true,  false) end) end })
-Tabs.Teleport:AddButton({ Title = "Red Rocks",     Callback = function() pcall(function() SpawnRemote:InvokeServer("RedRocks",    true,  false) end) end })
-Tabs.Teleport:AddButton({ Title = "Coyote's Rest", Callback = function() pcall(function() SpawnRemote:InvokeServer("CoyotesRest", true,  false) end) end })
-
-Tabs.Teleport:AddParagraph({ Title = "Cowboys", Content = "" })
-
-Tabs.Teleport:AddButton({ Title = "Tumbleweed",  Callback = function() pcall(function() SpawnRemote:InvokeServer("Tumbleweed", false, false) end) end })
-Tabs.Teleport:AddButton({ Title = "Stone Creek", Callback = function() pcall(function() SpawnRemote:InvokeServer("StoneCreek", false, false) end) end })
-Tabs.Teleport:AddButton({ Title = "Grayridge",   Callback = function() pcall(function() SpawnRemote:InvokeServer("Grayridge",  false, false) end) end })
-Tabs.Teleport:AddButton({ Title = "Plainview",   Callback = function() pcall(function() SpawnRemote:InvokeServer("Plainview",  false, false) end) end })
-Tabs.Teleport:AddButton({ Title = "Silverton",   Callback = function() pcall(function() SpawnRemote:InvokeServer("Silverton",  false, false) end) end })
 
 Tabs.ESP:AddParagraph({ Title = "ESP Options", Content = "" })
 Tabs.ESP:AddToggle("ESPPlayers", { Title = "ESP Players", Default = S.Config.ESPEnabled, Callback = function(v) S.Config.ESPEnabled = v; SaveConfig() end })
@@ -1720,4 +1703,4 @@ workspace.ChildAdded:Connect(function(v)
     end
 end)
 
-Window:SelectTab(1) 
+Window:SelectTab(1)

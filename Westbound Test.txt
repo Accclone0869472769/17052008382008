@@ -32,6 +32,7 @@ local S = {
         WalkSpeed        = 30,
         InfJumpEnabled   = false,
         NoclipEnabled    = false,
+        AntiFallDame     = false,
         ESPAnimals       = false,
         ItemMansionESP   = false,
         ChestESP         = false,
@@ -801,6 +802,21 @@ _G.VelocityConnection = RunService.Heartbeat:Connect(function()
                 local moveDir = hum.MoveDirection
                 local currentY = hrp.AssemblyLinearVelocity.Y 
                 hrp.AssemblyLinearVelocity = Vector3.new(moveDir.X * S.Config.WalkSpeed, currentY, moveDir.Z * S.Config.WalkSpeed)
+            end
+        end
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    if S.Config.AntiFallDame then
+        local char = LocalPlayer.Character
+        if char then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local vel = hrp.AssemblyLinearVelocity
+                if vel.Y < -100 then
+                    hrp.AssemblyLinearVelocity = Vector3.new(vel.X, -100, vel.Z)
+                end
             end
         end
     end
@@ -1598,6 +1614,7 @@ Tabs.Player:AddToggle("LoopSpeed", { Title = "Enable Loop Speed", Default = S.Co
 Tabs.Player:AddSlider("WalkSpeed", { Title = "Walk Speed", Default = S.Config.WalkSpeed, Min = 16, Max = 250, Rounding = 0, Callback = function(v) S.Config.WalkSpeed = v SaveConfig() end })
 Tabs.Player:AddToggle("InfJump", { Title = "Infinite Jump", Default = S.Config.InfJumpEnabled, Callback = function(v) S.Config.InfJumpEnabled = v SaveConfig() end })
 Tabs.Player:AddToggle("Noclip", { Title = "Noclip", Default = S.Config.NoclipEnabled, Callback = function(v) S.Config.NoclipEnabled = v SaveConfig() end })
+Tabs.Player:AddToggle("AntiFallDame", { Title = "Anti Fall Dame", Default = S.Config.AntiFallDame, Callback = function(v) S.Config.AntiFallDame = v SaveConfig() end })
 
 Tabs.Horse:AddParagraph({ Title = "Horse Config", Content = "" })
 Tabs.Horse:AddToggle("HorseHackToggle", { Title = "Horse Speed", Default = S.Config.HorseHackEnabled, Callback = function(v) S.Config.HorseHackEnabled = v SaveConfig() end })

@@ -16,6 +16,8 @@ local S = {
         AimNPC           = false,
         ShowFloatAimNPC  = false,
         FloatAimNPCPos   = {0.8, 0, 0.15, 0},
+        AimPart          = "Head",
+        FOVMode          = "FOV",
         TeamCheck        = false,
         FriendCheck      = false,
         WallCheck        = false,
@@ -32,7 +34,6 @@ local S = {
         WalkSpeed        = 30,
         InfJumpEnabled   = false,
         NoclipEnabled    = false,
-        AntiFallDame     = false,
         ESPAnimals       = false,
         ItemMansionESP   = false,
         ChestESP         = false,
@@ -200,6 +201,7 @@ local function CreateFloatButton(name, text, defaultPos, configKey)
     local dragging, moved, dragStart, startPos, activeInput = false, false, nil, nil, nil
 
     btn.InputBegan:Connect(function(input)
+        if dragging then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             moved = false
@@ -243,7 +245,6 @@ AuraBtn.MouseButton1Click:Connect(function()
     if auraMoved() then auraReset() return end
     if isRobbing then return end
     isRobbing = true
-    AuraBtn.Text = "..."
     setFloatStrokeActive(auraStroke, true)
     task.spawn(function()
         local robRemote = ReplicatedStorage:WaitForChild("GeneralEvents", 9e9):WaitForChild("Rob", 9e9)
@@ -270,7 +271,6 @@ AuraBtn.MouseButton1Click:Connect(function()
             end
             task.wait(0.15)
         end
-        AuraBtn.Text = "Aura"
         isRobbing = false
         setFloatStrokeActive(auraStroke, false)
     end)
@@ -408,6 +408,7 @@ local uiVisible = true
 do
     local dragging, dragged, dragStart, startPos, activeInput = false, false, nil, nil, nil
     LogoBtn.InputBegan:Connect(function(input)
+        if dragging then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragged = false
@@ -738,7 +739,7 @@ local function updateAnimalESP()
 end
 
 RunService.RenderStepped:Connect(function()
-    if S.Config.AimPlayer or S.Config.AimNPC then
+    if (S.Config.AimPlayer or S.Config.AimNPC) and S.Config.FOVMode == "FOV" then
         fovCircle.Visible = true
         fovCircle.Size = UDim2.new(0, S.Config.FOVRadius * 2, 0, S.Config.FOVRadius * 2)
     else
@@ -802,21 +803,6 @@ _G.VelocityConnection = RunService.Heartbeat:Connect(function()
                 local moveDir = hum.MoveDirection
                 local currentY = hrp.AssemblyLinearVelocity.Y 
                 hrp.AssemblyLinearVelocity = Vector3.new(moveDir.X * S.Config.WalkSpeed, currentY, moveDir.Z * S.Config.WalkSpeed)
-            end
-        end
-    end
-end)
-
-RunService.Stepped:Connect(function()
-    if S.Config.AntiFallDame then
-        local char = LocalPlayer.Character
-        if char then
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local vel = hrp.AssemblyLinearVelocity
-                if vel.Y < -100 then
-                    hrp.AssemblyLinearVelocity = Vector3.new(vel.X, -100, vel.Z)
-                end
             end
         end
     end
@@ -889,7 +875,9 @@ task.spawn(function()
 
         local function process(obj, isPlayer)
             local hum = obj:FindFirstChildOfClass("Humanoid")
-            local part = obj:FindFirstChild("Head") or obj:FindFirstChild("Torso") or obj:FindFirstChild("LowerTorso")
+            local targetPartName = "Head"
+            if S.Config.AimPart == "Body" then targetPartName = "HumanoidRootPart" end
+            local part = obj:FindFirstChild(targetPartName) or obj:FindFirstChild("Torso") or obj:FindFirstChild("LowerTorso") or obj:FindFirstChild("Head")
             if not hum or hum.Health <= 0 or not part then return end
             if isPlayer then
                 local plr = Players:GetPlayerFromCharacter(obj)
@@ -904,9 +892,11 @@ task.spawn(function()
             if not onScreen then return end
             
             local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-            if dist < S.Config.FOVRadius and dist < shortest then
-                shortest = dist
-                bestTarget = part
+            if S.Config.FOVMode == "No FOV" or dist < S.Config.FOVRadius then
+                if dist < shortest then
+                    shortest = dist
+                    bestTarget = part
+                end
             end
         end
 
@@ -1229,6 +1219,8 @@ Tabs.Aim:AddParagraph({ Title = "Silent Aim Player", Content = "" })
 Tabs.Aim:AddToggle("AimPlayer", { Title = "Silent Aim Player", Default = S.Config.AimPlayer, Callback = function(v) S.Config.AimPlayer = v if v then InitSilentAimHook() end SaveConfig() end })
 Tabs.Aim:AddToggle("AimNPC", { Title = "Silent Aim NPC", Default = S.Config.AimNPC, Callback = function(v) S.Config.AimNPC = v if aimNPCStroke then setFloatStrokeActive(aimNPCStroke, v) end if v then InitSilentAimHook() end SaveConfig() end })
 Tabs.Aim:AddSlider("FOVRadius", { Title = "FOV Radius", Default = S.Config.FOVRadius, Min = 50, Max = 600, Rounding = 0, Callback = function(v) S.Config.FOVRadius = v SaveConfig() end })
+Tabs.Aim:AddDropdown("AimPart", { Title = "Aim Part", Values = {"Head", "Body"}, Default = S.Config.AimPart or "Head", Callback = function(v) S.Config.AimPart = v SaveConfig() end })
+Tabs.Aim:AddDropdown("FOVMode", { Title = "FOV Mode", Values = {"FOV", "No FOV"}, Default = S.Config.FOVMode or "FOV", Callback = function(v) S.Config.FOVMode = v SaveConfig() end })
 Tabs.Aim:AddToggle("TeamCheck", { Title = "Team Check", Default = S.Config.TeamCheck, Callback = function(v) S.Config.TeamCheck = v SaveConfig() end })
 Tabs.Aim:AddToggle("FriendCheck", { Title = "Friend Check", Default = S.Config.FriendCheck, Callback = function(v) S.Config.FriendCheck = v SaveConfig() end })
 Tabs.Aim:AddToggle("WallCheck", { Title = "Wall Check", Default = S.Config.WallCheck, Callback = function(v) S.Config.WallCheck = v SaveConfig() end })
@@ -1614,7 +1606,6 @@ Tabs.Player:AddToggle("LoopSpeed", { Title = "Enable Loop Speed", Default = S.Co
 Tabs.Player:AddSlider("WalkSpeed", { Title = "Walk Speed", Default = S.Config.WalkSpeed, Min = 16, Max = 250, Rounding = 0, Callback = function(v) S.Config.WalkSpeed = v SaveConfig() end })
 Tabs.Player:AddToggle("InfJump", { Title = "Infinite Jump", Default = S.Config.InfJumpEnabled, Callback = function(v) S.Config.InfJumpEnabled = v SaveConfig() end })
 Tabs.Player:AddToggle("Noclip", { Title = "Noclip", Default = S.Config.NoclipEnabled, Callback = function(v) S.Config.NoclipEnabled = v SaveConfig() end })
-Tabs.Player:AddToggle("AntiFallDame", { Title = "Anti Fall Dame", Default = S.Config.AntiFallDame, Callback = function(v) S.Config.AntiFallDame = v SaveConfig() end })
 
 Tabs.Horse:AddParagraph({ Title = "Horse Config", Content = "" })
 Tabs.Horse:AddToggle("HorseHackToggle", { Title = "Horse Speed", Default = S.Config.HorseHackEnabled, Callback = function(v) S.Config.HorseHackEnabled = v SaveConfig() end })

@@ -1152,7 +1152,6 @@ local AimSettings = {
     PredictionAmount = Config.AimPredictionAmount,
     AirPrediction = Config.AimAirPrediction,
     AirPredictionAmount = Config.AimAirPredictionAmount,
-    AimMode = "POV Center",
 }
 
 local aimGui = Instance.new("ScreenGui")
@@ -1185,16 +1184,6 @@ CombatTab:AddToggle("AimbotToggle", {
         FOVCircleAim.Visible = Value
         Config.AimEnabled = Value
         SaveConfig()
-    end
-})
-
-CombatTab:AddDropdown("AimModeDropdown", {
-    Title = "Aim Mode",
-    Values = {"POV Center", "Mouse"},
-    Multi = false,
-    Default = "POV Center",
-    Callback = function(Value)
-        AimSettings.AimMode = Value
     end
 })
 
@@ -1309,14 +1298,8 @@ end
 
 local function _getClosest()
     local closest, shortest = nil, AimSettings.FOV
-    local cx, cy
-    if AimSettings.AimMode == "Mouse" then
-        cx = mouse.X
-        cy = mouse.Y
-    else
-        cx = Camera.ViewportSize.X / 2 + AimSettings.FOVOffsetX
-        cy = Camera.ViewportSize.Y / 2 + AimSettings.FOVOffsetY
-    end
+    local cx = Camera.ViewportSize.X / 2 + AimSettings.FOVOffsetX
+    local cy = Camera.ViewportSize.Y / 2 + AimSettings.FOVOffsetY
     for _, p in ipairs(Players:GetPlayers()) do
         if p == LocalPlayer then continue end
         if AimSettings.TeamCheck and LocalPlayer.Team ~= nil and p.Team == LocalPlayer.Team then continue end
@@ -1371,25 +1354,15 @@ local function _isTargetValid(part)
     if not _aimCanSee(part, char) then return false end
     local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
     if not onScreen then return false end
-    local cx, cy
-    if AimSettings.AimMode == "Mouse" then
-        cx = mouse.X
-        cy = mouse.Y
-    else
-        cx = Camera.ViewportSize.X / 2 + AimSettings.FOVOffsetX
-        cy = Camera.ViewportSize.Y / 2 + AimSettings.FOVOffsetY
-    end
+    local cx = Camera.ViewportSize.X / 2 + AimSettings.FOVOffsetX
+    local cy = Camera.ViewportSize.Y / 2 + AimSettings.FOVOffsetY
     local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(cx, cy)).Magnitude
     return d < AimSettings.FOV
 end
 
 RunService.RenderStepped:Connect(function()
     local vs = Camera.ViewportSize
-    if AimSettings.AimMode == "Mouse" then
-        FOVCircleAim.Position = UDim2.new(0, mouse.X, 0, mouse.Y)
-    else
-        FOVCircleAim.Position = UDim2.new(0, vs.X / 2 + AimSettings.FOVOffsetX, 0, vs.Y / 2 + AimSettings.FOVOffsetY)
-    end
+    FOVCircleAim.Position = UDim2.new(0, vs.X / 2 + AimSettings.FOVOffsetX, 0, vs.Y / 2 + AimSettings.FOVOffsetY)
     FOVCircleAim.Size    = UDim2.new(0, AimSettings.FOV * 2, 0, AimSettings.FOV * 2)
     FOVCircleAim.Visible = AimSettings.ShowFOV
     if not AimSettings.AimEnabled then

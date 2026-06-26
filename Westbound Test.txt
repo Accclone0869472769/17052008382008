@@ -36,6 +36,7 @@ local S = {
         AuraRobEnabled   = false,
         FastHealEnabled  = false,
         AutoBreakLasso   = false,
+        LassoTrollCivilians = false,
         AutoCollectEnabled = false,
         ShowFloatAura    = false,
         FloatButtonSize  = 50,
@@ -97,6 +98,41 @@ local function LoadConfig()
 end
 
 LoadConfig()
+
+local Teams = game:GetService("Teams")
+local Civilians = Teams:FindFirstChild("Civilians")
+local FakeTeam = Instance.new("Team")
+FakeTeam.Name = "NotCivilians"
+
+local mt = getrawmetatable(game)
+local old_index = mt.__index
+setreadonly(mt, false)
+
+mt.__index = newcclosure(function(self, key)
+    if typeof(self) == "Instance" and self:IsA("Player") and key == "Team" then
+        local realTeam = old_index(self, key)
+        if S.Config.LassoTrollCivilians and realTeam == Civilians then
+            local isLasso = false
+            local success, src = pcall(debug.info, 2, "s")
+            if success and src and (src:find("Lasso") or src:find("Throw")) then
+                isLasso = true
+            end
+            if not isLasso then
+                local success2, scr = pcall(function() return getfenv(2).script end)
+                if success2 and scr and (scr.Name:find("Lasso") or scr.Name:find("Throw")) then
+                    isLasso = true
+                end
+            end
+            if isLasso then
+                return FakeTeam
+            end
+        end
+    end
+    return old_index(self, key)
+end)
+
+setreadonly(mt, true)
+
 getgenv().StarCrowSpawnDelay = S.Config.SpawnDelay
 
 LocalPlayer.Idled:Connect(function()
@@ -1827,6 +1863,14 @@ Tabs.Westbound:AddToggle("AutoBreakLasso", {
                 end
             end)
         end
+    end
+})
+
+Tabs.Westbound:AddToggle("LassoTrollCivilians", {
+    Title = "Lasso Troll Civilians", Default = S.Config.LassoTrollCivilians,
+    Callback = function(v)
+        S.Config.LassoTrollCivilians = v
+        SaveConfig()
     end
 })
 

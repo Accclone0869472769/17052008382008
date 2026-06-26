@@ -639,27 +639,42 @@ local function updateESP()
                         esp = Instance.new("BillboardGui")
                         esp.Name = "StarCrowESP"
                         esp.Adornee = head
-                        esp.Size = UDim2.new(0, 350, 0, 30)
+                        esp.Size = UDim2.new(0, 200, 0, 40)
                         esp.StudsOffset = Vector3.new(0, 1.2, 0)
                         esp.AlwaysOnTop = true
                         esp.MaxDistance = math.huge
-                        local text = Instance.new("TextLabel")
-                        text.Name = "NameText"
-                        text.Parent = esp
-                        text.Size = UDim2.new(1, 0, 1, 0)
-                        text.BackgroundTransparency = 1
-                        text.TextScaled = false
-                        text.TextSize = 12
-                        text.Font = Enum.Font.GothamBold
-                        text.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        text.TextTransparency = 0
-                        text.TextStrokeTransparency = 0
-                        text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-                        text.RichText = true
+                        local nameText = Instance.new("TextLabel")
+                        nameText.Name = "NameText"
+                        nameText.Parent = esp
+                        nameText.Size = UDim2.new(1, 0, 0.5, 0)
+                        nameText.Position = UDim2.new(0, 0, 0, 0)
+                        nameText.BackgroundTransparency = 1
+                        nameText.TextScaled = false
+                        nameText.TextSize = 12
+                        nameText.Font = Enum.Font.GothamBold
+                        nameText.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        nameText.TextTransparency = 0
+                        nameText.TextStrokeTransparency = 0
+                        nameText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                        nameText.RichText = true
+                        local hpText = Instance.new("TextLabel")
+                        hpText.Name = "HPText"
+                        hpText.Parent = esp
+                        hpText.Size = UDim2.new(1, 0, 0.5, 0)
+                        hpText.Position = UDim2.new(0, 0, 0.5, 0)
+                        hpText.BackgroundTransparency = 1
+                        hpText.TextScaled = false
+                        hpText.TextSize = 11
+                        hpText.Font = Enum.Font.GothamBold
+                        hpText.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        hpText.TextTransparency = 0
+                        hpText.TextStrokeTransparency = 0
+                        hpText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                        hpText.RichText = true
                         esp.Parent = head
                     end
-                    local dist = math.floor((Camera.CFrame.Position - head.Position).Magnitude)
-                    local hp = math.floor((hum.Health / hum.MaxHealth) * 100)
+                    local hp = math.floor(hum.Health)
+                    local maxHp = math.floor(hum.MaxHealth)
                     local teamColor = Color3.fromRGB(255, 255, 255)
                     local tR, tG, tB = 255, 255, 255
                     if player.Team then
@@ -667,9 +682,16 @@ local function updateESP()
                         teamColor = tc
                         tR, tG, tB = math.floor(tc.R*255), math.floor(tc.G*255), math.floor(tc.B*255)
                     end
-                    local hpColor = hp > 70 and "rgb(0, 255, 127)" or hp > 30 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
-                    esp.NameText.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font> | %dm | <font color="%s">%d%%</font>', tR, tG, tB, player.DisplayName, dist, hpColor, hp)
-
+                    local hpRatio = hum.MaxHealth > 0 and (hum.Health / hum.MaxHealth) or 0
+                    local hpColor = hpRatio > 0.7 and "rgb(0, 255, 127)" or hpRatio > 0.3 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
+                    local nameLabel = esp:FindFirstChild("NameText")
+                    local hpLabel = esp:FindFirstChild("HPText")
+                    if nameLabel then
+                        nameLabel.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font>', tR, tG, tB, player.DisplayName)
+                    end
+                    if hpLabel then
+                        hpLabel.Text = string.format('<font color="%s">%d HP</font>', hpColor, hp)
+                    end
                     local isWhitelisted = S.Config.WhitelistPlayers and S.Config.WhitelistPlayers[player.Name]
                     if S.Config.HeadboxEnabled and not isWhitelisted then
                         if chams then chams:Destroy() end
@@ -708,30 +730,51 @@ local function updateAnimalESP()
                     esp = Instance.new("BillboardGui")
                     esp.Name = "AnimalESP"
                     esp.Adornee = torso
-                    esp.Size = UDim2.new(0, 350, 0, 30)
+                    esp.Size = UDim2.new(0, 200, 0, 40)
                     esp.StudsOffset = Vector3.new(0, 2, 0)
                     esp.AlwaysOnTop = true
-                    local text = Instance.new("TextLabel")
-                    text.Name = "NameText"
-                    text.Parent = esp
-                    text.Size = UDim2.new(1, 0, 1, 0)
-                    text.BackgroundTransparency = 1
-                    text.TextColor3 = Color3.new(1,1,1)
-                    text.TextSize = 12
-                    text.Font = Enum.Font.GothamBold
-                    text.TextTransparency = 0
-                    text.TextStrokeTransparency = 0
-                    text.RichText = true
+                    local nameText = Instance.new("TextLabel")
+                    nameText.Name = "NameText"
+                    nameText.Parent = esp
+                    nameText.Size = UDim2.new(1, 0, 0.5, 0)
+                    nameText.Position = UDim2.new(0, 0, 0, 0)
+                    nameText.BackgroundTransparency = 1
+                    nameText.TextColor3 = Color3.new(1,1,1)
+                    nameText.TextSize = 12
+                    nameText.Font = Enum.Font.GothamBold
+                    nameText.TextTransparency = 0
+                    nameText.TextStrokeTransparency = 0
+                    nameText.RichText = true
+                    local hpText = Instance.new("TextLabel")
+                    hpText.Name = "HPText"
+                    hpText.Parent = esp
+                    hpText.Size = UDim2.new(1, 0, 0.5, 0)
+                    hpText.Position = UDim2.new(0, 0, 0.5, 0)
+                    hpText.BackgroundTransparency = 1
+                    hpText.TextColor3 = Color3.new(1,1,1)
+                    hpText.TextSize = 11
+                    hpText.Font = Enum.Font.GothamBold
+                    hpText.TextTransparency = 0
+                    hpText.TextStrokeTransparency = 0
+                    hpText.RichText = true
                     esp.Parent = torso
                 end
-                local dist = math.floor((Camera.CFrame.Position - torso.Position).Magnitude)
-                local hp = math.floor((hum.Health / hum.MaxHealth) * 100)
+                local hp = math.floor(hum.Health)
+                local maxHp = math.floor(hum.MaxHealth)
                 local cleanName = string.split(animal.Name, "{")[1] or animal.Name
                 local nameColor = "rgb(200,200,200)"
                 local lowerName = string.lower(cleanName)
                 if string.match(lowerName, "legend") or string.match(lowerName, "direwolf") or string.match(lowerName, "dire wolf") then nameColor = "rgb(255,215,0)" end
-                local hpColor = hp > 70 and "rgb(0, 255, 127)" or hp > 30 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
-                esp.NameText.Text = string.format('<font color="%s">%s</font> | %dm | <font color="%s">%d%%</font>', nameColor, cleanName, dist, hpColor, hp)
+                local hpRatio = hum.MaxHealth > 0 and (hum.Health / hum.MaxHealth) or 0
+                local hpColor = hpRatio > 0.7 and "rgb(0, 255, 127)" or hpRatio > 0.3 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
+                local nameLabel = esp:FindFirstChild("NameText")
+                local hpLabel = esp:FindFirstChild("HPText")
+                if nameLabel then
+                    nameLabel.Text = string.format('<font color="%s">%s</font>', nameColor, cleanName)
+                end
+                if hpLabel then
+                    hpLabel.Text = string.format('<font color="%s">%d HP</font>', hpColor, hp)
+                end
             else
                 if esp then esp:Destroy() end
             end

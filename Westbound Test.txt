@@ -1232,7 +1232,7 @@ task.spawn(function()
     end
 end)
 
-Tabs.Aim:AddParagraph({ Title = "Whitelist", Content = "Ignore Target for Aim, Aura, Dynamite, Headbox" })
+Tabs.Aim:AddParagraph({ Title = "Whitelist", Content = "Ignore Target for Silent Aim, Kill Aura, Dynamite, Headbox" })
 
 local playerNames = {}
 for _, p in ipairs(Players:GetPlayers()) do
@@ -1437,6 +1437,8 @@ Tabs.GunMod:AddButton({
         Fluent:Notify({ Title = "Gun Mods", Content = "No Recoil  |  Fast Fire  |  Fast Reload  |  Fast Equip", Duration = 6 })
     end
 })
+
+Tabs.GunMod:AddParagraph({ Title = "Warning", Content = "Note: Using Gun Mods may cause damage registration issues Please avoid spamming shots to reduce the chance of errors." })
 
 Tabs.ESP:AddParagraph({ Title = "ESP Options", Content = "" })
 Tabs.ESP:AddToggle("ESPPlayers", { Title = "ESP Players", Default = S.Config.ESPEnabled, Callback = function(v) S.Config.ESPEnabled = v SaveConfig() end })

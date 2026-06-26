@@ -52,7 +52,8 @@ local S = {
         DynamiteTeamCheck = true,
         UITheme = "Dark",
         AutoBankEnabled  = false,
-        SpawnDelay       = 5
+        SpawnDelay       = 5,
+        InstantInteract  = false
     }
 }
 
@@ -1762,6 +1763,50 @@ Tabs.Horse:AddSlider("HorseTurnSens", { Title = "Turn Sensitivity", Default = S.
 
 Tabs.Westbound:AddParagraph({ Title = "Rob & Interactions", Content = "" })
 
+local InstantInteractEnabled = S.Config.InstantInteract
+local hookedTables = {}
+
+local function applyInstantInteractHook()
+    for _, val in pairs(getgc(true)) do
+        if type(val) == "table"
+            and rawget(val, "ContextHoldFunc")
+            and rawget(val, "SetUpContextHoldGui")
+            and rawget(val, "ResetContextHoldGui")
+            and not hookedTables[val]
+        then
+            if not rawget(val, "__OriginalContextHoldFunc") then
+                val.__OriginalContextHoldFunc = val.ContextHoldFunc
+            end
+            local originalHold = val.__OriginalContextHoldFunc
+            val.ContextHoldFunc = function(self, p2, p3, p4, p5, p6, p7, p8, p9)
+                local timeToUse = (InstantInteractEnabled and not p7) and 0.05 or p6
+                return originalHold(self, p2, p3, p4, p5, timeToUse, p7, p8, p9)
+            end
+            hookedTables[val] = true
+        end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if InstantInteractEnabled then
+        task.wait(1)
+        applyInstantInteractHook()
+    end
+end)
+
+Tabs.Westbound:AddToggle("InstantInteract", {
+    Title = "Instant Interact",
+    Default = S.Config.InstantInteract,
+    Callback = function(v)
+        InstantInteractEnabled = v
+        S.Config.InstantInteract = v
+        SaveConfig()
+        if v then
+            applyInstantInteractHook()
+        end
+    end
+})
+
 local AuraRobEnabled = S.Config.AuraRobEnabled
 Tabs.Westbound:AddToggle("AuraRob", {
     Title = "Aura Rob", Default = S.Config.AuraRobEnabled,
@@ -2084,4 +2129,3 @@ workspace.ChildAdded:Connect(function(v)
 end)
 
 Window:SelectTab(1)
- 

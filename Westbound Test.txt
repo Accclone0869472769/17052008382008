@@ -52,8 +52,7 @@ local S = {
         DynamiteTeamCheck = true,
         UITheme = "Dark",
         AutoBankEnabled  = false,
-        SpawnDelay       = 5,
-        InstantInteract  = false
+        SpawnDelay       = 5
     }
 }
 
@@ -1456,7 +1455,7 @@ Tabs.GunMod:AddButton({
     Callback = function()
         local function shouldPatch(stat)
             local t = rawget(stat, "GunType")
-            return t == "Pistol" or t == "Rifle" or t == "Shotgun"
+            return t == "Pistol" or t == "Rifle"
         end
 
         local function isSniper(stat)
@@ -1504,8 +1503,8 @@ Tabs.GunMod:AddButton({
 
                 stat.EquipDelay = 0.05
                 stat.equipTime  = 0.1
-                stat.ReloadSpeed = 2.0
-                stat.ReloadAnimationSpeed = 1.4
+                stat.ReloadSpeed = 1.2
+                stat.ReloadAnimationSpeed = 2.4
 
                 stat.ZoomAccuracy    = 0
                 stat.HipFireAccuracy = 0
@@ -1555,7 +1554,6 @@ Tabs.GunMod:AddButton({
 })
 
 Tabs.GunMod:AddParagraph({ Title = "Warning", Content = "Note: Using Gun Mods may cause damage registration issues Please avoid spamming shots to reduce the chance of errors." })
-
 
 Tabs.ESP:AddParagraph({ Title = "ESP Options", Content = "" })
 Tabs.ESP:AddToggle("ESPPlayers", { Title = "ESP Players", Default = S.Config.ESPEnabled, Callback = function(v) S.Config.ESPEnabled = v SaveConfig() end })
@@ -1799,50 +1797,6 @@ Tabs.Horse:AddSlider("HorseSprintSpeed", { Title = "Speed Horse", Default = S.Co
 Tabs.Horse:AddSlider("HorseTurnSens", { Title = "Turn Sensitivity", Default = S.Config.HorseTurnSens, Min = 0.01, Max = 1.00, Rounding = 2, Callback = function(v) S.Config.HorseTurnSens = v SaveConfig() end })
 
 Tabs.Westbound:AddParagraph({ Title = "Rob & Interactions", Content = "" })
-
-local InstantInteractEnabled = S.Config.InstantInteract
-local hookedTables = {}
-
-local function applyInstantInteractHook()
-    for _, val in pairs(getgc(true)) do
-        if type(val) == "table"
-            and rawget(val, "ContextHoldFunc")
-            and rawget(val, "SetUpContextHoldGui")
-            and rawget(val, "ResetContextHoldGui")
-            and not hookedTables[val]
-        then
-            if not rawget(val, "__OriginalContextHoldFunc") then
-                val.__OriginalContextHoldFunc = val.ContextHoldFunc
-            end
-            local originalHold = val.__OriginalContextHoldFunc
-            val.ContextHoldFunc = function(self, p2, p3, p4, p5, p6, p7, p8, p9)
-                local timeToUse = (InstantInteractEnabled and not p7) and 0.05 or p6
-                return originalHold(self, p2, p3, p4, p5, timeToUse, p7, p8, p9)
-            end
-            hookedTables[val] = true
-        end
-    end
-end
-
-LocalPlayer.CharacterAdded:Connect(function()
-    if InstantInteractEnabled then
-        task.wait(1)
-        applyInstantInteractHook()
-    end
-end)
-
-Tabs.Westbound:AddToggle("InstantInteract", {
-    Title = "Instant Interact",
-    Default = S.Config.InstantInteract,
-    Callback = function(v)
-        InstantInteractEnabled = v
-        S.Config.InstantInteract = v
-        SaveConfig()
-        if v then
-            applyInstantInteractHook()
-        end
-    end
-})
 
 local AuraRobEnabled = S.Config.AuraRobEnabled
 Tabs.Westbound:AddToggle("AuraRob", {
@@ -2166,3 +2120,4 @@ workspace.ChildAdded:Connect(function(v)
 end)
 
 Window:SelectTab(1)
+ 

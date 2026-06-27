@@ -199,6 +199,7 @@ local S = {
     noclipFloatEnabled=false, noclipFloatBtn=nil, noclipFloatStroke=nil, noclipFloatPos=nil,
     autoHitboxEnabled=false, autoBodyHitboxEnabled=false, bodyHitboxChars={},
     nameESPEnabled=false, boxESPEnabled=false, espNameAllState=false, tracerESPEnabled=false,
+    espShowName=false, espShowDist=false, espShowHp=false,
     selectedPlayers={}, selectedTPPlayers={}, boxESPObjects={}, nameESPObjects={}, tracerESPObjects={},
     processedChars={}, playerConnections={}, manualPositionCFrame=nil,
     isInvisible=false, invisButton=nil, invisSound=nil,
@@ -1129,7 +1130,7 @@ local function createNameESP(player, char)
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "NameESP"
     billboard.Adornee = head
-    billboard.Size = UDim2.new(0, 240, 0, 22)
+    billboard.Size = UDim2.new(0, 240, 0, 40)
     billboard.StudsOffset = Vector3.new(0, 2.5, 0)
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = math.huge
@@ -1150,7 +1151,7 @@ local function createNameESP(player, char)
     infoLabel.Position = UDim2.new(0, 0, 0, 0)
     infoLabel.BackgroundTransparency = 1
     infoLabel.RichText = true
-    infoLabel.Text = player.Name .. " | 0m | <font color=\"#00ff00\">100%</font>"
+    infoLabel.Text = ""
     infoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     infoLabel.TextStrokeTransparency = 0
    infoLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
@@ -1173,9 +1174,11 @@ local function createNameESP(player, char)
             local dist = math.floor((head.Position - LocalPlayer.Character.Head.Position).Magnitude)
             local humanoid = char:FindFirstChildOfClass("Humanoid")
             local hpPercent = 100
+            local hpReal = 100
             local hpColor = "#00ff00"
             if humanoid then
-                hpPercent = math.floor((humanoid.Health / humanoid.MaxHealth) * 100)
+                hpReal = math.floor(humanoid.Health)
+                hpPercent = humanoid.MaxHealth > 0 and (humanoid.Health / humanoid.MaxHealth) * 100 or 0
                 if hpPercent > 60 then
                     hpColor = "#00ff00"
                 elseif hpPercent > 30 then
@@ -1193,10 +1196,26 @@ local function createNameESP(player, char)
                 math.clamp(math.floor(nc.B * 255), 0, 255)
             )
 
-            infoLabel.Text = string.format(
-                '<font color="%s">%s</font> | %dm | <font color="%s">%d%%</font>',
-                nameHex, player.Name, dist, hpColor, hpPercent
-            )
+            local parts = {}
+            local nameStr = ""
+            if S.espShowName then
+                nameStr = string.format('<font color="%s">%s</font>', nameHex, player.Name)
+            end
+            if S.espShowDist then
+                if nameStr ~= "" then
+                    nameStr = nameStr .. string.format(' <font color="rgb(180,180,180)" size="11">[%dm]</font>', dist)
+                else
+                    nameStr = string.format('<font color="rgb(180,180,180)" size="11">[%dm]</font>', dist)
+                end
+            end
+            if nameStr ~= "" then
+                parts[#parts + 1] = nameStr
+            end
+            if S.espShowHp then
+                parts[#parts + 1] = string.format('<font color="%s">%d HP</font>', hpColor, hpReal)
+            end
+            
+            infoLabel.Text = table.concat(parts, "\n")
         end
     end)
 
@@ -1229,7 +1248,7 @@ local function onCharacterReady(player, character)
     if S.autoHitboxEnabled    then pcall(applyHeadHitbox,  player, character, size)          end
     if S.autoBodyHitboxEnabled then pcall(applyBodyHitbox, character, size)                  end
     if S.boxESPEnabled         then pcall(addBoxESP, character, getTeamColor(player), size)  end
-    if S.espNameAllState or (S.nameESPEnabled and S.selectedPlayers[player]) then
+    if S.espShowName or S.espShowDist or S.espShowHp or (S.nameESPEnabled and S.selectedPlayers[player]) then
         pcall(createNameESP, player, character)
     end
     if S.chamsEnabled then pcall(addChams, character, getTeamColor(player)) end
@@ -3016,32 +3035,18 @@ do
     _lbl.TextSize = 14
 end
 
-S.playerList = Instance.new("ScrollingFrame")
-S.playerList.Size = UDim2.new(1, 0, 0, 110)
-S.playerList.BackgroundTransparency = 1
-S.playerList.BorderSizePixel = 0
-S.playerList.ScrollBarThickness = 4
-S.playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
-S.playerList.Parent = panel3
-do
-    local playerListLayout = Instance.new("UIListLayout")
-    playerListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    playerListLayout.Padding = UDim.new(0, 2)
-    playerListLayout.Parent = S.playerList
-    playerListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        S.playerList.CanvasSize = UDim2.new(0,0,0,playerListLayout.AbsoluteContentSize.Y + 10)
-    end)
-end
 
-autoNameESP = createTransparentButton("ESP Name: OFF", Color3.fromRGB(38, 38, 38), panel3)
-setToggleState(autoNameESP, false)
-S.btnRefs.autoNameESP = autoNameESP
 
-espNameAllBtn = createTransparentButton("ESP Name All: OFF", Color3.fromRGB(38, 38, 38), panel3)
-setToggleState(espNameAllBtn, false)
-S.btnRefs.espNameAllBtn = espNameAllBtn
+S.btnRefs.espShowNameBtn = createTransparentButton("ESP Name: OFF", Color3.fromRGB(38, 38, 38), panel3)
+setToggleState(S.btnRefs.espShowNameBtn, false)
 
-local chamsToggle = createTransparentButton("Esp Chams: OFF", Color3.fromRGB(38, 38, 38), panel3)
+S.btnRefs.espShowDistBtn = createTransparentButton("ESP Distance: OFF", Color3.fromRGB(38, 38, 38), panel3)
+setToggleState(S.btnRefs.espShowDistBtn, false)
+
+S.btnRefs.espShowHpBtn = createTransparentButton("ESP HP: OFF", Color3.fromRGB(38, 38, 38), panel3)
+setToggleState(S.btnRefs.espShowHpBtn, false)
+
+chamsToggle = createTransparentButton("Esp Chams: OFF", Color3.fromRGB(38, 38, 38), panel3)
 
 setToggleState(chamsToggle, false)
 S.btnRefs.chamsToggle = chamsToggle
@@ -3071,7 +3076,7 @@ chamsToggle.MouseButton1Click:Connect(function()
         end
     end
 end)
-local tracerToggle = createTransparentButton("Esp Tracer: OFF", Color3.fromRGB(38, 38, 38), panel3)
+tracerToggle = createTransparentButton("Esp Tracer: OFF", Color3.fromRGB(38, 38, 38), panel3)
 
 setToggleState(tracerToggle, false)
 S.btnRefs.tracerToggle = tracerToggle
@@ -3192,7 +3197,7 @@ S.vehicleFlyBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-local flyFloatToggleBtn = createTransparentButton("Fly Float: OFF", Color3.fromRGB(38, 38, 38), panel2)
+flyFloatToggleBtn = createTransparentButton("Fly Float: OFF", Color3.fromRGB(38, 38, 38), panel2)
 setToggleState(flyFloatToggleBtn, false)
 S.btnRefs.flyFloatToggleBtn = flyFloatToggleBtn
 
@@ -3205,11 +3210,11 @@ do
     S.flyFloatDiv.BorderSizePixel = 0
 end
 
-local infJumpToggle = createTransparentButton("Inf Jump: OFF", Color3.fromRGB(38, 38, 38), panel2)
+infJumpToggle = createTransparentButton("Inf Jump: OFF", Color3.fromRGB(38, 38, 38), panel2)
 setToggleState(infJumpToggle, false)
 S.btnRefs.infJumpToggle = infJumpToggle
 
-local noclipToggle = createTransparentButton("Noclip: OFF", Color3.fromRGB(38, 38, 38), panel2)
+noclipToggle = createTransparentButton("Noclip: OFF", Color3.fromRGB(38, 38, 38), panel2)
 setToggleState(noclipToggle, false)
 S.btnRefs.noclipToggle = noclipToggle
 local noclipFloatToggleBtn = createTransparentButton("Noclip Float: OFF", Color3.fromRGB(38, 38, 38), panel2)
@@ -5162,7 +5167,9 @@ do
             noclipEnabled       = S.noclipEnabled,
             -- ESP tab
             nameESPEnabled      = S.nameESPEnabled,
-            espNameAllState     = S.espNameAllState,
+            espShowName         = S.espShowName,
+            espShowDist         = S.espShowDist,
+            espShowHp           = S.espShowHp,
             chamsEnabled        = S.chamsEnabled,
             tracerESPEnabled    = S.tracerESPEnabled,
             -- Misc tab
@@ -5352,37 +5359,48 @@ end
             end
         end)
 
-        -- ESP Name
+        -- ESP Name (Target ESP)
         pcall(function()
             if cfg.nameESPEnabled and not S.nameESPEnabled then
                 S.nameESPEnabled = true
                 for _, player in pairs(Players:GetPlayers()) do
                     if player ~= LocalPlayer then
                         S.selectedPlayers[player] = true
-                        if player.Character and isAlive(player.Character) then
-                            createNameESP(player, player.Character)
+                    end
+                end
+                syncBtn(S.btnRefs.autoNameESP, true, "Target ESP: ON", "Target ESP: OFF")
+                local anyEnabled = S.espShowName or S.espShowDist or S.espShowHp
+                if anyEnabled then
+                    for _, player in pairs(Players:GetPlayers()) do
+                        if player ~= LocalPlayer and player.Character and isAlive(player.Character) then
+                            pcall(createNameESP, player, player.Character)
                         end
                     end
                 end
-                syncBtn(S.btnRefs.autoNameESP, true, "ESP Name: ON", "ESP Name: OFF")
-                pcall(updatePlayerList)
             end
         end)
 
-        -- ESP Name All
+        -- ESP Sub Toggles
         pcall(function()
-            if cfg.espNameAllState and not S.espNameAllState then
-                S.espNameAllState = true
+            if cfg.espShowName and not S.espShowName then
+                S.espShowName = true
+                syncBtn(S.btnRefs.espShowNameBtn, true, "ESP Name: ON", "ESP Name: OFF")
+            end
+            if cfg.espShowDist and not S.espShowDist then
+                S.espShowDist = true
+                syncBtn(S.btnRefs.espShowDistBtn, true, "ESP Distance: ON", "ESP Distance: OFF")
+            end
+            if cfg.espShowHp and not S.espShowHp then
+                S.espShowHp = true
+                syncBtn(S.btnRefs.espShowHpBtn, true, "ESP HP: ON", "ESP HP: OFF")
+            end
+            local anyEnabled = S.espShowName or S.espShowDist or S.espShowHp
+            if anyEnabled then
                 for _, player in pairs(Players:GetPlayers()) do
-                    if player ~= LocalPlayer then
-                        S.selectedPlayers[player] = true
-                        if player.Character and isAlive(player.Character) then
-                            createNameESP(player, player.Character)
-                        end
+                    if player ~= LocalPlayer and player.Character and isAlive(player.Character) then
+                        pcall(createNameESP, player, player.Character)
                     end
                 end
-                syncBtn(S.btnRefs.espNameAllBtn, true, "ESP Name All: ON", "ESP Name All: OFF")
-                pcall(updatePlayerList)
             end
         end)
         
@@ -6949,53 +6967,45 @@ removeAllBtn.MouseButton1Click:Connect(function()
     S.statusLabel.Text = "Processing: 0 Players"
 end)
 
-autoNameESP.MouseButton1Click:Connect(function()
-    S.nameESPEnabled = not S.nameESPEnabled
 
-    if S.nameESPEnabled then
-        autoNameESP.Text = "ESP Name: ON"
-        setToggleState(autoNameESP, true)
+
+local function updateESPVisibility()
+    local anyEnabled = S.espShowName or S.espShowDist or S.espShowHp
+    if anyEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and isAlive(player.Character) then
+                local head = player.Character:FindFirstChild("Head")
+                if head and not head:FindFirstChild("NameESP") then
+                    pcall(createNameESP, player, player.Character)
+                end
+            end
+        end
     else
-        autoNameESP.Text = "ESP Name: OFF"
-        setToggleState(autoNameESP, false)
-    end
-
-    if not S.nameESPEnabled then
         for player, _ in pairs(S.nameESPObjects) do
             removeNameESP(player)
         end
-    else
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and S.selectedPlayers[player] and player.Character and isAlive(player.Character) then
-                createNameESP(player, player.Character)
-            end
-        end
     end
+end
+
+S.btnRefs.espShowNameBtn.MouseButton1Click:Connect(function()
+    S.espShowName = not S.espShowName
+    S.btnRefs.espShowNameBtn.Text = S.espShowName and "ESP Name: ON" or "ESP Name: OFF"
+    setToggleState(S.btnRefs.espShowNameBtn, S.espShowName)
+    updateESPVisibility()
 end)
 
-espNameAllBtn.MouseButton1Click:Connect(function()
-    S.espNameAllState = not S.espNameAllState
+S.btnRefs.espShowDistBtn.MouseButton1Click:Connect(function()
+    S.espShowDist = not S.espShowDist
+    S.btnRefs.espShowDistBtn.Text = S.espShowDist and "ESP Distance: ON" or "ESP Distance: OFF"
+    setToggleState(S.btnRefs.espShowDistBtn, S.espShowDist)
+    updateESPVisibility()
+end)
 
-    if S.espNameAllState then
-        espNameAllBtn.Text = "ESP Name All: ON"
-        setToggleState(espNameAllBtn, true)
-    else
-        espNameAllBtn.Text = "ESP Name All: OFF"
-        setToggleState(espNameAllBtn, false)
-    end
-
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            S.selectedPlayers[player] = S.espNameAllState
-            if S.espNameAllState and player.Character and isAlive(player.Character) then
-                createNameESP(player, player.Character)
-            else
-                removeNameESP(player)
-            end
-        end
-    end
-
-    updatePlayerList()
+S.btnRefs.espShowHpBtn.MouseButton1Click:Connect(function()
+    S.espShowHp = not S.espShowHp
+    S.btnRefs.espShowHpBtn.Text = S.espShowHp and "ESP HP: ON" or "ESP HP: OFF"
+    setToggleState(S.btnRefs.espShowHpBtn, S.espShowHp)
+    updateESPVisibility()
 end)
 
 S.invisButton.MouseButton1Click:Connect(toggleInvisibility)
@@ -7803,37 +7813,7 @@ btn.BackgroundTransparency = S.selectedTPPlayers[player] and 0 or 0.35
     end
 end
 
-function updatePlayerList()
-    for _, child in pairs(S.playerList:GetChildren()) do
-        if child:IsA("TextButton") then child:Destroy() end
-    end
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(1,-6,0,28)
-            btn.Text = player.Name
-           btn.BackgroundColor3 = S.selectedPlayers[player] and Color3.fromRGB(50, 200, 120) or Color3.fromRGB(38, 38, 38)
-btn.BackgroundTransparency = S.selectedPlayers[player] and 0 or 0.35
-            btn.TextColor3 = Color3.new(1,1,1)
-            btn.Font = Enum.Font.Gotham
-            btn.TextSize = 14
-            btn.BorderSizePixel = 0
-            btn.Parent = S.playerList
-            local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0,4); c.Parent = btn
-            btn.MouseButton1Click:Connect(function()
-                S.selectedPlayers[player] = not S.selectedPlayers[player]
-                updatePlayerList()
-                if S.nameESPEnabled then
-                    if S.selectedPlayers[player] then
-                        if player.Character then createNameESP(player, player.Character) end
-                    else
-                        removeNameESP(player)
-                    end
-                end
-            end)
-        end
-    end
-end
+
 
 --  REGISTER EXISTING PLAYERS
 
@@ -7846,7 +7826,6 @@ end
 task.spawn(function()
     while true do
         task.wait(2)
-        updatePlayerList()
     end
 end)
 
@@ -7924,7 +7903,7 @@ task.spawn(function()
                         end
                     end
 
-                    if S.espNameAllState or (S.nameESPEnabled and S.selectedPlayers[player]) then
+                    if S.espShowName or S.espShowDist or S.espShowHp or (S.nameESPEnabled and S.selectedPlayers[player]) then
                         local head = char:FindFirstChild("Head")
                         if head and not head:FindFirstChild("NameESP") then
                             pcall(createNameESP, player, char)
@@ -7938,5 +7917,4 @@ end)
 
 --  INIT
 S.statusLabel.Text = "Processing: 0 Players"
-updatePlayerList()
 RefreshFlingPlayerList()

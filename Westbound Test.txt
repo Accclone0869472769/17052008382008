@@ -36,7 +36,6 @@ local S = {
         AuraRobEnabled   = false,
         FastHealEnabled  = false,
         AutoBreakLasso   = false,
-        LassoTrollCivilians = false,
         AutoCollectEnabled = false,
         ShowFloatAura    = false,
         FloatButtonSize  = 50,
@@ -99,39 +98,6 @@ end
 
 LoadConfig()
 
-local Teams = game:GetService("Teams")
-local Civilians = Teams:FindFirstChild("Civilians")
-local FakeTeam = Instance.new("Team")
-FakeTeam.Name = "NotCivilians"
-
-local mt = getrawmetatable(game)
-local old_index = mt.__index
-setreadonly(mt, false)
-
-mt.__index = newcclosure(function(self, key)
-    if typeof(self) == "Instance" and self:IsA("Player") and key == "Team" then
-        local realTeam = old_index(self, key)
-        if S.Config.LassoTrollCivilians and realTeam == Civilians then
-            local isLasso = false
-            local success, src = pcall(debug.info, 2, "s")
-            if success and src and (src:find("Lasso") or src:find("Throw")) then
-                isLasso = true
-            end
-            if not isLasso then
-                local success2, scr = pcall(function() return getfenv(2).script end)
-                if success2 and scr and (scr.Name:find("Lasso") or scr.Name:find("Throw")) then
-                    isLasso = true
-                end
-            end
-            if isLasso then
-                return FakeTeam
-            end
-        end
-    end
-    return old_index(self, key)
-end)
-
-setreadonly(mt, true)
 
 getgenv().StarCrowSpawnDelay = S.Config.SpawnDelay
 
@@ -1837,45 +1803,6 @@ Tabs.Westbound:AddToggle("AuraRob", {
 
 Tabs.Westbound:AddParagraph({ Title = "Misc", Content = "" })
 
-local iiHookedTables = {}
-local iiGcDone = false
-
-local function applyInstantInteractHook()
-    if iiGcDone and next(iiHookedTables) then return end
-    iiGcDone = true
-    for _, val in pairs(getgc(true)) do
-        if type(val) == "table"
-            and rawget(val, "ContextHoldFunc")
-            and rawget(val, "SetUpContextHoldGui")
-            and rawget(val, "ResetContextHoldGui")
-            and not iiHookedTables[val]
-        then
-            if not rawget(val, "__OrigContextHold") then
-                val.__OrigContextHold = val.ContextHoldFunc
-            end
-            local orig = val.__OrigContextHold
-            val.ContextHoldFunc = function(self, p2, p3, p4, p5, p6, p7, p8, p9)
-                return orig(self, p2, p3, p4, p5, (not p7) and 0.05 or p6, p7, p8, p9)
-            end
-            iiHookedTables[val] = true
-        end
-    end
-end
-
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
-    iiGcDone = false
-    applyInstantInteractHook()
-end)
-
-Tabs.Westbound:AddButton({
-    Title = "Instant Interact",
-    Callback = function()
-        iiGcDone = false
-        applyInstantInteractHook()
-    end
-})
-
 local FastHealEnabled = S.Config.FastHealEnabled
 local fastHealConnection
 
@@ -1941,13 +1868,6 @@ Tabs.Westbound:AddToggle("AutoBreakLasso", {
     end
 })
 
-Tabs.Westbound:AddToggle("LassoTrollCivilians", {
-    Title = "Lasso Troll Civilians", Default = S.Config.LassoTrollCivilians,
-    Callback = function(v)
-        S.Config.LassoTrollCivilians = v
-        SaveConfig()
-    end
-})
 
 Tabs.Westbound:AddParagraph({ Title = "Auto Collect & Sell", Content = "" })
 Tabs.Westbound:AddParagraph({ Title = "Info", Content = "Auto Collect Items, Animals, Chests, Bags and Sell" })

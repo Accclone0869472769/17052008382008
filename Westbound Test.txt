@@ -104,44 +104,57 @@ local Civilians = Teams:FindFirstChild("Civilians")
 local FakeTeam = Instance.new("Team")
 FakeTeam.Name = "NotCivilians"
 
-local mt = getrawmetatable(game)
-local old_index = mt.__index
-setreadonly(mt, false)
-
-local _lassoChecking = false
-
-mt.__index = newcclosure(function(self, key)
-    if key == "Team"
-        and typeof(self) == "Instance"
-        and self:IsA("Player")
-        and S.Config.LassoTrollCivilians
-        and not _lassoChecking
-        and not checkcaller()
-    then
-        local realTeam = old_index(self, key)
-        if realTeam == Civilians then
-            _lassoChecking = true
-            local isLasso = false
-            local ok, src = pcall(debug.info, 2, "s")
-            if ok and src and (src:find("Lasso") or src:find("Throw")) then
-                isLasso = true
-            end
-            if not isLasso then
-                local ok2, scr = pcall(function() return getfenv(2).script end)
-                if ok2 and scr and (scr.Name:find("Lasso") or scr.Name:find("Throw")) then
-                    isLasso = true
+local function ApplyLassoHook(lasso)
+    if not lasso then return end
+    local throwMod = lasso:FindFirstChild("ThrowLasso", true)
+    if throwMod and throwMod:IsA("ModuleScript") then
+        local t = require(throwMod)
+        if type(t) == "table" and t.LassoTouched and not t._scHooked then
+            local orig = t.LassoTouched
+            t.LassoTouched = function(p1, p2)
+                local victimPlr = game:GetService("Players"):GetPlayerFromCharacter(p2.Parent)
+                local isCiv = false
+                if S.Config.LassoTrollCivilians and victimPlr and victimPlr.Team == Civilians then
+                    isCiv = true
+                    victimPlr.Team = nil
                 end
+                local ret = orig(p1, p2)
+                if isCiv then
+                    victimPlr.Team = Civilians
+                end
+                return ret
             end
-            _lassoChecking = false
-            if isLasso then
-                return FakeTeam
-            end
+            t._scHooked = true
         end
     end
-    return old_index(self, key)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    char.ChildAdded:Connect(function(c)
+        if c:IsA("Tool") and (c.Name:find("Lasso") or c.Name:find("Throw")) then
+            ApplyLassoHook(c)
+        end
+    end)
 end)
 
-setreadonly(mt, true)
+LocalPlayer.Backpack.ChildAdded:Connect(function(c)
+    if c:IsA("Tool") and (c.Name:find("Lasso") or c.Name:find("Throw")) then
+        ApplyLassoHook(c)
+    end
+end)
+
+for _, c in ipairs(LocalPlayer.Backpack:GetChildren()) do
+    if c:IsA("Tool") and (c.Name:find("Lasso") or c.Name:find("Throw")) then
+        ApplyLassoHook(c)
+    end
+end
+if LocalPlayer.Character then
+    for _, c in ipairs(LocalPlayer.Character:GetChildren()) do
+        if c:IsA("Tool") and (c.Name:find("Lasso") or c.Name:find("Throw")) then
+            ApplyLassoHook(c)
+        end
+    end
+end
 
 getgenv().StarCrowSpawnDelay = S.Config.SpawnDelay
 

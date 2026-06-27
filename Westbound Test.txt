@@ -1456,7 +1456,11 @@ Tabs.GunMod:AddButton({
     Callback = function()
         local function shouldPatch(stat)
             local t = rawget(stat, "GunType")
-            return t == "Pistol" or t == "Rifle"
+            return t == "Pistol" or t == "Rifle" or t == "Shotgun"
+        end
+
+        local function isSniper(stat)
+            return rawget(stat, "GunType") == "Sniper"
         end
 
         local function patchAll(stat)
@@ -1480,17 +1484,41 @@ Tabs.GunMod:AddButton({
                 stat.Spread = 0
                 stat.HipFireAccuracy = 0
                 stat.ZoomAccuracy = 0
-                stat.camShakeResist = math.huge
 
                 for key, value in pairs(stat) do
                     local lk = string.lower(key)
-                    if lk:find("recoil") or lk:find("kick") or lk:find("sway") or lk:find("shake") then
+                    if lk ~= "camshakeresist" and (lk:find("recoil") or lk:find("kick") or lk:find("sway") or lk:find("shake")) then
                         if type(value) == "number" then stat[key] = 0
                         elseif type(value) == "boolean" then stat[key] = false end
                     end
                 end
 
-                if setreadonly then pcall(setreadonly, stat, true) end
+                stat.camShakeResist = math.huge
+            end)
+        end
+
+        local function patchSniper(stat)
+            if type(stat) ~= "table" then return end
+            pcall(function()
+                if setreadonly then pcall(setreadonly, stat, false) end
+
+                stat.EquipDelay = 0.05
+                stat.equipTime  = 0.1
+                stat.ReloadSpeed = 2.0
+                stat.ReloadAnimationSpeed = 1.4
+
+                stat.ZoomAccuracy    = 0
+                stat.HipFireAccuracy = 0
+
+                for key, value in pairs(stat) do
+                    local lk = string.lower(key)
+                    if lk ~= "camshakeresist" and (lk:find("recoil") or lk:find("kick") or lk:find("sway") or lk:find("shake")) then
+                        if type(value) == "number" then stat[key] = 0
+                        elseif type(value) == "boolean" then stat[key] = false end
+                    end
+                end
+
+                stat.camShakeResist = math.huge
             end)
         end
 
@@ -1502,15 +1530,23 @@ Tabs.GunMod:AddButton({
                 if setreadonly then pcall(setreadonly, GunStats, true) end
             end
             for _, stat in pairs(GunStats) do
-                if type(stat) == "table" and shouldPatch(stat) then
-                    patchAll(stat)
+                if type(stat) == "table" then
+                    if shouldPatch(stat) then
+                        patchAll(stat)
+                    elseif isSniper(stat) then
+                        patchSniper(stat)
+                    end
                 end
             end
         end)
 
         for _, v in pairs(getgc(true)) do
-            if type(v) == "table" and shouldPatch(v) then
-                patchAll(v)
+            if type(v) == "table" then
+                if shouldPatch(v) then
+                    patchAll(v)
+                elseif isSniper(v) then
+                    patchSniper(v)
+                end
             end
         end
 
@@ -1519,6 +1555,7 @@ Tabs.GunMod:AddButton({
 })
 
 Tabs.GunMod:AddParagraph({ Title = "Warning", Content = "Note: Using Gun Mods may cause damage registration issues Please avoid spamming shots to reduce the chance of errors." })
+
 
 Tabs.ESP:AddParagraph({ Title = "ESP Options", Content = "" })
 Tabs.ESP:AddToggle("ESPPlayers", { Title = "ESP Players", Default = S.Config.ESPEnabled, Callback = function(v) S.Config.ESPEnabled = v SaveConfig() end })

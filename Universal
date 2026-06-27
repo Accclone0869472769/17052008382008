@@ -489,23 +489,22 @@ local function applyHeadHitbox(player, character, size)
                 if character and character.Parent then removeHeadHitbox(character) end
             end
         end)
-        task.spawn(function()
-            while true do
-                task.wait(0.5)
-                if not character or not character.Parent then
-                    task.wait(2)
-                    if not character or not character.Parent then break end
+        local h = character:FindFirstChild("Head")
+        if h then
+            local conn = h.ChildRemoved:Connect(function(child)
+                if child.Name == "StarCrowOutline" and S.autoHitboxEnabled and S.processedChars[character] then
+                    local hum = character:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        task.defer(function()
+                            if h and not h:FindFirstChild("StarCrowOutline") then
+                                addOutlineChams(character, h)
+                            end
+                        end)
+                    end
                 end
-                if not S.autoHitboxEnabled then break end
-                if not S.processedChars[character] then break end
-                local currentHumanoid = character:FindFirstChildOfClass("Humanoid")
-                if not currentHumanoid or currentHumanoid.Health <= 0 then break end
-                local h = character:FindFirstChild("Head")
-                if h and not h:FindFirstChild("StarCrowOutline") then
-                    addOutlineChams(character, h)
-                end
-            end
-        end)
+            end)
+            humanoid.Died:Connect(function() conn:Disconnect() end)
+        end
     end
     local h = character:FindFirstChild("Head")
     if h and not h:FindFirstChild("StarCrowOutline") then

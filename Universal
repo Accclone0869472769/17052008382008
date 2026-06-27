@@ -582,7 +582,7 @@ local function createNameESP(player, char)
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "NameESP"
     billboard.Adornee = head
-    billboard.Size = UDim2.new(0, 240, 0, 22)
+    billboard.Size = UDim2.new(0, 240, 0, 40)
     billboard.StudsOffset = Vector3.new(0, 2.5, 0)
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = math.huge
@@ -623,24 +623,33 @@ local function createNameESP(player, char)
             math.clamp(math.floor(nc.B * 255), 0, 255)
         )
         local parts = {}
+        local nameStr = ""
         if S.espNameOnly then
-            parts[#parts + 1] = string.format('<font color="%s">%s</font>', nameHex, player.Name)
+            nameStr = string.format('<font color="%s">%s</font>', nameHex, player.Name)
         end
         if S.espDistOnly and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") and head and head.Parent then
             local dist = math.floor((head.Position - LocalPlayer.Character.Head.Position).Magnitude)
-            parts[#parts + 1] = dist .. "m"
+            if nameStr ~= "" then
+                nameStr = nameStr .. string.format(' <font color="rgb(180,180,180)" size="11">[%dm]</font>', dist)
+            else
+                nameStr = string.format('<font color="rgb(180,180,180)" size="11">[%dm]</font>', dist)
+            end
+        end
+        if nameStr ~= "" then
+            parts[#parts + 1] = nameStr
         end
         if S.espHpOnly then
             local humanoid = char:FindFirstChildOfClass("Humanoid")
-            local hpPercent = 100
+            local hp = 100
             local hpColor = "#00ff00"
             if humanoid then
-                hpPercent = math.floor((humanoid.Health / humanoid.MaxHealth) * 100)
+                hp = math.floor(humanoid.Health)
+                local hpPercent = humanoid.MaxHealth > 0 and (humanoid.Health / humanoid.MaxHealth) * 100 or 0
                 hpColor = hpPercent > 60 and "#00ff00" or hpPercent > 30 and "#ffaa00" or "#ff3300"
             end
-            parts[#parts + 1] = string.format('<font color="%s">%d%%</font>', hpColor, hpPercent)
+            parts[#parts + 1] = string.format('<font color="%s">%d HP</font>', hpColor, hp)
         end
-        infoLabel.Text = table.concat(parts, " | ")
+        infoLabel.Text = table.concat(parts, "\n")
     end)
     S.nameESPObjects[player] = billboard
 end

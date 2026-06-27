@@ -1362,7 +1362,6 @@ Players.PlayerRemoving:Connect(function(p)
                     if val then table.insert(currentSelected, k) end
                 end
                 WhitelistDrop:SetValue(currentSelected)
-                SaveConfig()
             end
             break
         end

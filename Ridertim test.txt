@@ -199,7 +199,7 @@ local function updateESP()
                         esp = Instance.new("BillboardGui")
                         esp.Name = "StarCrowESP"
                         esp.Adornee = head
-                        esp.Size = UDim2.new(0, 350, 0, 30)
+                        esp.Size = UDim2.new(0, 350, 0, 40)
                         esp.StudsOffset = Vector3.new(0, 1.2, 0)
                         esp.AlwaysOnTop = true
                         esp.MaxDistance = math.huge
@@ -218,7 +218,8 @@ local function updateESP()
                         esp.Parent = head
                     end
                     local dist = math.floor((Camera.CFrame.Position - head.Position).Magnitude)
-                    local hp = math.floor((hum.Health / hum.MaxHealth) * 100)
+                    local hpPercent = hum.MaxHealth > 0 and (hum.Health / hum.MaxHealth) * 100 or 0
+                    local hpReal = math.floor(hum.Health)
                     local tR, tG, tB = 255, 255, 255
                     local teamColor = Color3.fromRGB(255, 255, 255)
                     if player.Team then
@@ -226,8 +227,8 @@ local function updateESP()
                         teamColor = tc
                         tR, tG, tB = math.floor(tc.R*255), math.floor(tc.G*255), math.floor(tc.B*255)
                     end
-                    local hpColor = hp > 70 and "rgb(0, 255, 127)" or hp > 30 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
-                    esp.NameText.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font> | %dm | <font color="%s">%d%%</font>', tR, tG, tB, player.DisplayName, dist, hpColor, hp)
+                    local hpColor = hpPercent > 70 and "rgb(0, 255, 127)" or hpPercent > 30 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
+                    esp.NameText.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font> <font color="rgb(180,180,180)" size="11">[%dm]</font>\n<font color="%s">%d HP</font>', tR, tG, tB, player.DisplayName, dist, hpColor, hpReal)
 
                     if not chams then
                         chams = Instance.new("Highlight")

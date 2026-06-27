@@ -745,8 +745,10 @@ local function updateESP()
                     local hpColor = hpRatio > 0.7 and "rgb(0, 255, 127)" or hpRatio > 0.3 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
                     local nameLabel = esp:FindFirstChild("NameText")
                     local hpLabel = esp:FindFirstChild("HPText")
+                    local cam = workspace.CurrentCamera
+                    local dist = cam and math.floor((cam.CFrame.Position - head.Position).Magnitude) or 0
                     if nameLabel then
-                        nameLabel.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font>', tR, tG, tB, player.DisplayName)
+                        nameLabel.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font> <font color="rgb(180,180,180)" size="11">[%dm]</font>', tR, tG, tB, player.DisplayName, dist)
                     end
                     if hpLabel then
                         hpLabel.Text = string.format('<font color="%s">%d HP</font>', hpColor, hp)
@@ -828,8 +830,10 @@ local function updateAnimalESP()
                 local hpColor = hpRatio > 0.7 and "rgb(0, 255, 127)" or hpRatio > 0.3 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
                 local nameLabel = esp:FindFirstChild("NameText")
                 local hpLabel = esp:FindFirstChild("HPText")
+                local cam = workspace.CurrentCamera
+                local dist = cam and math.floor((cam.CFrame.Position - torso.Position).Magnitude) or 0
                 if nameLabel then
-                    nameLabel.Text = string.format('<font color="%s">%s</font>', nameColor, cleanName)
+                    nameLabel.Text = string.format('<font color="%s">%s</font> <font color="rgb(180,180,180)" size="11">[%dm]</font>', nameColor, cleanName, dist)
                 end
                 if hpLabel then
                     hpLabel.Text = string.format('<font color="%s">%d HP</font>', hpColor, hp)

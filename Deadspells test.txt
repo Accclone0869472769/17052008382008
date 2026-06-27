@@ -35,6 +35,7 @@ local Config = {
     BringHeal = false,
     AutoBringMobs = false,
     BringMobRange = 100,
+    BringMobOffset = 15,
     NoFogEnabled = false,
     FullBrightEnabled = false,
     InstantPromptEnabled = false,
@@ -1419,7 +1420,7 @@ task.spawn(function()
                 local cam = workspace.CurrentCamera
                 local flatLook = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
                 if flatLook.Magnitude > 0 then flatLook = flatLook.Unit else flatLook = Vector3.new(0, 0, 1) end
-                local bringPos = root.Position + flatLook * 15
+                local bringPos = root.Position + flatLook * Config.BringMobOffset
                 
                 for mob in pairs(MobCache) do
                     if mob.Parent and isValidNPC(mob) then
@@ -1501,8 +1502,14 @@ NPCHitboxSliderObj = Tabs.Main:AddSlider("NPCHitboxSlider", {
 
 Tabs.Main:AddSection("Items")
 
+Tabs.Main:AddParagraph({
+    Title = "Bring Items Note",
+    Content = "You must equip the Sack and put the items into it to prevent errors!"
+})
+
 Tabs.Main:AddButton({
     Title = "Bring Nearby Items",
+    Description = "Requires Sack equipped",
     Callback = function()
         local char = LocalPlayer.Character
         if not char then return end
@@ -1593,6 +1600,21 @@ Tabs.Main:AddSlider("BringMobRangeSlider", {
     Callback = function(Value)
         Config.BringMobRange = Value
         SaveConfig()
+    end
+})
+
+Tabs.Main:AddInput("BringMobOffsetInput", {
+    Title = "Mob Distance",
+    Default = tostring(Config.BringMobOffset),
+    Numeric = true,
+    Finished = false,
+    Placeholder = "Enter distance...",
+    Callback = function(Value)
+        local parsed = tonumber(Value)
+        if parsed then
+            Config.BringMobOffset = parsed
+            SaveConfig()
+        end
     end
 })
 
@@ -2136,3 +2158,4 @@ Tabs.AirWeld:AddToggle("AirWeldToggle", {
 })
 
 Window:SelectTab(1)
+ 

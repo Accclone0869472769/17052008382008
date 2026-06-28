@@ -263,8 +263,8 @@ local function updateESP()
                         esp = Instance.new("BillboardGui")
                         esp.Name = "StarCrowESP"
                         esp.Adornee = head
-                        esp.Size = UDim2.new(0, 350, 0, 30)
-                        esp.StudsOffset = Vector3.new(0, 1.2, 0)
+                        esp.Size = UDim2.new(0, 240, 0, 40)
+                        esp.StudsOffset = Vector3.new(0, 2.5, 0)
                         esp.AlwaysOnTop = true
                         esp.MaxDistance = math.huge
                         local text = Instance.new("TextLabel")
@@ -273,25 +273,34 @@ local function updateESP()
                         text.Size = UDim2.new(1, 0, 1, 0)
                         text.BackgroundTransparency = 1
                         text.TextScaled = false
-                        text.TextSize = 12
+                        text.TextSize = 13
                         text.Font = Enum.Font.GothamBold
                         text.TextColor3 = Color3.fromRGB(255, 255, 255)
                         text.TextStrokeTransparency = 0
                         text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
                         text.RichText = true
+                        text.TextXAlignment = Enum.TextXAlignment.Center
                         esp.Parent = head
                     end
-                    local dist = math.floor((Camera.CFrame.Position - head.Position).Magnitude)
-                    local hp = math.floor((hum.Health / hum.MaxHealth) * 100)
+                    
                     local teamColor = Color3.fromRGB(255, 255, 255)
-                    local tR, tG, tB = 255, 255, 255
-                    if player.Team then
-                        local tc = player.Team.TeamColor.Color
-                        teamColor = tc
-                        tR, tG, tB = math.floor(tc.R*255), math.floor(tc.G*255), math.floor(tc.B*255)
+                    if player.Team and player.Team.TeamColor then
+                        teamColor = player.Team.TeamColor.Color
                     end
-                    local hpColor = hp > 70 and "rgb(0, 255, 127)" or hp > 30 and "rgb(255, 200, 0)" or "rgb(255, 50, 50)"
-                    esp.NameText.Text = string.format('<font color="rgb(%d,%d,%d)">%s</font> | %dm | <font color="%s">%d%%</font>', tR, tG, tB, player.DisplayName, dist, hpColor, hp)
+                    local nameHex = string.format("#%02x%02x%02x", math.floor(teamColor.R*255), math.floor(teamColor.G*255), math.floor(teamColor.B*255))
+                    
+                    local parts = {}
+                    local nameStr = string.format('<font color="%s">%s</font>', nameHex, player.DisplayName)
+                    local dist = math.floor((Camera.CFrame.Position - head.Position).Magnitude)
+                    nameStr = nameStr .. string.format(' <font color="rgb(180,180,180)" size="11">[%dm]</font>', dist)
+                    parts[#parts + 1] = nameStr
+                    
+                    local hp = math.floor(hum.Health)
+                    local hpPercent = hum.MaxHealth > 0 and (hum.Health / hum.MaxHealth) * 100 or 0
+                    local hpColor = hpPercent > 60 and "#00ff00" or hpPercent > 30 and "#ffaa00" or "#ff3300"
+                    parts[#parts + 1] = string.format('<font color="%s">%d HP</font>', hpColor, hp)
+                    
+                    esp.NameText.Text = table.concat(parts, "\n")
                     
                     if not chams then
                         chams = Instance.new("Highlight")

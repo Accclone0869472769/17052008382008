@@ -595,9 +595,27 @@ local function applyHitbox(npc)
     outline.Adornee = head
     outline.Parent = head
 
+    local _hbThrottle = 0
+    local connection = RunService.Heartbeat:Connect(function(dt)
+        if not Config.NPCHitboxEnabled or not npc.Parent or hum.Health <= 0 then
+            cleanupNPC(npc)
+            return
+        end
+        _hbThrottle = _hbThrottle + dt
+        if _hbThrottle < 0.1 then return end
+        _hbThrottle = 0
+        local wanted = Vector3.new(Config.NPCHitboxSize, Config.NPCHitboxSize, Config.NPCHitboxSize)
+        if head.Size ~= wanted then
+            head.Size = wanted
+            head.Transparency = 1
+            head.CanCollide = false
+            head.Massless = true
+        end
+    end)
+
     npcs[npc] = {
         head = head,
-        hum = hum
+        connection = connection
     }
 end
 
@@ -616,30 +634,11 @@ local function clearHitbox()
 end
 
 task.spawn(function()
-    local _throttle = 0
-    RunService.Heartbeat:Connect(function(dt)
-        _throttle = _throttle + dt
-        if _throttle >= 0.2 then
-            _throttle = 0
-            if Config.NPCHitboxEnabled then
-                local wantedNPC = Vector3.new(Config.NPCHitboxSize, Config.NPCHitboxSize, Config.NPCHitboxSize)
-                for npc, data in pairs(npcs) do
-                    if not npc.Parent or data.hum.Health <= 0 then
-                        cleanupNPC(npc)
-                    else
-                        if data.head.Size ~= wantedNPC then
-                            data.head.Size = wantedNPC
-                            data.head.Transparency = 1
-                            data.head.CanCollide = false
-                            data.head.Massless = true
-                        end
-                    end
-                end
-            else
-                clearHitbox()
-            end
+    while task.wait(1) do
+        if Config.NPCHitboxEnabled then
+            scanNPCs()
         end
-    end)
+    end
 end)
 
 local bossHitboxNPCs = {}
@@ -692,36 +691,41 @@ local function applyBossHitbox(npc)
     outline.Adornee = head
     outline.Parent = head
 
-    bossHitboxNPCs[npc] = { head = head, hum = hum }
+    local _bhThrottle = 0
+    local connection = RunService.Heartbeat:Connect(function(dt)
+        if not Config.NPCHitboxEnabled or not npc.Parent or hum.Health <= 0 then
+            cleanupBossHitbox(npc)
+            return
+        end
+        _bhThrottle = _bhThrottle + dt
+        if _bhThrottle < 0.1 then return end
+        _bhThrottle = 0
+        local wanted = Vector3.new(200, 200, 200)
+        if head.Size ~= wanted then
+            head.Size = wanted
+            head.Transparency = 1
+            head.CanCollide = false
+            head.Massless = true
+        end
+    end)
+
+    bossHitboxNPCs[npc] = { head = head, connection = connection }
 end
 
 task.spawn(function()
-    local _bhThrottle = 0
-    RunService.Heartbeat:Connect(function(dt)
-        _bhThrottle = _bhThrottle + dt
-        if _bhThrottle >= 0.2 then
-            _bhThrottle = 0
-            if Config.NPCHitboxEnabled then
-                local wantedBoss = Vector3.new(200, 200, 200)
-                for npc, data in pairs(bossHitboxNPCs) do
-                    if not npc.Parent or data.hum.Health <= 0 then
-                        cleanupBossHitbox(npc)
-                    else
-                        if data.head.Size ~= wantedBoss then
-                            data.head.Size = wantedBoss
-                            data.head.Transparency = 1
-                            data.head.CanCollide = false
-                            data.head.Massless = true
-                        end
-                    end
-                end
-            else
-                for npc in pairs(bossHitboxNPCs) do
-                    cleanupBossHitbox(npc)
+    while task.wait(1) do
+        if Config.NPCHitboxEnabled then
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("Model") and v:FindFirstChildOfClass("Humanoid") and isBossModel(v) then
+                    applyBossHitbox(v)
                 end
             end
+        else
+            for npc in pairs(bossHitboxNPCs) do
+                cleanupBossHitbox(npc)
+            end
         end
-    end)
+    end
 end)
 
 local activeNPCESP = {}
@@ -790,28 +794,17 @@ local function scanNPCESP()
 end
 
 workspace.DescendantAdded:Connect(function(v)
-    if not v.Parent then return end
-    if v:IsA("Model") and v:FindFirstChildOfClass("Humanoid") then
-        task.wait(0.5)
-        if isValidNPC(v) then
-            setupNPCESP(v)
-            if isBossModel(v) then applyBossHitbox(v) else applyHitbox(v) end
-        end
+    task.wait(0.2)
+    if Config.NPCESPEnabled and isValidNPC(v) then
+        setupNPCESP(v)
     end
 end)
 
 task.spawn(function()
-    for _, v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("Model") and v:FindFirstChildOfClass("Humanoid") then
-            if isValidNPC(v) then
-                setupNPCESP(v)
-                if isBossModel(v) then applyBossHitbox(v) else applyHitbox(v) end
-            end
+    while task.wait(2) do
+        if Config.NPCESPEnabled then
+            scanNPCESP()
         end
-    end
-    
-    while task.wait(0.2) do
-        updateNPCESP()
     end
 end)
 

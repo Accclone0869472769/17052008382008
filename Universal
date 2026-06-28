@@ -1852,7 +1852,7 @@ end
 
 EspTab:AddToggle("ESPShowName", {
     Title = "Name",
-    Default = SavedCfg.espNameOnly ~= nil and SavedCfg.espNameOnly or false,
+    Default = SavedCfg.espNameOnly ~= nil and SavedCfg.espNameOnly or true,
     Callback = function(Value)
         S.espNameOnly = Value
         refreshNameESP()
@@ -1861,7 +1861,7 @@ EspTab:AddToggle("ESPShowName", {
 })
 EspTab:AddToggle("ESPShowHp", {
     Title = "HP",
-    Default = SavedCfg.espHpOnly ~= nil and SavedCfg.espHpOnly or false,
+    Default = SavedCfg.espHpOnly ~= nil and SavedCfg.espHpOnly or true,
     Callback = function(Value)
         S.espHpOnly = Value
         refreshNameESP()
@@ -1870,7 +1870,7 @@ EspTab:AddToggle("ESPShowHp", {
 })
 EspTab:AddToggle("ESPShowDist", {
     Title = "Distance",
-    Default = SavedCfg.espDistOnly ~= nil and SavedCfg.espDistOnly or false,
+    Default = SavedCfg.espDistOnly ~= nil and SavedCfg.espDistOnly or true,
     Callback = function(Value)
         S.espDistOnly = Value
         refreshNameESP()
@@ -3456,4 +3456,4 @@ NPCHitboxSliderObj = Tabs.Combat:AddSlider("NPCHitboxSlider", {
     end
 })
 
-Window:SelectTab(1)
+Window:SelectTab(1) 

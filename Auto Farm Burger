@@ -39,6 +39,8 @@ local Config = {
     BringBurger        = false,
     AutoFarmEnabled    = false,
     AutoResetMinutes   = 5,
+    KillAuraEnabled    = true,
+    KillAuraDistance   = 500,
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -94,80 +96,28 @@ pcall(function()
         end
         return originalLaserHit(...)
     end)
+    
+    local ToolShared = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("ToolShared"))
+    local oldMeleeHitBox = ToolShared.meleeHitBox
+    ToolShared.meleeHitBox = function(p1, p2, p3, p4, p5, p6, p7, p8)
+        if Config.KillAuraEnabled then
+            local hackLength = Config.KillAuraDistance
+            local hackWidth = Config.KillAuraDistance
+            local hackHeight = Config.KillAuraDistance
+            return oldMeleeHitBox(p1, p2, hackLength, hackWidth, hackHeight, p6, p7, p8)
+        end
+        return oldMeleeHitBox(p1, p2, p3, p4, p5, p6, p7, p8)
+    end
 end)
 
-local bossHitboxNPCs = {}
-local bossOrigSizes  = {}
-
 local bossTargets = {
+    thiefking      = true,
     mastersamurai  = true,
     eldervampire   = true,
     gnomechampion  = true,
     steamborneczar = true,
     kingice        = true,
 }
-
-local function isBossModel(model)
-    local name = string.gsub(string.lower(model.Name), "%s+", "")
-    for n in pairs(bossTargets) do
-        if string.find(name, n) then return true end
-    end
-    return false
-end
-
-local function cleanupBossHitbox(npc)
-    local data = bossHitboxNPCs[npc]
-    if not data then return end
-    if data.connection then data.connection:Disconnect() end
-    local hrp = data.hrp
-    if hrp and hrp.Parent then
-        hrp.Size          = bossOrigSizes[hrp] or Vector3.new(2, 2, 1)
-        hrp.Transparency  = 1
-        hrp.CanCollide    = true
-        hrp.Massless      = false
-    end
-    bossOrigSizes[hrp]   = nil
-    bossHitboxNPCs[npc]  = nil
-end
-
-local function applyBossHitbox(npc)
-    if bossHitboxNPCs[npc] then return end
-    if not npc or not npc.Parent then return end
-    if not isBossModel(npc) then return end
-    local hum = npc:FindFirstChildOfClass("Humanoid")
-    local hrp = npc:FindFirstChild("HumanoidRootPart")
-    if not hum or not hrp then return end
-    if hum.Health <= 0 then return end
-    bossOrigSizes[hrp] = hrp.Size
-    local throttle = 0
-    local conn = RunService.Heartbeat:Connect(function(dt)
-        if not npc.Parent or hum.Health <= 0 then
-            cleanupBossHitbox(npc)
-            return
-        end
-        throttle = throttle + dt
-        if throttle < 0.1 then return end
-        throttle = 0
-        local wanted = Vector3.new(200, 200, 200)
-        if hrp.Size ~= wanted then
-            hrp.Size          = wanted
-            hrp.Transparency  = 1
-            hrp.CanCollide    = false
-            hrp.Massless      = true
-        end
-    end)
-    bossHitboxNPCs[npc] = { hrp = hrp, connection = conn }
-end
-
-task.spawn(function()
-    while task.wait(1) do
-        for _, v in ipairs(workspace:GetDescendants()) do
-            if v:IsA("Model") and v:FindFirstChildOfClass("Humanoid") and isBossModel(v) then
-                applyBossHitbox(v)
-            end
-        end
-    end
-end)
 
 local targetItems = { ["Burger"] = true, ["GoldenBurger"] = true, ["DiamondBurger"] = true }
 local burgerColors = {
@@ -346,6 +296,20 @@ end
 task.spawn(function()
     while task.wait(0.5) do
         if not Config.AutoFarmEnabled then continue end
+        
+        local char = LocalPlayer.Character
+        if char then
+            local tool = char:FindFirstChildOfClass("Tool")
+            if not tool or not isMelee(tool) then
+                for _, t in ipairs(LocalPlayer.Backpack:GetChildren()) do
+                    if t:IsA("Tool") and isMelee(t) then
+                        t.Parent = char
+                        break
+                    end
+                end
+            end
+        end
+        
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if not pg then continue end
         for _, v in ipairs(pg:GetDescendants()) do
@@ -423,6 +387,7 @@ workspace.DescendantRemoving:Connect(function(v)
 end)
 
 local bosses = {
+    { n = "thiefking",      pos = CFrame.new(81.07, 11.49, -18039.25) },
     { n = "mastersamurai",  pos = CFrame.new(103.27,  40.89,  -3560.05) },
     { n = "eldervampire",   pos = CFrame.new(103.08,  37.85,   7407.76) },
     { n = "gnomechampion",  pos = CFrame.new(37.76,    3.00,  13993.09) },
@@ -510,15 +475,7 @@ task.spawn(function()
                     bHrp.Velocity = Vector3.new(0, 0, 0)
                     hoverPos      = CFrame.lookAt(info.pos.Position + Vector3.new(0, 15, 0), info.pos.Position)
 
-                    local tool = char:FindFirstChildOfClass("Tool")
-                    if not tool or not isMelee(tool) then
-                        for _, t in ipairs(LocalPlayer.Backpack:GetChildren()) do
-                            if t:IsA("Tool") and isMelee(t) then
-                                t.Parent = char
-                                break
-                            end
-                        end
-                    end
+                    -- removed auto equip from here since it now equips instantly on start
 
                 elseif bHum and bHum.Health <= 0 then
                     task.wait(3)

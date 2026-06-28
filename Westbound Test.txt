@@ -12,6 +12,7 @@ local S = {
         KillAuraTeamCheck = false,
         AimPlayer        = false,
         AimNPC           = false,
+        AimLasso         = false,
         ShowFloatAimNPC  = false,
         FloatAimNPCPos   = {0.8, 0, 0.15, 0},
         AimPart          = "Head",
@@ -104,25 +105,39 @@ local Civilians = Teams:FindFirstChild("Civilians")
 local FakeTeam = Instance.new("Team")
 FakeTeam.Name = "NotCivilians"
 
+local currentTarget = nil
+local isHoldingGun = false
+
 local function ApplyLassoHook(lasso)
     if not lasso then return end
     local throwMod = lasso:FindFirstChild("ThrowLasso", true)
     if throwMod and throwMod:IsA("ModuleScript") then
         local t = require(throwMod)
-        if type(t) == "table" and t.LassoTouched and not t._scHooked then
-            local orig = t.LassoTouched
-            t.LassoTouched = function(p1, p2)
-                local victimPlr = game:GetService("Players"):GetPlayerFromCharacter(p2.Parent)
-                local isCiv = false
-                if S.Config.LassoTrollCivilians and victimPlr and victimPlr.Team == Civilians then
-                    isCiv = true
-                    victimPlr.Team = nil
+        if type(t) == "table" and not t._scHooked then
+            if t.LassoTouched then
+                local orig = t.LassoTouched
+                t.LassoTouched = function(p1, p2)
+                    local victimPlr = game:GetService("Players"):GetPlayerFromCharacter(p2.Parent)
+                    local isCiv = false
+                    if S.Config.LassoTrollCivilians and victimPlr and victimPlr.Team == Civilians then
+                        isCiv = true
+                        victimPlr.Team = nil
+                    end
+                    local ret = orig(p1, p2)
+                    if isCiv then
+                        victimPlr.Team = Civilians
+                    end
+                    return ret
                 end
-                local ret = orig(p1, p2)
-                if isCiv then
-                    victimPlr.Team = Civilians
+            end
+            if t.Throw then
+                local origThrow = t.Throw
+                t.Throw = function(p1, p2, ...)
+                    if S.Config.AimLasso and currentTarget then
+                        p2 = currentTarget.Position
+                    end
+                    return origThrow(p1, p2, ...)
                 end
-                return ret
             end
             t._scHooked = true
         end
@@ -163,8 +178,6 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
-local currentTarget      = nil
-local isHoldingGun       = false
 local FriendCache        = {}
 local RobTargetsCache = {}
 local LastCacheUpdate = 0
@@ -846,7 +859,7 @@ local function updateAnimalESP()
 end
 
 RunService.RenderStepped:Connect(function()
-    if (S.Config.AimPlayer or S.Config.AimNPC) and S.Config.FOVMode == "FOV" then
+    if (S.Config.AimPlayer or S.Config.AimNPC or S.Config.AimLasso) and S.Config.FOVMode == "FOV" then
         fovCircle.Visible = true
         fovCircle.Size = UDim2.new(0, S.Config.FOVRadius * 2, 0, S.Config.FOVRadius * 2)
     else
@@ -987,15 +1000,18 @@ task.spawn(function()
         local char = LocalPlayer.Character
         isHoldingGun = char and char:FindFirstChildOfClass("Tool") ~= nil
 
-        if not (S.Config.AimPlayer or S.Config.AimNPC) then currentTarget = nil continue end
+        if not (S.Config.AimPlayer or S.Config.AimNPC or S.Config.AimLasso) then currentTarget = nil continue end
         if not char or not char:FindFirstChild("HumanoidRootPart") then currentTarget = nil continue end
         if not isHoldingGun then currentTarget = nil continue end
+
+        local tool = char:FindFirstChildOfClass("Tool")
+        local isLasso = tool and (tool.Name:find("Lasso") or tool.Name:find("Throw"))
 
         local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
         local bestTarget = nil
         local shortest = math.huge
 
-        local function process(obj, isPlayer)
+        local function process(obj, isPlayer, isLassoReq)
             local hum = obj:FindFirstChildOfClass("Humanoid")
             local targetPartName = "Head"
             if S.Config.AimPart == "Body" then targetPartName = "HumanoidRootPart" end
@@ -1004,7 +1020,7 @@ task.spawn(function()
             if isPlayer then
                 local plr = Players:GetPlayerFromCharacter(obj)
                 if not plr or plr == LocalPlayer then return end
-                if S.Config.WhitelistPlayers and S.Config.WhitelistPlayers[plr.Name] then return end
+                if not isLassoReq and S.Config.WhitelistPlayers and S.Config.WhitelistPlayers[plr.Name] then return end
                 if S.Config.TeamCheck and plr.Team == LocalPlayer.Team then return end
                 if S.Config.FriendCheck and isFriend(plr) then return end
                 if plr.Team and string.match(string.lower(plr.Team.Name), "civilian") then return end
@@ -1023,16 +1039,16 @@ task.spawn(function()
             end
         end
 
-        if S.Config.AimPlayer then
+        if S.Config.AimPlayer or (S.Config.AimLasso and isLasso) then
             for _, p in ipairs(Players:GetPlayers()) do
-                if p.Character then process(p.Character, true) end
+                if p.Character then process(p.Character, true, isLasso) end
             end
         end
 
         if S.Config.AimNPC then
             local animalsFolder = workspace:FindFirstChild("Animals")
             if animalsFolder then
-                for _, animal in ipairs(animalsFolder:GetChildren()) do process(animal, false) end
+                for _, animal in ipairs(animalsFolder:GetChildren()) do process(animal, false, isLasso) end
             end
         end
 
@@ -1388,6 +1404,7 @@ end)
 Tabs.Aim:AddParagraph({ Title = "Silent Aim Player", Content = "" })
 Tabs.Aim:AddToggle("AimPlayer", { Title = "Silent Aim Player", Default = S.Config.AimPlayer, Callback = function(v) S.Config.AimPlayer = v if v then InitSilentAimHook() end SaveConfig() end })
 Tabs.Aim:AddToggle("AimNPC", { Title = "Silent Aim NPC", Default = S.Config.AimNPC, Callback = function(v) S.Config.AimNPC = v if aimNPCStroke then setFloatStrokeActive(aimNPCStroke, v) end if v then InitSilentAimHook() end SaveConfig() end })
+Tabs.Aim:AddToggle("AimLasso", { Title = "Silent Aim Lasso", Default = S.Config.AimLasso, Callback = function(v) S.Config.AimLasso = v SaveConfig() end })
 Tabs.Aim:AddSlider("FOVRadius", { Title = "FOV Radius", Default = S.Config.FOVRadius, Min = 50, Max = 600, Rounding = 0, Callback = function(v) S.Config.FOVRadius = v SaveConfig() end })
 Tabs.Aim:AddDropdown("AimPart", { Title = "Aim Part", Values = {"Head", "Body"}, Default = S.Config.AimPart or "Head", Callback = function(v) S.Config.AimPart = v SaveConfig() end })
 Tabs.Aim:AddDropdown("FOVMode", { Title = "FOV Mode", Values = {"FOV", "No FOV"}, Default = S.Config.FOVMode or "FOV", Callback = function(v) S.Config.FOVMode = v SaveConfig() end })

@@ -1132,20 +1132,18 @@ local function SpawnAndTP(spawnName, arg2, tpPos1, tpPos2)
 
         if tpPos1 then
             if not getgenv().StarCrowAutoBank then return end
-            root.CFrame = CFrame.new(tpPos1)
+            char:PivotTo(CFrame.new(tpPos1))
             root.AssemblyLinearVelocity = Vector3.zero
             root.AssemblyAngularVelocity = Vector3.zero
-            hum:ChangeState(Enum.HumanoidStateType.Jumping)
             TriggerRob()
         end
 
         if tpPos2 then
             if not getgenv().StarCrowAutoBank then return end
             if IsBagFull() then return end
-            root.CFrame = CFrame.new(tpPos2)
+            char:PivotTo(CFrame.new(tpPos2))
             root.AssemblyLinearVelocity = Vector3.zero
             root.AssemblyAngularVelocity = Vector3.zero
-            hum:ChangeState(Enum.HumanoidStateType.Jumping)
             TriggerRob()
         end
     end

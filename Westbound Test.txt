@@ -136,6 +136,10 @@ local function ApplyLassoHook(lasso)
                 t.Throw = function(p1, p2, ...)
                     if S.Config.AimLasso and currentTarget then
                         p2 = currentTarget.Position
+                        task.spawn(function()
+                            task.wait(0.15)
+                            if t.LassoTouched then pcall(function() t.LassoTouched(p1, currentTarget) end) end
+                        end)
                     end
                     return origThrow(p1, p2, ...)
                 end

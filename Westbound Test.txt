@@ -1180,6 +1180,7 @@ local Window = Fluent:CreateWindow({ Title = "StarCrowHub", SubTitle = "West Bou
 local Tabs = {
     Info      = Window:AddTab({ Title = "Info",      Icon = "info" }),
     AutoFarm  = Window:AddTab({ Title = "Auto Farm", Icon = "gem" }),
+    Teleport  = Window:AddTab({ Title = "Teleport",  Icon = "map" }),
     Aim       = Window:AddTab({ Title = "Combat",    Icon = "crosshair" }),
     GunMod    = Window:AddTab({ Title = "Gun Mod",   Icon = "swords" }),
     ESP       = Window:AddTab({ Title = "ESP",       Icon = "eye" }),
@@ -1191,6 +1192,29 @@ local Tabs = {
 
 Tabs.Info:AddParagraph({ Title = "Join our Discord", Content = "Discord is the best place to get updates and report bugs." })
 Tabs.Info:AddButton({ Title = "Copy Discord Link", Callback = function() pcall(function() setclipboard("https://discord.com/invite/wXthjUsXns") Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 }) end) end })
+
+local function spawnTP(name, isOutlaw)
+    task.spawn(function()
+        pcall(function()
+            local args = { [1] = name, [2] = isOutlaw, [3] = false }
+            game:GetService("ReplicatedStorage"):WaitForChild("GeneralEvents", 9e9):WaitForChild("Spawn", 9e9):InvokeServer(unpack(args))
+        end)
+    end)
+end
+
+Tabs.Teleport:AddParagraph({ Title = "Cowboys", Content = "Teleport to Cowboy locations" })
+Tabs.Teleport:AddButton({ Title = "Tumbleweed", Callback = function() spawnTP("Tumbleweed", false) end })
+Tabs.Teleport:AddButton({ Title = "StoneCreek", Callback = function() spawnTP("StoneCreek", false) end })
+Tabs.Teleport:AddButton({ Title = "Quarry", Callback = function() spawnTP("Quarry", false) end })
+Tabs.Teleport:AddButton({ Title = "Grayridge", Callback = function() spawnTP("Grayridge", false) end })
+Tabs.Teleport:AddButton({ Title = "Plainview", Callback = function() spawnTP("Plainview", false) end })
+Tabs.Teleport:AddButton({ Title = "Silverton", Callback = function() spawnTP("Silverton", false) end })
+
+Tabs.Teleport:AddParagraph({ Title = "Outlaws", Content = "Teleport to Outlaw locations" })
+Tabs.Teleport:AddButton({ Title = "RedRocks", Callback = function() spawnTP("RedRocks", true) end })
+Tabs.Teleport:AddButton({ Title = "FortCassidy", Callback = function() spawnTP("FortCassidy", true) end })
+Tabs.Teleport:AddButton({ Title = "FortArthur", Callback = function() spawnTP("FortArthur", true) end })
+Tabs.Teleport:AddButton({ Title = "CoyotesRest", Callback = function() spawnTP("CoyotesRest", true) end })
 
 Tabs.AutoFarm:AddParagraph({
     Title = "Auto Bank Robbery",
@@ -1477,7 +1501,7 @@ Tabs.GunMod:AddButton({
                 stat.ReloadSpeed = 0.01
                 stat.ReloadAnimationSpeed = 10
 
-                stat.prepTime   = 0.08
+                stat.prepTime   = 0.04
                 stat.equipTime  = 0.01
                 stat.EquipDelay = 0
 
@@ -1531,7 +1555,7 @@ Tabs.GunMod:AddButton({
             local GunStats = require(ReplicatedStorage:WaitForChild("GunScripts"):WaitForChild("GunStats"))
             if GunStats.FanFirePrepTime ~= nil then
                 if setreadonly then pcall(setreadonly, GunStats, false) end
-                GunStats.FanFirePrepTime = 0.1
+                GunStats.FanFirePrepTime = 0.06
                 if setreadonly then pcall(setreadonly, GunStats, true) end
             end
             for _, stat in pairs(GunStats) do

@@ -1479,14 +1479,14 @@ Tabs.GunMod:AddButton({
                 stat.ReloadSpeed = 0.01
                 stat.ReloadAnimationSpeed = 10
 
-                stat.prepTime   = 0.01
+                stat.prepTime   = 0.08
                 stat.equipTime  = 0.01
                 stat.EquipDelay = 0
 
-                if stat.FireRate   ~= nil then stat.FireRate   = 0.18 end
-                if stat.fireRate   ~= nil then stat.fireRate   = 0.18 end
-                if stat.FireDelay  ~= nil then stat.FireDelay  = 0.18 end
-                if stat.RateOfFire ~= nil then stat.RateOfFire = 0.18 end
+                if stat.FireRate   ~= nil then stat.FireRate   = 0.3 end
+                if stat.fireRate   ~= nil then stat.fireRate   = 0.3 end
+                if stat.FireDelay  ~= nil then stat.FireDelay  = 0.3 end
+                if stat.RateOfFire ~= nil then stat.RateOfFire = 0.3 end
 
                 stat.Spread = 0
                 stat.HipFireAccuracy = 0
@@ -1533,7 +1533,7 @@ Tabs.GunMod:AddButton({
             local GunStats = require(ReplicatedStorage:WaitForChild("GunScripts"):WaitForChild("GunStats"))
             if GunStats.FanFirePrepTime ~= nil then
                 if setreadonly then pcall(setreadonly, GunStats, false) end
-                GunStats.FanFirePrepTime = 0.18
+                GunStats.FanFirePrepTime = 0.1
                 if setreadonly then pcall(setreadonly, GunStats, true) end
             end
             for _, stat in pairs(GunStats) do

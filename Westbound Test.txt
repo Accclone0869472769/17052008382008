@@ -21,6 +21,7 @@ local S = {
         TeamCheck        = false,
         FriendCheck      = false,
         WallCheck        = false,
+        AimCivilians     = false,
         FOVRadius        = 90,
         ESPEnabled       = false,
         NoFog            = false,
@@ -1027,7 +1028,7 @@ task.spawn(function()
                 if not plr or plr == LocalPlayer then return end
                 if S.Config.TeamCheck and plr.Team == LocalPlayer.Team then return end
                 if S.Config.FriendCheck and isFriend(plr) then return end
-                if plr.Team and string.match(string.lower(plr.Team.Name), "civilian") then return end
+                if not S.Config.AimCivilians and plr.Team and string.match(string.lower(plr.Team.Name), "civilian") then return end
             end
             if S.Config.WallCheck and not IsTargetVisible(part, char) then return end
 
@@ -1392,6 +1393,7 @@ Tabs.Aim:AddDropdown("FOVMode", { Title = "FOV Mode", Values = {"FOV", "No FOV"}
 Tabs.Aim:AddToggle("TeamCheck", { Title = "Team Check", Default = S.Config.TeamCheck, Callback = function(v) S.Config.TeamCheck = v SaveConfig() end })
 Tabs.Aim:AddToggle("FriendCheck", { Title = "Friend Check", Default = S.Config.FriendCheck, Callback = function(v) S.Config.FriendCheck = v SaveConfig() end })
 Tabs.Aim:AddToggle("WallCheck", { Title = "Wall Check", Default = S.Config.WallCheck, Callback = function(v) S.Config.WallCheck = v SaveConfig() end })
+Tabs.Aim:AddToggle("AimCivilians", { Title = "Aim Civilians", Default = S.Config.AimCivilians, Callback = function(v) S.Config.AimCivilians = v SaveConfig() end })
 
 Tabs.Aim:AddParagraph({ Title = "Headbox", Content = "" })
 Tabs.Aim:AddToggle("HeadboxToggle", { Title = "Enable Headbox", Default = S.Config.HeadboxEnabled, Callback = function(v) S.Config.HeadboxEnabled = v SaveConfig() end })

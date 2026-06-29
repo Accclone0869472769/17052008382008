@@ -21,7 +21,6 @@ local S = {
         FriendCheck      = false,
         WallCheck        = false,
         FOVRadius        = 90,
-        WhitelistPlayers = {},
         ESPEnabled       = false,
         NoFog            = false,
         FullBright       = false,
@@ -1020,7 +1019,6 @@ task.spawn(function()
             if isPlayer then
                 local plr = Players:GetPlayerFromCharacter(obj)
                 if not plr or plr == LocalPlayer then return end
-                if not isLassoReq and S.Config.WhitelistPlayers and S.Config.WhitelistPlayers[plr.Name] then return end
                 if S.Config.TeamCheck and plr.Team == LocalPlayer.Team then return end
                 if S.Config.FriendCheck and isFriend(plr) then return end
                 if plr.Team and string.match(string.lower(plr.Team.Name), "civilian") then return end
@@ -1354,52 +1352,7 @@ task.spawn(function()
     end
 end)
 
-Tabs.Aim:AddParagraph({ Title = "Whitelist", Content = "Ignore Target for Silent Aim, Kill Aura, Dynamite, Headbox" })
 
-local playerNames = {}
-for _, p in ipairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer then table.insert(playerNames, p.Name) end
-end
-
-local WhitelistDrop = Tabs.Aim:AddDropdown("WhitelistPlayers", {
-    Title = "Whitelist Players",
-    Values = playerNames,
-    Multi = true,
-    Default = S.Config.WhitelistPlayers or {},
-    Callback = function(v)
-        local cleanTable = {}
-        for key, isSelected in pairs(v) do
-            if isSelected then cleanTable[key] = true end
-        end
-        S.Config.WhitelistPlayers = cleanTable
-        SaveConfig()
-    end
-})
-
-Players.PlayerAdded:Connect(function(p)
-    if p ~= LocalPlayer then
-        table.insert(playerNames, p.Name)
-        WhitelistDrop:SetValues(playerNames)
-    end
-end)
-
-Players.PlayerRemoving:Connect(function(p)
-    for i, name in ipairs(playerNames) do
-        if name == p.Name then
-            table.remove(playerNames, i)
-            WhitelistDrop:SetValues(playerNames)
-            if S.Config.WhitelistPlayers and S.Config.WhitelistPlayers[p.Name] then
-                S.Config.WhitelistPlayers[p.Name] = nil
-                local currentSelected = {}
-                for k, val in pairs(S.Config.WhitelistPlayers) do
-                    if val then table.insert(currentSelected, k) end
-                end
-                WhitelistDrop:SetValue(currentSelected)
-            end
-            break
-        end
-    end
-end)
 
 Tabs.Aim:AddParagraph({ Title = "Silent Aim Player", Content = "" })
 Tabs.Aim:AddToggle("AimPlayer", { Title = "Silent Aim Player", Default = S.Config.AimPlayer, Callback = function(v) S.Config.AimPlayer = v if v then InitSilentAimHook() end SaveConfig() end })
@@ -1438,7 +1391,6 @@ Tabs.Aim:AddToggle("KillAura", {
                     if not Handle then continue end
                     for _, Player in ipairs(Players:GetPlayers()) do
                         if Player == LocalPlayer or not Player.Character then continue end
-                        if S.Config.WhitelistPlayers and S.Config.WhitelistPlayers[Player.Name] then continue end
                         if Player.Team and string.match(string.lower(Player.Team.Name), "civilian") then continue end
                         if S.Config.KillAuraTeamCheck and LocalPlayer.Team and Player.Team == LocalPlayer.Team then continue end
                         local EnemyHumanoid = Player.Character:FindFirstChildOfClass("Humanoid")

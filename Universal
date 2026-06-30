@@ -1367,14 +1367,11 @@ local function _isTargetValid(part)
 end
 
 RunService.RenderStepped:Connect(function()
+    if not AimSettings.AimEnabled then return end
     local vs = Camera.ViewportSize
     FOVCircleAim.Position = UDim2.new(0, vs.X / 2 + AimSettings.FOVOffsetX, 0, vs.Y / 2 + AimSettings.FOVOffsetY)
     FOVCircleAim.Size    = UDim2.new(0, AimSettings.FOV * 2, 0, AimSettings.FOV * 2)
     FOVCircleAim.Visible = AimSettings.ShowFOV
-    if not AimSettings.AimEnabled then
-        currentAimTarget = nil
-        return
-    end
     if tick() - lastAimScan >= AIM_SCAN_INTERVAL then
         lastAimScan = tick()
         if currentAimTarget and _isTargetValid(currentAimTarget) then
@@ -2461,6 +2458,7 @@ LocalPlayer.Idled:Connect(function()
     end
 end)
 local fbConnection = nil
+local lastFBUpdate = 0
 MiscTab:AddToggle("LoopFBToggle", {
     Title = "Loop FullBright",
     Default = SavedCfg.loopFBEnabled or false,
@@ -2468,7 +2466,9 @@ MiscTab:AddToggle("LoopFBToggle", {
         S.loopFBEnabled = Value
         if S.loopFBEnabled then
             if fbConnection then fbConnection:Disconnect() end
-            fbConnection = RunService.RenderStepped:Connect(function()
+            fbConnection = RunService.Heartbeat:Connect(function()
+                if tick() - lastFBUpdate < 0.1 then return end
+                lastFBUpdate = tick()
                 local lighting = game:GetService("Lighting")
                 lighting.Brightness = 2
                 lighting.ClockTime = 14
@@ -2998,7 +2998,7 @@ ServerTab:AddButton({
 
 task.spawn(function()
     while true do
-        task.wait(2)
+        task.wait(1.5)
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer then
                 local char = player.Character
@@ -3015,25 +3015,16 @@ task.spawn(function()
                             createNameESP(player, char)
                         end
                     end
+                    if S.autoBodyHitboxEnabled then
+                        applyBodyHitbox(char, S.hitboxSize)
+                    end
                 end
             end
         end
-    end
-end)
-task.spawn(function()
-    while true do
-        task.wait(1.1)
-        if S.autoBodyHitboxEnabled then
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character and isAlive(player.Character) then
-                    applyBodyHitbox(player.Character, S.hitboxSize)
-                end
-            end
-            for char, _ in pairs(S.bodyHitboxChars) do
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if not char.Parent or not humanoid or humanoid.Health <= 0 then
-                    pcall(resetBodyHitbox, char)
-                end
+        for char, _ in pairs(S.bodyHitboxChars) do
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if not char.Parent or not humanoid or humanoid.Health <= 0 then
+                pcall(resetBodyHitbox, char)
             end
         end
     end

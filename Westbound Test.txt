@@ -342,6 +342,19 @@ AuraBtn.MouseButton1Click:Connect(function()
                         end)
                     end
                 end
+                
+                -- Rob players
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer then
+                        local pChar = player.Character
+                        local pRoot = pChar and pChar:FindFirstChild("HumanoidRootPart")
+                        if pRoot and (myPos - pRoot.Position).Magnitude <= 25 then
+                            pcall(function()
+                                robRemote:FireServer("Player", player, pRoot)
+                            end)
+                        end
+                    end
+                end
             end
             task.wait(0.15)
         end
@@ -971,7 +984,7 @@ task.spawn(function()
 end)
 
 UserInputService.JumpRequest:Connect(function()
-    if S.Config.InfJumpEnabled or S.Config.NoJumpCooldownEnabled then
+    if S.Config.NoJumpCooldownEnabled then
         pcall(function()
             local char = LocalPlayer.Character
             if char then
@@ -1816,14 +1829,13 @@ end
 
 Tabs.Player:AddParagraph({ Title = "Lighting", Content = "" })
 Tabs.Player:AddToggle("NoFog", { Title = "NoFog", Default = S.Config.NoFog, Callback = function(v) S.Config.NoFog = v SaveConfig() end })
-Tabs.Player:AddToggle("FullBright", { Title = "Loop FB (Fullbright)", Default = S.Config.FullBright, Callback = function(v) S.Config.FullBright = v SaveConfig() end })
+Tabs.Player:AddToggle("FullBright", { Title = "Full Bright", Default = S.Config.FullBright, Callback = function(v) S.Config.FullBright = v SaveConfig() end })
 
 Tabs.Player:AddParagraph({ Title = "Movement", Content = "" })
 Tabs.Player:AddToggle("NoJumpCooldown", { Title = "No Jump Cooldown", Default = S.Config.NoJumpCooldownEnabled, Callback = function(v) S.Config.NoJumpCooldownEnabled = v SaveConfig() end })
 Tabs.Player:AddSlider("CustomJumpPower", { Title = "Jump Power", Default = S.Config.JumpPower, Min = 50, Max = 200, Rounding = 0, Callback = function(v) S.Config.JumpPower = v SaveConfig() end })
 Tabs.Player:AddToggle("LoopSpeed", { Title = "Enable Loop Speed", Default = S.Config.LoopSpeedEnabled, Callback = function(v) S.Config.LoopSpeedEnabled = v SaveConfig() end })
 Tabs.Player:AddSlider("WalkSpeed", { Title = "Walk Speed", Default = S.Config.WalkSpeed, Min = 16, Max = 250, Rounding = 0, Callback = function(v) S.Config.WalkSpeed = v SaveConfig() end })
-Tabs.Player:AddToggle("InfJump", { Title = "Infinite Jump", Default = S.Config.InfJumpEnabled, Callback = function(v) S.Config.InfJumpEnabled = v SaveConfig() end })
 Tabs.Player:AddToggle("Noclip", { Title = "Noclip", Default = S.Config.NoclipEnabled, Callback = function(v) S.Config.NoclipEnabled = v SaveConfig() end })
 Tabs.Player:AddToggle("AntiFallDame", { Title = "Anti Fall Dame", Default = S.Config.AntiFallDame, Callback = function(v) S.Config.AntiFallDame = v SaveConfig() end })
 
@@ -1861,6 +1873,18 @@ Tabs.Westbound:AddToggle("AuraRob", {
                                         robRemote:FireServer(string.match(target.obj.Name, "Register") and "Register" or "Safe", target.obj)
                                     end
                                 end)
+                            end
+                        end
+                        -- Rob players
+                        for _, player in ipairs(Players:GetPlayers()) do
+                            if player ~= LocalPlayer then
+                                local pChar = player.Character
+                                local pRoot = pChar and pChar:FindFirstChild("HumanoidRootPart")
+                                if pRoot and (myPos - pRoot.Position).Magnitude <= 25 then
+                                    pcall(function()
+                                        robRemote:FireServer("Player", player, pRoot)
+                                    end)
+                                end
                             end
                         end
                     end

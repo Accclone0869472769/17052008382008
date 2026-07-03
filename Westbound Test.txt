@@ -947,19 +947,29 @@ _G.VelocityConnection = RunService.Heartbeat:Connect(function()
     end
 end)
 
-RunService.Stepped:Connect(function()
-    if S.Config.AntiFallDame then
-        local char = LocalPlayer.Character
-        if char then
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local vel = hrp.AssemblyLinearVelocity
-                if vel.Y < -100 then
-                    hrp.AssemblyLinearVelocity = Vector3.new(vel.X, -100, vel.Z)
-                end
+pcall(function()
+    local Ragdoll = require(ReplicatedStorage:WaitForChild("SharedModules", 3):WaitForChild("Ragdoll", 3))
+    if type(Ragdoll) == "table" then
+        local oldEnable = Ragdoll.EnableRagdoll
+        Ragdoll.EnableRagdoll = function(self, ...)
+            if S.Config.AntiFallDame then return end
+            return oldEnable(self, ...)
+        end
+    end
+end)
+
+local OldNamecall
+OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    if not checkcaller() and method == "FireServer" and self.Name == "ChangeCharacter" then
+        if args[1] == "Damage" or args[1] == "Ragdoll" then
+            if S.Config.AntiFallDame then
+                return
             end
         end
     end
+    return OldNamecall(self, ...)
 end)
 
 task.spawn(function()

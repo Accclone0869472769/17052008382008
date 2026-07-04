@@ -2194,26 +2194,114 @@ Tabs.Settings:AddSlider("FloatButtonSize", {
     end
 })
 
-local function getClosestDynamite()
-    local closest = nil
-    local dist = math.huge
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return nil end
-    for _,plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Team and plr.Team.Name ~= "Civilians" then
-            if S.Config.DynamiteTeamCheck and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
-            if S.Config.DynamiteFriendCheck and isFriend(plr) then continue end
-            local mag = (LocalPlayer.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-            if mag < dist then dist = mag closest = plr end
+local function getDynamiteTarget()
+    local cam = workspace.CurrentCamera
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    -- Raycast từ camera để lấy điểm chỉ tâm
+    local ray = Ray.new(cam.CFrame.Position, cam.CFrame.LookVector * 1000)
+    local hit, pos = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character, workspace.CurrentCamera})
+    
+    local targetPlr = nil
+    
+    -- Nếu tâm chỉ trúng người
+    if hit and hit.Parent and hit.Parent:FindFirstChild("Humanoid") then
+        local p = Players:GetPlayerFromCharacter(hit.Parent)
+        if p and p ~= LocalPlayer and p.Team and p.Team.Name ~= "Civilians" then
+            if not (S.Config.DynamiteTeamCheck and LocalPlayer.Team and p.Team == LocalPlayer.Team) and
+               not (S.Config.DynamiteFriendCheck and isFriend(p)) then
+                targetPlr = p
+            end
         end
     end
-    return closest
+
+    -- Nếu không chỉ trúng ai, lấy thằng gần tâm nhất (góc nhìn)
+    if not targetPlr then
+        local closestDist = math.huge
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Team and plr.Team.Name ~= "Civilians" then
+                if S.Config.DynamiteTeamCheck and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
+                if S.Config.DynamiteFriendCheck and isFriend(plr) then continue end
+                
+                local enemyRoot = plr.Character.HumanoidRootPart
+                local screenPos, onScreen = cam:WorldToViewportPoint(enemyRoot.Position)
+                
+                if onScreen then
+                    -- Tính khoảng cách từ tâm màn hình đến player
+                    local mouseDist = (Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                    if mouseDist < closestDist then
+                        closestDist = mouseDist
+                        targetPlr = plr
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Nếu màn hình k có ai thì lấy thằng gần nhất trong map
+    if not targetPlr then
+        local closestMag = math.huge
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Team and plr.Team.Name ~= "Civilians" then
+                if S.Config.DynamiteTeamCheck and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
+                if S.Config.DynamiteFriendCheck and isFriend(plr) then continue end
+                local mag = (root.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+                if mag < closestMag then
+                    closestMag = mag
+                    targetPlr = plr
+                end
+            end
+        end
+    end
+
+    return targetPlr
 end
+
+-- GUI hiển thị Target
+local TargetUI = Instance.new("ScreenGui")
+TargetUI.Name = "DynamiteTargetUI"
+TargetUI.ResetOnSpawn = false
+TargetUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+if syn and syn.protect_gui then
+    pcall(syn.protect_gui, TargetUI)
+end
+local coreGui = game:GetService("CoreGui") or LocalPlayer:FindFirstChild("PlayerGui")
+if coreGui:FindFirstChild("DynamiteTargetUI") then
+    coreGui.DynamiteTargetUI:Destroy()
+end
+TargetUI.Parent = coreGui
+
+local TargetLabel = Instance.new("TextLabel")
+TargetLabel.Size = UDim2.new(0, 260, 0, 36)
+TargetLabel.Position = UDim2.new(0.5, -130, 0, 80)
+TargetLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+TargetLabel.BackgroundTransparency = 0.3
+TargetLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+TargetLabel.Font = Enum.Font.GothamBold
+TargetLabel.TextSize = 16
+TargetLabel.Visible = false
+TargetLabel.Parent = TargetUI
+
+local TargetStroke = Instance.new("UIStroke")
+TargetStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+TargetStroke.Thickness = 1
+TargetStroke.Color = Color3.fromRGB(255, 60, 60)
+TargetStroke.Transparency = 0.2
+TargetStroke.Parent = TargetLabel
+
+local TargetCorner = Instance.new("UICorner")
+TargetCorner.CornerRadius = UDim.new(0, 8)
+TargetCorner.Parent = TargetLabel
+
+local targetCount = 0
+
 
 workspace.ChildAdded:Connect(function(v)
     if v.Name == "DynamitePart" then
         task.wait()
         if not S.Config.DynamiteTargetEnabled then return end
-        local target = getClosestDynamite()
+        local target = getDynamiteTarget()
         if not target then return end
         local hrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
@@ -2227,21 +2315,67 @@ workspace.ChildAdded:Connect(function(v)
         bg.P = 999999
         bg.Parent = v
 
+        -- Lấy vị trí ném ban đầu để tạo đường cong (nếu muốn)
+        local startPos = v.Position
+        local timeElapsed = 0
+
+        targetCount = targetCount + 1
+        TargetLabel.Text = "Target: " .. target.Name
+        if target.Team then
+            TargetLabel.TextColor3 = target.TeamColor.Color
+            TargetStroke.Color = target.TeamColor.Color
+        else
+            TargetLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+            TargetStroke.Color = Color3.fromRGB(255, 60, 60)
+        end
+        TargetLabel.Visible = true
+        
+        local isHidden = false
+        local function hideTargetUI()
+            if isHidden then return end
+            isHidden = true
+            targetCount = targetCount - 1
+            if targetCount <= 0 then
+                targetCount = 0
+                TargetLabel.Visible = false
+            end
+        end
+
         local conn
-        conn = RunService.Heartbeat:Connect(function()
+        conn = RunService.Heartbeat:Connect(function(dt)
+            timeElapsed = timeElapsed + dt
             if not S.Config.DynamiteTargetEnabled then
-                if conn then conn:Disconnect() end
+                if conn then conn:Disconnect() hideTargetUI() end
                 if bv then bv:Destroy() end
                 if bg then bg:Destroy() end
                 return
             end
             if v and v.Parent and hrp and hrp.Parent then
-                local pos = hrp.Position + Vector3.new(0,3,0)
-                bv.Velocity = (pos - v.Position) * 25
+                local dist = (hrp.Position - v.Position).Magnitude
+                local timeToTarget = math.clamp(dist / 250, 0, 1)
+                local targetPos = hrp.Position + Vector3.new(0, 1, 0) + (hrp.AssemblyLinearVelocity * timeToTarget)
+                
+                local dir = (targetPos - v.Position)
+                bv.Velocity = dir.Unit * math.clamp(dir.Magnitude * 15, 100, 500)
                 bg.CFrame = CFrame.new(v.Position, hrp.Position)
             else
-                if conn then conn:Disconnect() end
+                if conn then conn:Disconnect() hideTargetUI() end
             end
+        end)
+        
+        -- Thêm backup cleanup trong trường hợp part bị xóa đột ngột
+        v.AncestryChanged:Connect(function(_, parent)
+            if not parent then
+                if conn then conn:Disconnect() end
+                hideTargetUI()
+            end
+        end)
+        
+        task.delay(10, function()
+            if conn and conn.Connected then
+                conn:Disconnect()
+            end
+            hideTargetUI()
         end)
     end
 end)

@@ -2199,13 +2199,11 @@ local function getDynamiteTarget()
     local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
 
-    -- Raycast từ camera để lấy điểm chỉ tâm
     local ray = Ray.new(cam.CFrame.Position, cam.CFrame.LookVector * 1000)
     local hit, pos = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character, workspace.CurrentCamera})
     
     local targetPlr = nil
     
-    -- Nếu tâm chỉ trúng người
     if hit and hit.Parent and hit.Parent:FindFirstChild("Humanoid") then
         local p = Players:GetPlayerFromCharacter(hit.Parent)
         if p and p ~= LocalPlayer and p.Team and p.Team.Name ~= "Civilians" then
@@ -2216,7 +2214,6 @@ local function getDynamiteTarget()
         end
     end
 
-    -- Nếu không chỉ trúng ai, lấy thằng gần tâm nhất (góc nhìn)
     if not targetPlr then
         local closestDist = math.huge
         for _, plr in pairs(Players:GetPlayers()) do
@@ -2228,7 +2225,6 @@ local function getDynamiteTarget()
                 local screenPos, onScreen = cam:WorldToViewportPoint(enemyRoot.Position)
                 
                 if onScreen then
-                    -- Tính khoảng cách từ tâm màn hình đến player
                     local mouseDist = (Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
                     if mouseDist < closestDist then
                         closestDist = mouseDist
@@ -2239,7 +2235,6 @@ local function getDynamiteTarget()
         end
     end
     
-    -- Nếu màn hình k có ai thì lấy thằng gần nhất trong map
     if not targetPlr then
         local closestMag = math.huge
         for _, plr in pairs(Players:GetPlayers()) do
@@ -2258,7 +2253,6 @@ local function getDynamiteTarget()
     return targetPlr
 end
 
--- GUI hiển thị Target
 local TargetUI = Instance.new("ScreenGui")
 TargetUI.Name = "DynamiteTargetUI"
 TargetUI.ResetOnSpawn = false
@@ -2315,7 +2309,6 @@ workspace.ChildAdded:Connect(function(v)
         bg.P = 999999
         bg.Parent = v
 
-        -- Lấy vị trí ném ban đầu để tạo đường cong (nếu muốn)
         local startPos = v.Position
         local timeElapsed = 0
 
@@ -2363,7 +2356,6 @@ workspace.ChildAdded:Connect(function(v)
             end
         end)
         
-        -- Thêm backup cleanup trong trường hợp part bị xóa đột ngột
         v.AncestryChanged:Connect(function(_, parent)
             if not parent then
                 if conn then conn:Disconnect() end

@@ -49,7 +49,7 @@ local S = {
         JumpPower        = 55,
         HorseHackEnabled = false,
         HorseSprintSpeed = 100,
-        HorseTurnSens    = 0.15,
+        HorseTurnSens    = 0.5,
         DynamiteTargetEnabled = false,
         DynamiteTeamCheck = true,
         DynamiteFriendCheck = false,
@@ -2020,12 +2020,12 @@ Tabs.Westbound:AddToggle("LassoTrollCivilians", {
     end
 })
 
-Tabs.Westbound:AddParagraph({ Title = "Auto Collect & Sell", Content = "" })
-Tabs.Westbound:AddParagraph({ Title = "Info", Content = "Auto Collect Items, Animals, Chests, Bags and Sell" })
+Tabs.Westbound:AddParagraph({ Title = "Auto Collect", Content = "" })
+Tabs.Westbound:AddParagraph({ Title = "Info", Content = "Auto Collect Bag, Item Manssion, Skin Animals, Open Chest" })
 
 local AutoCollectEnabled = S.Config.AutoCollectEnabled
 Tabs.Westbound:AddToggle("AutoCollect", {
-    Title = "Auto Collect & Auto Sell", Default = S.Config.AutoCollectEnabled,
+    Title = "Auto Collect ", Default = S.Config.AutoCollectEnabled,
     Callback = function(v)
         AutoCollectEnabled = v
         S.Config.AutoCollectEnabled = v
@@ -2109,12 +2109,6 @@ Tabs.Westbound:AddToggle("AutoCollect", {
                 end
                 task.wait(0.2)
             end
-        end)
-
-        task.spawn(function()
-            local invEvent = ReplicatedStorage:WaitForChild("GeneralEvents",9e9):WaitForChild("Inventory",9e9)
-            local args = { [1] = "Sell" }
-            while AutoCollectEnabled do pcall(function() invEvent:InvokeServer(unpack(args)) end) task.wait(1.5) end
         end)
     end
 })

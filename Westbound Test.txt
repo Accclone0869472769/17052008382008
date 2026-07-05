@@ -969,6 +969,9 @@ OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
             end
         end
     end
+    if not checkcaller() and method == "InvokeServer" and self.Name == "DrinkPotion" and S.Config.FastHealEnabled then
+        return
+    end
     return OldNamecall(self, ...)
 end)
 
@@ -1980,7 +1983,29 @@ Tabs.Westbound:AddToggle("FastHeal", {
         S.Config.FastHealEnabled = v
         SaveConfig()
         if fastHealConnection then fastHealConnection:Disconnect() fastHealConnection = nil end
+        
+        local function updatePotions(state)
+            local bp = LocalPlayer:FindFirstChild("Backpack")
+            if bp then
+                for _, p in pairs(bp:GetChildren()) do
+                    if p.Name == "Health Potion" and p:IsA("Tool") then p.ManualActivationOnly = state end
+                end
+            end
+            local char = LocalPlayer.Character
+            if char then
+                for _, p in pairs(char:GetChildren()) do
+                    if p.Name == "Health Potion" and p:IsA("Tool") then p.ManualActivationOnly = state end
+                end
+            end
+        end
+
         if v then
+            task.spawn(function()
+                while FastHealEnabled do
+                    task.wait(0.2)
+                    updatePotions(true)
+                end
+            end)
             local canDrink = true
             fastHealConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
                 if gameProcessed then return end
@@ -1993,8 +2018,19 @@ Tabs.Westbound:AddToggle("FastHeal", {
                             if drinkRemote and canDrink then
                                 canDrink = false
                                 pcall(function() drinkRemote:InvokeServer() end)
+                                
                                 local hum = char:FindFirstChildOfClass("Humanoid")
-                                if hum then hum:UnequipTools() end
+                                local animator = hum and hum:FindFirstChildOfClass("Animator")
+                                if animator then
+                                    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                                        if track.Priority == Enum.AnimationPriority.Action then track:Stop() end
+                                    end
+                                    local animConn = animator.AnimationPlayed:Connect(function(track)
+                                        if track.Priority == Enum.AnimationPriority.Action then track:Stop() end
+                                    end)
+                                    task.delay(0.5, function() animConn:Disconnect() end)
+                                end
+
                                 task.wait(1)
                                 canDrink = true
                             end
@@ -2002,6 +2038,8 @@ Tabs.Westbound:AddToggle("FastHeal", {
                     end
                 end
             end)
+        else
+            updatePotions(false)
         end
     end
 })

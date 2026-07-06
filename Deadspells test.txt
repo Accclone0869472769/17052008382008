@@ -45,7 +45,7 @@ local Config = {
     ItemESPEnabled = false,
     AutoMineEnabled = false,
     OreESPEnabled = false,
-    UITheme = "Dark",
+    UITheme              = "Amethyst",
     DashFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = 0 },
     DashFloatVisible = false,
     DashPower = 80,
@@ -73,7 +73,7 @@ local Config = {
     KillAuraDistance = 500
 }
 
-local SAVE_FOLDER = "StarCrowHub"
+local SAVE_FOLDER = "Chiikawa Hub"
 local SAVE_FILE = SAVE_FOLDER .. "/DeadspellsConfig.json"
 
 local function SaveConfig()
@@ -119,7 +119,7 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 local LogoGui = Instance.new("ScreenGui")
-LogoGui.Name = "StarCrowLogoGui"
+LogoGui.Name = "Chiikawa HubLogoGui"
 LogoGui.ResetOnSpawn = false
 LogoGui.DisplayOrder = 10000
 pcall(function() LogoGui.Parent = game:GetService("CoreGui") end)
@@ -146,7 +146,8 @@ LogoImg.Position = UDim2.new(0, 0, 0, 0)
 LogoImg.BackgroundTransparency = 1
 LogoImg.Image = "rbxassetid://140471379264853"
 LogoImg.ScaleType = Enum.ScaleType.Crop
-LogoImg.Parent = LogoFrame
+        Instance.new("UICorner", LogoImg).CornerRadius = UDim.new(0.2, 0)
+        LogoImg.Parent = LogoFrame
 
 local LogoBtn = Instance.new("TextButton")
 LogoBtn.Size = UDim2.new(1, 0, 1, 0)
@@ -188,7 +189,7 @@ local function toggleUI()
     for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
         if gui:IsA("ScreenGui") then
             for _, desc in ipairs(gui:GetDescendants()) do
-                if desc:IsA("TextLabel") and desc.Text == "StarCrowHub" then
+                if desc:IsA("TextLabel") and desc.Text == "Chiikawa Hub" then
                     local p = desc.Parent
                     while p and p.Parent ~= gui do p = p.Parent end
                     if p and p:IsA("Frame") then p.Visible = uiVisible return end
@@ -251,13 +252,13 @@ local function updateESP()
             if char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") then
                 local hum = char.Humanoid
                 local head = char.Head
-                local esp = head:FindFirstChild("StarCrowESP")
-                local chams = char:FindFirstChild("StarCrowChams")
+                local esp = head:FindFirstChild("Chiikawa HubESP")
+                local chams = char:FindFirstChild("Chiikawa HubChams")
 
                 if Config.ESPEnabled and hum.Health > 0 then
                     if not esp then
                         esp = Instance.new("BillboardGui")
-                        esp.Name = "StarCrowESP"
+                        esp.Name = "Chiikawa HubESP"
                         esp.Adornee = head
                         esp.Size = UDim2.new(0, 240, 0, 40)
                         esp.StudsOffset = Vector3.new(0, 2.5, 0)
@@ -300,7 +301,7 @@ local function updateESP()
                     
                     if not chams then
                         chams = Instance.new("Highlight")
-                        chams.Name = "StarCrowChams"
+                        chams.Name = "Chiikawa HubChams"
                         chams.Parent = char
                     end
                     chams.FillColor = teamColor
@@ -573,7 +574,7 @@ local function cleanupNPC(npc)
         head.CanCollide = true
         head.Massless = false
         
-        local outline = head:FindFirstChild("StarCrowHitboxOutline")
+        local outline = head:FindFirstChild("Chiikawa HubHitboxOutline")
         if outline then outline:Destroy() end
     end
     origSizes[head] = nil
@@ -592,7 +593,7 @@ local function applyHitbox(npc)
     origSizes[head] = head.Size
 
     local outline = Instance.new("SelectionBox")
-    outline.Name = "StarCrowHitboxOutline"
+    outline.Name = "Chiikawa HubHitboxOutline"
     outline.Color3 = Color3.fromRGB(255, 50, 50) 
     outline.LineThickness = 0.05 
     outline.Transparency = 0.5 
@@ -668,7 +669,7 @@ local function cleanupBossHitbox(npc)
         head.Transparency = 0
         head.CanCollide = true
         head.Massless = false
-        local outline = head:FindFirstChild("StarCrowBossHitboxOutline")
+        local outline = head:FindFirstChild("Chiikawa HubBossHitboxOutline")
         if outline then outline:Destroy() end
     end
     bossOrigSizes[head] = nil
@@ -688,7 +689,7 @@ local function applyBossHitbox(npc)
     bossOrigSizes[head] = head.Size
 
     local outline = Instance.new("SelectionBox")
-    outline.Name = "StarCrowBossHitboxOutline"
+    outline.Name = "Chiikawa HubBossHitboxOutline"
     outline.Color3 = Color3.fromRGB(255, 165, 0)
     outline.LineThickness = 0.3
     outline.Transparency = 0
@@ -757,7 +758,7 @@ local function setupNPCESP(npc)
     local npcColor = getNPCColor(npc)
 
     local highlight = Instance.new("Highlight")
-    highlight.Name = "StarCrowNPCChams"
+    highlight.Name = "Chiikawa HubNPCChams"
     highlight.FillColor = Color3.fromRGB(0, 0, 0)
     highlight.OutlineColor = Color3.fromRGB(220, 80, 80)
     highlight.FillTransparency = 1
@@ -947,7 +948,7 @@ local function createItemESP(itemModel)
     local targetPart = itemModel.PrimaryPart or itemModel:FindFirstChildWhichIsA("BasePart")
     if not targetPart then return end
     local billboard = Instance.new("BillboardGui")
-    billboard.Name = "StarCrowItemESP"
+    billboard.Name = "Chiikawa HubItemESP"
     billboard.AlwaysOnTop = true
     billboard.Size = UDim2.new(0, 150, 0, 30)
     billboard.StudsOffset = Vector3.new(0, 2, 0)
@@ -994,11 +995,11 @@ workspace.DescendantAdded:Connect(function(descendant)
 end)
 
 local function buildBurgerESP(obj)
-    local old = obj:FindFirstChild("StarCrowBurgerESP")
+    local old = obj:FindFirstChild("Chiikawa HubBurgerESP")
     if old then old:Destroy() end
 
     local espFolder = Instance.new("Folder")
-    espFolder.Name = "StarCrowBurgerESP"
+    espFolder.Name = "Chiikawa HubBurgerESP"
     espFolder.Parent = obj
 
     local highlight = Instance.new("Highlight")
@@ -1062,10 +1063,10 @@ local function updateBurgerESP()
         if not obj or not obj.Parent then
             table.remove(activeBurgers, i)
         else
-            local espFolder = obj:FindFirstChild("StarCrowBurgerESP")
+            local espFolder = obj:FindFirstChild("Chiikawa HubBurgerESP")
             if not espFolder then
                 buildBurgerESP(obj)
-                espFolder = obj:FindFirstChild("StarCrowBurgerESP")
+                espFolder = obj:FindFirstChild("Chiikawa HubBurgerESP")
             end
             if espFolder then
                 local highlight = espFolder:FindFirstChild("Chams")
@@ -1270,7 +1271,7 @@ local function createOreESP(obj)
     if not targetPart then return end
 
     local highlight = Instance.new("Highlight")
-    highlight.Name = "StarCrowOreHL"
+    highlight.Name = "Chiikawa HubOreHL"
     highlight.FillColor = color
     highlight.OutlineColor = color
     highlight.FillTransparency = 0.5
@@ -1279,7 +1280,7 @@ local function createOreESP(obj)
     highlight.Parent = obj
 
     local billboard = Instance.new("BillboardGui")
-    billboard.Name = "StarCrowOreBB"
+    billboard.Name = "Chiikawa HubOreBB"
     billboard.Size = UDim2.new(0, 120, 0, 40)
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = 800
@@ -1361,12 +1362,12 @@ RunService.Heartbeat:Connect(function()
 end)
 
 local Window = Fluent:CreateWindow({
-    Title = "StarCrowHub",
+    Title = "Chiikawa Hub",
     SubTitle = "Dead Spells",
     TabWidth = 130,
     Size = UDim2.fromOffset(460, 400),
     Acrylic = false,
-    Theme = Config.UITheme or "Dark",
+    Theme       = Config.UITheme or "Amethyst",
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
@@ -1393,7 +1394,7 @@ Tabs.Info:AddButton({
     Title = "Copy Discord Link",
     Callback = function()
         pcall(function()
-            setclipboard("https://discord.com/invite/wXthjUsXns")
+            setclipboard("https://discord.gg/WYuSRFquqA")
             Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 })
         end)
     end
@@ -1640,7 +1641,7 @@ Tabs.ESP:AddToggle("ESPBurgersToggle", {
         SaveConfig()
         for _, obj in ipairs(activeBurgers) do
             if obj and obj.Parent then
-                local espFolder = obj:FindFirstChild("StarCrowBurgerESP")
+                local espFolder = obj:FindFirstChild("Chiikawa HubBurgerESP")
                 if espFolder then
                     for _, child in ipairs(espFolder:GetChildren()) do
                         if child:IsA("Highlight") or child:IsA("BillboardGui") then
@@ -1943,8 +1944,8 @@ end)
 
 Tabs.Settings:AddDropdown("UITheme", {
     Title = "UI Theme",
-    Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose", "Mint" },
-    Default = Config.UITheme or "Dark",
+    Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose" },
+    Default  = Config.UITheme or "Amethyst",
     Callback = function(Value)
         Config.UITheme = Value
         SaveConfig()

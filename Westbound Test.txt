@@ -1206,7 +1206,6 @@ local moneyTrackConn = nil
 local Window = Fluent:CreateWindow({ Title = "Chiikawa Hub", SubTitle = "West Bound", TabWidth = 130, Size = UDim2.fromOffset(460, 400), Acrylic = false, Theme = S.Config.UITheme or "Dark", MinimizeKey = Enum.KeyCode.LeftControl })
 
 local Tabs = {
-    Info      = Window:AddTab({ Title = "Info",      Icon = "info" }),
     AutoFarm  = Window:AddTab({ Title = "Auto Farm", Icon = "gem" }),
     Teleport  = Window:AddTab({ Title = "Teleport",  Icon = "map" }),
     Aim       = Window:AddTab({ Title = "Combat",    Icon = "crosshair" }),
@@ -1217,9 +1216,6 @@ local Tabs = {
     Westbound = Window:AddTab({ Title = "Misc",      Icon = "shield" }),
     Settings  = Window:AddTab({ Title = "Settings",  Icon = "settings" })
 }
-
-Tabs.Info:AddParagraph({ Title = "Join our Discord", Content = "Discord is the best place to get updates and report bugs." })
-Tabs.Info:AddButton({ Title = "Copy Discord Link", Callback = function() pcall(function() setclipboard("https://discord.gg/WYuSRFquqA") Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 }) end) end })
 
 local function spawnTP(name, isOutlaw)
     task.spawn(function()

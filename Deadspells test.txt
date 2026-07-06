@@ -1372,7 +1372,6 @@ local Window = Fluent:CreateWindow({
 })
 
 local Tabs = {
-    Info = Window:AddTab({ Title = "Info", Icon = "info" }),
     Main = Window:AddTab({ Title = "Main", Icon = "home" }),
     ESP = Window:AddTab({ Title = "ESP", Icon = "eye" }),
     Player = Window:AddTab({ Title = "Player", Icon = "user" }),
@@ -1384,21 +1383,6 @@ local Tabs = {
 
 local FastAttackToggleObj, FastAttackSliderObj, NPCHitboxToggleObj, NPCHitboxSliderObj
 local performDash
-
-Tabs.Info:AddParagraph({
-    Title = "Join our Discord",
-    Content = "Discord is the best place to get updates and report bugs."
-})
-
-Tabs.Info:AddButton({
-    Title = "Copy Discord Link",
-    Callback = function()
-        pcall(function()
-            setclipboard("https://discord.gg/WYuSRFquqA")
-            Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 })
-        end)
-    end
-})
 
 local MobCache = {}
 
@@ -2164,4 +2148,3 @@ Tabs.AirWeld:AddToggle("AirWeldToggle", {
 })
 
 Window:SelectTab(1)
-  

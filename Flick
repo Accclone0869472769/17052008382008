@@ -289,27 +289,11 @@ local Window = Fluent:CreateWindow({
 })
 
 local Tabs = {
-    Info     = Window:AddTab({ Title = "Info",     Icon = "info"      }),
     Main     = Window:AddTab({ Title = "Main",     Icon = "crosshair" }),
     Player   = Window:AddTab({ Title = "Player",   Icon = "user"      }),
     ESP      = Window:AddTab({ Title = "ESP",      Icon = "eye"       }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings"  }),
 }
-
-Tabs.Info:AddParagraph({
-    Title   = "Join our Discord",
-    Content = "Discord is the best place to get updates and report bugs.",
-})
-
-Tabs.Info:AddButton({
-    Title    = "Copy Discord Link",
-    Callback = function()
-        pcall(function()
-            setclipboard("https://discord.gg/WYuSRFquqA")
-            Fluent:Notify({ Title = "Copied!", Content = "Discord link copied to clipboard.", Duration = 3 })
-        end)
-    end,
-})
 
 -- LOGIC AUTO SPAWN FAST
 local autoSpawnFastActive = false

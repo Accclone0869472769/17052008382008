@@ -43,7 +43,7 @@ local Config = {
     KillAuraDistance   = 500,
 }
 
-local SAVE_FOLDER = "Chiikawa Hub"
+local SAVE_FOLDER = "StarCrowHub"
 local SAVE_FILE   = SAVE_FOLDER .. "/DeadspellsAutoFarmConfig.json"
 
 local function SaveConfig()
@@ -142,11 +142,11 @@ local function isValidItem(obj)
 end
 
 local function buildBurgerESP(obj)
-    local old = obj:FindFirstChild("ChiikawaHubBurgerESP")
+    local old = obj:FindFirstChild("StarCrowBurgerESP")
     if old then old:Destroy() end
 
     local espFolder = Instance.new("Folder")
-    espFolder.Name  = "ChiikawaHubBurgerESP"
+    espFolder.Name  = "StarCrowBurgerESP"
     espFolder.Parent = obj
 
     local highlight = Instance.new("Highlight")
@@ -207,10 +207,10 @@ local function updateBurgerESP()
         if not obj or not obj.Parent then
             table.remove(activeBurgers, i)
         else
-            local espFolder = obj:FindFirstChild("ChiikawaHubBurgerESP")
+            local espFolder = obj:FindFirstChild("StarCrowBurgerESP")
             if not espFolder then
                 buildBurgerESP(obj)
-                espFolder = obj:FindFirstChild("ChiikawaHubBurgerESP")
+                espFolder = obj:FindFirstChild("StarCrowBurgerESP")
             end
             if espFolder then
                 local hl = espFolder:FindFirstChild("Chams")
@@ -536,7 +536,7 @@ task.spawn(function()
 end)
 
 local LogoGui = Instance.new("ScreenGui")
-LogoGui.Name          = "ChiikawaHubLogoGui"
+LogoGui.Name          = "StarCrowLogoGui"
 LogoGui.ResetOnSpawn  = false
 LogoGui.DisplayOrder  = 10000
 pcall(function() LogoGui.Parent = game:GetService("CoreGui") end)
@@ -545,7 +545,7 @@ if not LogoGui.Parent then LogoGui.Parent = LocalPlayer:WaitForChild("PlayerGui"
 local LogoFrame = Instance.new("Frame")
 LogoFrame.Size             = UDim2.new(0, 46, 0, 46)
 LogoFrame.Position         = UDim2.new(0, 8, 0.5, -23)
-LogoFrame.BackgroundTransparency = 1
+LogoFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
 LogoFrame.BorderSizePixel  = 0
 LogoFrame.Parent           = LogoGui
 Instance.new("UICorner", LogoFrame).CornerRadius = UDim.new(0.2, 0)
@@ -554,18 +554,23 @@ local logoStroke = Instance.new("UIStroke", LogoFrame)
 logoStroke.Thickness       = 1.8
 logoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-logoStroke.Color = Color3.fromRGB(255, 182, 193)
-
-
+local logoGrad = Instance.new("UIGradient", logoStroke)
+logoGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(130, 0,   255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0,   130, 255)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(130, 0,   255)),
+})
+task.spawn(function()
+    TweenService:Create(logoGrad, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Rotation = 180 }):Play()
+end)
 
 local LogoImg = Instance.new("ImageLabel")
-LogoImg.Size = UDim2.new(1, 0, 1, 0)
-LogoImg.Position = UDim2.new(0, 0, 0, 0)
+LogoImg.Size                = UDim2.new(1, -6, 1, -6)
+LogoImg.Position            = UDim2.new(0, 3, 0, 3)
 LogoImg.BackgroundTransparency = 1
-LogoImg.Image               = "rbxassetid://140471379264853"
-LogoImg.ScaleType = Enum.ScaleType.Crop
-        Instance.new("UICorner", LogoImg).CornerRadius = UDim.new(0.2, 0)
-        LogoImg.Parent              = LogoFrame
+LogoImg.Image               = "rbxthumb://type=Asset&id=115542332056889&w=150&h=150"
+LogoImg.ScaleType           = Enum.ScaleType.Fit
+LogoImg.Parent              = LogoFrame
 
 local LogoBtn = Instance.new("TextButton")
 LogoBtn.Size                = UDim2.new(1, 0, 1, 0)
@@ -608,7 +613,7 @@ local function toggleUI()
     for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
         if gui:IsA("ScreenGui") then
             for _, desc in ipairs(gui:GetDescendants()) do
-                if desc:IsA("TextLabel") and desc.Text == "Chiikawa Hub" then
+                if desc:IsA("TextLabel") and desc.Text == "StarCrowHub" then
                     local p = desc.Parent
                     while p and p.Parent ~= gui do p = p.Parent end
                     if p and p:IsA("Frame") then p.Visible = uiVisible return end
@@ -636,12 +641,12 @@ LogoBtn.InputEnded:Connect(function(input)
 end)
 
 local Window = Fluent:CreateWindow({
-    Title        = "Chiikawa Hub",
+    Title        = "StarCrowHub",
     SubTitle     = "Dead Spells",
     TabWidth     = 130,
     Size         = UDim2.fromOffset(400, 300),
     Acrylic      = false,
-    Theme = "Amethyst",
+    Theme        = "Dark",
     MinimizeKey  = Enum.KeyCode.LeftControl,
 })
 
@@ -705,7 +710,7 @@ Tabs.Main:AddToggle("BurgerESPToggle", {
         SaveConfig()
         for _, obj in ipairs(activeBurgers) do
             if obj and obj.Parent then
-                local folder = obj:FindFirstChild("ChiikawaHubBurgerESP")
+                local folder = obj:FindFirstChild("StarCrowBurgerESP")
                 if folder then
                     for _, child in ipairs(folder:GetChildren()) do
                         if child:IsA("Highlight") or child:IsA("BillboardGui") then

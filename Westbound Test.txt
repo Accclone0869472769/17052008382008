@@ -72,7 +72,7 @@ local LocalPlayer      = Players.LocalPlayer
 local Camera           = workspace.CurrentCamera
 local HttpService      = game:GetService("HttpService")
 
-local SAVE_FOLDER = "Chiikawa Hub"
+local SAVE_FOLDER = "StarCrowHub"
 local SAVE_FILE   = SAVE_FOLDER .. "/WestBoundConfig.json"
 
 local function EnsureFolder()
@@ -177,7 +177,7 @@ if LocalPlayer.Character then
     end
 end
 
-getgenv().ChiikawaHubSpawnDelay = S.Config.SpawnDelay
+getgenv().StarCrowSpawnDelay = S.Config.SpawnDelay
 
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
@@ -207,7 +207,7 @@ local function GetRobTargets()
 end
 
 local FloatGui = Instance.new("ScreenGui")
-FloatGui.Name = "ChiikawaHubFloatGui"
+FloatGui.Name = "StarCrowFloatGui"
 FloatGui.ResetOnSpawn = false
 FloatGui.DisplayOrder = 9999
 pcall(function() FloatGui.Parent = game:GetService("CoreGui") end)
@@ -403,7 +403,7 @@ AimNPCBtn.MouseButton1Click:Connect(function()
 end)
 
 local fovGui = Instance.new("ScreenGui")
-fovGui.Name = "ChiikawaHubUI"
+fovGui.Name = "StarCrowUI"
 fovGui.ResetOnSpawn = false
 fovGui.DisplayOrder = 999
 fovGui.IgnoreGuiInset = true
@@ -429,17 +429,16 @@ strokeCircle.Transparency = 0
 strokeCircle.Thickness = 2
 
 local LogoGui = Instance.new("ScreenGui")
-LogoGui.Name = "ChiikawaHubLogoGui"
+LogoGui.Name = "StarCrowLogoGui"
 LogoGui.ResetOnSpawn = false
 LogoGui.DisplayOrder = 10000
 pcall(function() LogoGui.Parent = game:GetService("CoreGui") end)
 if not LogoGui.Parent then LogoGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 local LogoFrame = Instance.new("Frame")
-LogoFrame.Name = "LogoFrame"
 LogoFrame.Size = UDim2.new(0, 46, 0, 46)
 LogoFrame.Position = UDim2.new(0, 8, 0.5, -23)
-LogoFrame.BackgroundTransparency = 1
+LogoFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
 LogoFrame.BorderSizePixel = 0
 LogoFrame.Parent = LogoGui
 Instance.new("UICorner", LogoFrame).CornerRadius = UDim.new(0.2, 0)
@@ -447,33 +446,36 @@ Instance.new("UICorner", LogoFrame).CornerRadius = UDim.new(0.2, 0)
 local logoStroke = Instance.new("UIStroke", LogoFrame)
 logoStroke.Thickness = 1.8
 logoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-logoStroke.Color = Color3.fromRGB(255, 182, 193)
-
-
+local logoGrad = Instance.new("UIGradient", logoStroke)
+logoGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(130, 0, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 130, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(130, 0, 255)),
+})
+task.spawn(function() TweenService:Create(logoGrad, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Rotation = 180}):Play() end)
 
 local LogoImg = Instance.new("ImageLabel")
-LogoImg.Size = UDim2.new(1, 0, 1, 0)
-LogoImg.Position = UDim2.new(0, 0, 0, 0)
+LogoImg.Size = UDim2.new(1, -6, 1, -6)
+LogoImg.Position = UDim2.new(0, 3, 0, 3)
 LogoImg.BackgroundTransparency = 1
-LogoImg.Image = "rbxassetid://140471379264853"
-LogoImg.ScaleType = Enum.ScaleType.Crop
-        Instance.new("UICorner", LogoImg).CornerRadius = UDim.new(0.2, 0)
+LogoImg.Image = "rbxthumb://type=Asset&id=115542332056889&w=150&h=150"
+LogoImg.ScaleType = Enum.ScaleType.Fit
 LogoImg.Parent = LogoFrame
 
 local LogoBtn = Instance.new("TextButton")
 LogoBtn.Size = UDim2.new(1, 0, 1, 0)
-LogoBtn.Position = UDim2.new(0, 0, 0, 0)
 LogoBtn.BackgroundTransparency = 1
 LogoBtn.Text = ""
 LogoBtn.ZIndex = 5
 LogoBtn.Parent = LogoFrame
+
 
 local function ToggleFluentUI(visible)
     for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
         if gui:IsA("ScreenGui") then
             local mainFrame = nil
             for _, desc in ipairs(gui:GetDescendants()) do
-                if desc:IsA("TextLabel") and desc.Text == "Chiikawa Hub" then
+                if desc:IsA("TextLabel") and desc.Text == "StarCrowHub" then
                     local p = desc.Parent
                     while p and p.Parent ~= gui do p = p.Parent end
                     if p and p:IsA("Frame") then mainFrame = p end
@@ -527,7 +529,7 @@ BlurEffect.Size = 0
 BlurEffect.Parent = Lighting
 
 local FarmOverlay = Instance.new("ScreenGui")
-FarmOverlay.Name = "ChiikawaHubFarmOverlay"
+FarmOverlay.Name = "StarCrowFarmOverlay"
 FarmOverlay.ResetOnSpawn = false
 FarmOverlay.IgnoreGuiInset = true
 FarmOverlay.DisplayOrder = 1000
@@ -549,7 +551,7 @@ ListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 ListLayout.Padding = UDim.new(0, 10)
 
 local TitleText = Instance.new("TextLabel")
-TitleText.Text = "Chiikawa Hub"
+TitleText.Text = "StarCrowHub"
 TitleText.TextColor3 = Color3.fromRGB(170, 85, 255)
 TitleText.TextSize = 50
 TitleText.Font = Enum.Font.FredokaOne
@@ -600,7 +602,7 @@ local processedChars = {}
 
 local function removeOutline(character)
     if not character then return end
-    local h = character:FindFirstChild("ChiikawaHubOutline")
+    local h = character:FindFirstChild("StarCrowOutline")
     if h then h:Destroy() end
 end
 
@@ -610,7 +612,7 @@ local function addOutline(character)
     if not hum or hum.Health <= 0 then return end
     removeOutline(character)
     local h = Instance.new("Highlight")
-    h.Name = "ChiikawaHubOutline"
+    h.Name = "StarCrowOutline"
     h.Adornee = character
     h.FillTransparency = 1
     h.OutlineColor = Color3.fromRGB(255, 80, 80)
@@ -702,7 +704,7 @@ task.spawn(function()
                         head.Transparency = 0.5
                         head.Material = Enum.Material.ForceField
                         head.Color = teamColor
-                        if not character:FindFirstChild("ChiikawaHubOutline") then addOutline(character) end
+                        if not character:FindFirstChild("StarCrowOutline") then addOutline(character) end
                         processedChars[character] = true
                     elseif processedChars[character] then
                         removeHeadHitbox(character)
@@ -720,12 +722,12 @@ local function updateESP()
             if char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") then
                 local hum = char.Humanoid
                 local head = char.Head
-                local esp = head:FindFirstChild("ChiikawaHubESP")
-                local chams = char:FindFirstChild("ChiikawaHubChams")
+                local esp = head:FindFirstChild("StarCrowESP")
+                local chams = char:FindFirstChild("StarCrowChams")
                 if S.Config.ESPEnabled and hum.Health > 0 then
                     if not esp then
                         esp = Instance.new("BillboardGui")
-                        esp.Name = "ChiikawaHubESP"
+                        esp.Name = "StarCrowESP"
                         esp.Adornee = head
                         esp.Size = UDim2.new(0, 200, 0, 40)
                         esp.StudsOffset = Vector3.new(0, 1.2, 0)
@@ -788,7 +790,7 @@ local function updateESP()
                     else
                         if not chams then
                             chams = Instance.new("Highlight")
-                            chams.Name = "ChiikawaHubChams"
+                            chams.Name = "StarCrowChams"
                             chams.Parent = char
                         end
                         chams.FillColor = teamColor
@@ -1105,7 +1107,7 @@ local function TriggerRob()
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     for i = 1, 10 do
-        if not getgenv().ChiikawaHubAutoBank then break end
+        if not getgenv().StarCrowAutoBank then break end
         if IsBagFull() then break end
         local myPos = root.Position
         local targets = GetRobTargets()
@@ -1127,12 +1129,12 @@ local function TriggerRob()
 end
 
 local function SpawnAndTP(spawnName, arg2, tpPos1, tpPos2)
-    if not getgenv().ChiikawaHubAutoBank then return end
+    if not getgenv().StarCrowAutoBank then return end
 
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChild("Humanoid")
     if hum and hum.Health <= 0 then
-        task.wait(math.max(0, getgenv().ChiikawaHubSpawnDelay or 3))
+        task.wait(math.max(0, getgenv().StarCrowSpawnDelay or 3))
     end
 
     local oldChar = LocalPlayer.Character
@@ -1146,10 +1148,10 @@ local function SpawnAndTP(spawnName, arg2, tpPos1, tpPos2)
 
     if oldChar then
         repeat task.wait(0.05)
-        until (LocalPlayer.Character ~= oldChar and LocalPlayer.Character ~= nil) or not getgenv().ChiikawaHubAutoBank
+        until (LocalPlayer.Character ~= oldChar and LocalPlayer.Character ~= nil) or not getgenv().StarCrowAutoBank
     end
 
-    if not getgenv().ChiikawaHubAutoBank then return end
+    if not getgenv().StarCrowAutoBank then return end
 
     char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local root = char:WaitForChild("HumanoidRootPart", 9e9)
@@ -1159,7 +1161,7 @@ local function SpawnAndTP(spawnName, arg2, tpPos1, tpPos2)
         task.wait(1.5)
 
         if tpPos1 then
-            if not getgenv().ChiikawaHubAutoBank then return end
+            if not getgenv().StarCrowAutoBank then return end
             char:PivotTo(CFrame.new(tpPos1))
             root.AssemblyLinearVelocity = Vector3.zero
             root.AssemblyAngularVelocity = Vector3.zero
@@ -1167,7 +1169,7 @@ local function SpawnAndTP(spawnName, arg2, tpPos1, tpPos2)
         end
 
         if tpPos2 then
-            if not getgenv().ChiikawaHubAutoBank then return end
+            if not getgenv().StarCrowAutoBank then return end
             if IsBagFull() then return end
             char:PivotTo(CFrame.new(tpPos2))
             root.AssemblyLinearVelocity = Vector3.zero
@@ -1203,7 +1205,7 @@ local farmEarnedCash = 0
 local uiRenderConn = nil
 local moneyTrackConn = nil
 
-local Window = Fluent:CreateWindow({ Title = "Chiikawa Hub", SubTitle = "West Bound", TabWidth = 130, Size = UDim2.fromOffset(460, 400), Acrylic = false, Theme = S.Config.UITheme or "Dark", MinimizeKey = Enum.KeyCode.LeftControl })
+local Window = Fluent:CreateWindow({ Title = "StarCrowHub", SubTitle = "West Bound", TabWidth = 130, Size = UDim2.fromOffset(460, 400), Acrylic = false, Theme = S.Config.UITheme or "Dark", MinimizeKey = Enum.KeyCode.LeftControl })
 
 local Tabs = {
     AutoFarm  = Window:AddTab({ Title = "Auto Farm", Icon = "gem" }),
@@ -1280,7 +1282,7 @@ Tabs.AutoFarm:AddToggle("AutoBankToggle", {
     Title   = "Auto Farm Banks",
     Default = S.Config.AutoBankEnabled,
     Callback = function(v)
-        getgenv().ChiikawaHubAutoBank = v
+        getgenv().StarCrowAutoBank = v
         S.Config.AutoBankEnabled = v
         SaveConfig()
         if v then
@@ -1330,7 +1332,7 @@ Tabs.AutoFarm:AddToggle("AutoBankToggle", {
                 }
 
                 local i = 1
-                while getgenv().ChiikawaHubAutoBank do
+                while getgenv().StarCrowAutoBank do
                     local bank = Banks[i]
 
                     SpawnAndTP(bank.Name, bank.arg2, bank.p1, bank.p2)
@@ -1342,7 +1344,7 @@ Tabs.AutoFarm:AddToggle("AutoBankToggle", {
                         repeat
                             task.wait(0.5)
                             timeout = timeout + 0.5
-                        until not IsBagFull() or timeout >= 5 or not getgenv().ChiikawaHubAutoBank
+                        until not IsBagFull() or timeout >= 5 or not getgenv().StarCrowAutoBank
                     end
 
                     i = i + 1
@@ -1370,7 +1372,7 @@ Tabs.AutoFarm:AddInput("SpawnDelay", {
     Callback = function(Value)
         local parsedValue = tonumber(Value)
         if parsedValue then
-            getgenv().ChiikawaHubSpawnDelay = parsedValue
+            getgenv().StarCrowSpawnDelay = parsedValue
             S.Config.SpawnDelay = parsedValue
             SaveConfig()
         end

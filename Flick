@@ -89,7 +89,7 @@ local LogoGui = Instance.new("ScreenGui")
 LogoGui.Name = "StarCrowLogoGui"
 LogoGui.ResetOnSpawn = false
 LogoGui.DisplayOrder = 10000
-pcall(function() LogoGui.Parent = CoreGui end)
+pcall(function() LogoGui.Parent = game:GetService("CoreGui") end)
 if not LogoGui.Parent then LogoGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 local LogoFrame = Instance.new("Frame")
@@ -105,13 +105,11 @@ logoStroke.Thickness = 1.8
 logoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 local logoGrad = Instance.new("UIGradient", logoStroke)
 logoGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0,   Color3.fromRGB(130, 0, 255)),
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(130, 0, 255)),
     ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 130, 255)),
-    ColorSequenceKeypoint.new(1,   Color3.fromRGB(130, 0, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(130, 0, 255)),
 })
-task.spawn(function()
-    TweenService:Create(logoGrad, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Rotation = 180}):Play()
-end)
+task.spawn(function() TweenService:Create(logoGrad, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Rotation = 180}):Play() end)
 
 local LogoImg = Instance.new("ImageLabel")
 LogoImg.Size = UDim2.new(1, -6, 1, -6)
@@ -127,6 +125,7 @@ LogoBtn.BackgroundTransparency = 1
 LogoBtn.Text = ""
 LogoBtn.ZIndex = 5
 LogoBtn.Parent = LogoFrame
+
 
 do
     local dragging, dragInput, dragStart, startPos = false, nil, nil, nil

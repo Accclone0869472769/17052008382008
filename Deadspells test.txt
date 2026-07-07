@@ -45,7 +45,7 @@ local Config = {
     ItemESPEnabled = false,
     AutoMineEnabled = false,
     OreESPEnabled = false,
-    UITheme = "Dark",
+    UITheme = "Amethyst",
     DashFloatPos = { xs = 0.85, xo = 0, ys = 0.5, yo = 0 },
     DashFloatVisible = false,
     DashPower = 80,
@@ -1370,7 +1370,7 @@ local Window = Fluent:CreateWindow({
     TabWidth = 130,
     Size = UDim2.fromOffset(460, 400),
     Acrylic = false,
-    Theme = Config.UITheme or "Dark",
+    Theme = Config.UITheme or "Amethyst",
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
@@ -1947,8 +1947,8 @@ end)
 
 Tabs.Settings:AddDropdown("UITheme", {
     Title = "UI Theme",
-    Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose", "Mint" },
-    Default = Config.UITheme or "Dark",
+    Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose" },
+    Default = Config.UITheme or "Amethyst",
     Callback = function(Value)
         Config.UITheme = Value
         SaveConfig()

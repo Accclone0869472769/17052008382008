@@ -111,7 +111,6 @@ pcall(function()
 end)
 
 local bossTargets = {
-    thiefking      = true,
     mastersamurai  = true,
     eldervampire   = true,
     gnomechampion  = true,
@@ -387,7 +386,6 @@ workspace.DescendantRemoving:Connect(function(v)
 end)
 
 local bosses = {
-    { n = "thiefking",      pos = CFrame.new(81.07, 11.49, -18039.25) },
     { n = "mastersamurai",  pos = CFrame.new(103.27,  40.89,  -3560.05) },
     { n = "eldervampire",   pos = CFrame.new(103.08,  37.85,   7407.76) },
     { n = "gnomechampion",  pos = CFrame.new(37.76,    3.00,  13993.09) },

@@ -1470,53 +1470,6 @@ Tabs.Aim:AddToggle("KillAura", {
     end
 })
 
-Tabs.Aim:AddToggle("KillAuraAnimals", {
-    Title = "Kill Aura Animals",
-    Default = false,
-    Callback = function(v)
-        getgenv().KillAuraAnimals = v
-        S.Config.KillAuraAnimals = v
-        SaveConfig()
-
-        if v then
-            task.spawn(function()
-                while getgenv().KillAuraAnimals do
-                    task.wait(0.2)
-                    local Character = LocalPlayer.Character
-                    local Root = Character and Character:FindFirstChild("HumanoidRootPart")
-                    if not Character or not Root then continue end
-                    local Tool = Character:FindFirstChild("Knife") or Character:FindFirstChild("Machete")
-                    if not Tool then continue end
-                    local Handle = Tool:FindFirstChild("Handle") or Tool:FindFirstChildWhichIsA("BasePart")
-                    if not Handle then continue end
-                    local animalsFolder = workspace:FindFirstChild("Animals")
-                    if animalsFolder then
-                        for _, animal in ipairs(animalsFolder:GetChildren()) do
-                            local animalHum = animal:FindFirstChildOfClass("Humanoid")
-                            local animalRoot = animal:FindFirstChild("HumanoidRootPart") or animal:FindFirstChildWhichIsA("BasePart", true)
-                            if animalHum and animalRoot and animalHum.Health > 0 then
-                                local Distance = (Root.Position - animalRoot.Position).Magnitude
-                                if Distance <= S.Config.KillAuraDist then
-                                    pcall(function()
-                                        if Tool.Name == "Knife" then
-                                            local Remote = Tool:FindFirstChild("EnableDamage")
-                                            if Remote then Remote:FireServer(1) end
-                                        elseif Tool.Name == "Machete" then
-                                            local Remote = Tool:FindFirstChild("Remote")
-                                            if Remote then Remote:FireServer(1) end
-                                        end
-                                        firetouchinterest(Handle, animalRoot, 0)
-                                        firetouchinterest(Handle, animalRoot, 1)
-                                    end)
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-})
 
 local killAuraDistSaveThread = nil
 Tabs.Aim:AddSlider("KillAuraDist", {

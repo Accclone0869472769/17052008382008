@@ -1422,7 +1422,7 @@ Tabs.Aim:AddSlider("HeadboxSize", { Title = "Headbox Size", Default = S.Config.H
 
 Tabs.Aim:AddParagraph({ Title = "Kill Aura", Content = "" })
 Tabs.Aim:AddToggle("KillAura", {
-    Title = "Kill Aura",
+    Title = "Kill Aura Player",
     Default = false,
     Callback = function(v)
         getgenv().KillAura = v
@@ -1464,6 +1464,31 @@ Tabs.Aim:AddToggle("KillAura", {
                             end
                         end
                     end
+                end
+            end)
+        end
+    end
+})
+
+Tabs.Aim:AddToggle("KillAuraAnimals", {
+    Title = "Kill Aura Animals",
+    Default = false,
+    Callback = function(v)
+        getgenv().KillAuraAnimals = v
+        S.Config.KillAuraAnimals = v
+        SaveConfig()
+
+        if v then
+            task.spawn(function()
+                while getgenv().KillAuraAnimals do
+                    task.wait(0.2)
+                    local Character = LocalPlayer.Character
+                    local Root = Character and Character:FindFirstChild("HumanoidRootPart")
+                    if not Character or not Root then continue end
+                    local Tool = Character:FindFirstChild("Knife") or Character:FindFirstChild("Machete")
+                    if not Tool then continue end
+                    local Handle = Tool:FindFirstChild("Handle") or Tool:FindFirstChildWhichIsA("BasePart")
+                    if not Handle then continue end
                     local animalsFolder = workspace:FindFirstChild("Animals")
                     if animalsFolder then
                         for _, animal in ipairs(animalsFolder:GetChildren()) do

@@ -1205,7 +1205,7 @@ local farmEarnedCash = 0
 local uiRenderConn = nil
 local moneyTrackConn = nil
 
-local Window = Fluent:CreateWindow({ Title = "StarCrowHub", SubTitle = "West Bound", TabWidth = 130, Size = UDim2.fromOffset(460, 400), Acrylic = false, Theme = S.Config.UITheme or "Dark", MinimizeKey = Enum.KeyCode.LeftControl })
+local Window = Fluent:CreateWindow({ Title = "StarCrowHub", SubTitle = "West Bound", TabWidth = 130, Size = UDim2.fromOffset(460, 400), Acrylic = false, Theme = S.Config.UITheme or "Amethyst", MinimizeKey = Enum.KeyCode.LeftControl })
 
 local Tabs = {
     AutoFarm  = Window:AddTab({ Title = "Auto Farm", Icon = "gem" }),
@@ -2170,17 +2170,6 @@ Tabs.Westbound:AddToggle("AutoCollect", {
 })
 
 Tabs.Settings:AddKeybind("ToggleUIKeybind", { Title = "Minimize UI Keybind", Mode = "Toggle", Default = "LeftControl", ChangedCallback = function(NewKey) Window.MinimizeKey = NewKey end })
-
-Tabs.Settings:AddDropdown("UITheme", {
-    Title = "UI Theme",
-    Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose" },
-    Default = S.Config.UITheme or "Amethyst",
-    Callback = function(Value)
-        S.Config.UITheme = Value
-        SaveConfig()
-        Fluent:SetTheme(Value)
-    end
-})
 
 local _saveDebounce = nil
 local function SaveConfigDebounced()

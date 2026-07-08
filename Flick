@@ -568,13 +568,39 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local BulletHandler = require(game:GetService("ReplicatedStorage").ModuleScripts.GunModules:WaitForChild("BulletHandler"))
-local oldFire = BulletHandler.Fire
-BulletHandler.Fire = function(data)
-    if Config.SilentAimEnabled and currentTarget then
-        local targetPos = currentTarget.Position
-        local origin = data.Origin
-        data.Direction = (targetPos - origin).Unit
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+    local args   = {...}
+    local method = getnamecallmethod()
+
+    if Config.SilentAimEnabled and currentTarget and isHoldingGun then
+        if method == "Raycast" or method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList" then
+            if not checkcaller() then
+                local origin    = (method == "Raycast") and args[1] or args[1].Origin
+                local targetPos = currentTarget.Position
+                local diff      = targetPos - origin
+                local dist      = diff.Magnitude
+                if dist > 0 then
+                    local unitDir  = diff.Unit
+                    local finalDir = unitDir * (dist < 50 and dist or 10000)
+                    if method == "Raycast" then
+                        args[2] = finalDir
+                    else
+                        args[1] = Ray.new(origin, finalDir)
+                    end
+                end
+                return oldNamecall(self, unpack(args))
+            end
+        end
     end
-    return oldFire(data)
-end
+
+    if method == "FireServer" and tostring(self) == "CheckShotEvent" then
+        if Config.SilentAimEnabled and currentTarget then
+            args[6] = currentTarget.Position
+            args[7] = currentTarget
+        end
+        return oldNamecall(self, unpack(args))
+    end
+
+    return oldNamecall(self, ...)
+end)) 

@@ -1945,17 +1945,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
-Tabs.Settings:AddDropdown("UITheme", {
-    Title = "UI Theme",
-    Values = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose" },
-    Default = Config.UITheme or "Amethyst",
-    Callback = function(Value)
-        Config.UITheme = Value
-        SaveConfig()
-        Fluent:SetTheme(Value)
-    end
-})
-
 local airWeldConn = nil
 local oldNamecall_aw
 oldNamecall_aw = nil
@@ -2167,4 +2156,3 @@ Tabs.AirWeld:AddToggle("AirWeldToggle", {
 })
 
 Window:SelectTab(1)
-  

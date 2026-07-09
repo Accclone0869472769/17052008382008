@@ -1,3 +1,17 @@
+local teleport_func = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or getgenv().queue_on_teleport
+
+if teleport_func then
+    pcall(function()
+        teleport_func([[
+            repeat task.wait() until game:IsLoaded()
+            task.wait(1.5)
+            pcall(function()
+                loadstring(game:HttpGet("https://api.jnkie.com/api/v1/luascripts/public/f839826919ec423285d515aef8082dce2a756a907d8e7931c3c05d987bdf20e1/download"))()
+            end)
+        ]])
+    end)
+end
+
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 local Players = game:GetService("Players")
@@ -70,7 +84,9 @@ local Config = {
         Transcended = true,
     },
     KillAuraEnabled = false,
-    KillAuraDistance = 500
+    KillAuraDistance = 500,
+    AutoFarmEnabled = false,
+    AutoResetMinutes = 5,
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -1364,6 +1380,281 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+local function isMelee(tool)
+    local cfg = tool:FindFirstChildOfClass("Configuration")
+    return cfg and cfg:GetAttribute("Type") == "Melee"
+end
+
+local autoClickRunning = false
+local autoFarmStartTime = 0
+
+local function activateHeldTool()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local tool = char:FindFirstChildWhichIsA("Tool")
+    if tool then pcall(function() tool:Activate() end) end
+end
+
+local function stopAutoClick()
+    autoClickRunning = false
+end
+
+local function startAutoClick()
+    stopAutoClick()
+    autoClickRunning = true
+    autoFarmStartTime = tick()
+    task.spawn(function()
+        while autoClickRunning do
+            activateHeldTool()
+            task.wait(1)
+        end
+    end)
+end
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if not Config.AutoFarmEnabled then continue end
+
+        local char = LocalPlayer.Character
+        if char then
+            local tool = char:FindFirstChildOfClass("Tool")
+            if not tool or not isMelee(tool) then
+                for _, t in ipairs(LocalPlayer.Backpack:GetChildren()) do
+                    if t:IsA("Tool") and isMelee(t) then
+                        t.Parent = char
+                        break
+                    end
+                end
+            end
+        end
+
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if not pg then continue end
+        for _, v in ipairs(pg:GetDescendants()) do
+            if v:IsA("TextLabel") or v:IsA("TextButton") then
+                if string.find(string.lower(v.Text or ""), "play again") then
+                    local btn = v:IsA("TextButton") and v or v.Parent
+                    if btn and btn:IsA("GuiButton") and btn.Visible then
+                        pcall(function()
+                            if getconnections then
+                                for _, e in ipairs(getconnections(btn.Activated)) do e:Fire() end
+                                for _, e in ipairs(getconnections(btn.MouseButton1Click)) do e:Fire() end
+                                for _, e in ipairs(getconnections(btn.MouseButton1Down)) do e:Fire() end
+                            end
+                            if firesignal then
+                                firesignal(btn.Activated)
+                                firesignal(btn.MouseButton1Click)
+                                firesignal(btn.MouseButton1Down)
+                            end
+                            local absPos = btn.AbsolutePosition
+                            local absSize = btn.AbsoluteSize
+                            local inset = GuiService:GetGuiInset()
+                            local cx = absPos.X + absSize.X / 2
+                            local cy = absPos.Y + absSize.Y / 2 + inset.Y
+                            if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
+                                VirtualInputManager:SendTouchEvent(cx, cy, true)
+                                task.wait(0.1)
+                                VirtualInputManager:SendTouchEvent(cx, cy, false)
+                            else
+                                VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
+                                task.wait(0.1)
+                                VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+local cachedBosses = {}
+
+local bossTargets = {
+    mastersamurai = true,
+    eldervampire = true,
+    gnomechampion = true,
+    steamborneczar = true,
+    kingice = true,
+}
+
+local function getBossKey(model)
+    local name = string.gsub(string.lower(model.Name), "%s+", "")
+    for n in pairs(bossTargets) do
+        if string.find(name, n) then return n end
+    end
+    return nil
+end
+
+local function registerBoss(v)
+    local key = getBossKey(v)
+    if not key then return end
+    local hum = v:FindFirstChildOfClass("Humanoid")
+    if hum and hum.Health > 0 then
+        cachedBosses[key] = v
+        hum.Died:Connect(function()
+            if cachedBosses[key] == v then cachedBosses[key] = nil end
+        end)
+    end
+end
+
+for _, v in ipairs(workspace:GetDescendants()) do
+    if v:IsA("Model") then registerBoss(v) end
+end
+
+workspace.DescendantAdded:Connect(function(v)
+    if v:IsA("Model") then registerBoss(v) end
+end)
+
+workspace.DescendantRemoving:Connect(function(v)
+    if not v:IsA("Model") then return end
+    local key = getBossKey(v)
+    if key and cachedBosses[key] == v then cachedBosses[key] = nil end
+end)
+
+local bosses = {
+    { n = "mastersamurai", pos = CFrame.new(103.27, 40.89, -3560.05) },
+    { n = "eldervampire", pos = CFrame.new(103.08, 37.85, 7407.76) },
+    { n = "gnomechampion", pos = CFrame.new(37.76, 3.00, 13993.09) },
+    { n = "steamborneczar", pos = CFrame.new(-15.31, 3.02, 27032.90) },
+    { n = "kingice", pos = CFrame.new(24.27, 3.00, 45907.91) },
+}
+
+local skyIslandPos = CFrame.new(-46.56, 81.52, 37536.83)
+local currentIdx = 1
+local hoverPos = nil
+local visited = false
+local engaged = false
+local visitedSkyIsland = false
+
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    if not char or not hoverPos or not Config.AutoFarmEnabled then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = hoverPos
+        hrp.Velocity = Vector3.new(0, 0, 0)
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if not Config.AutoFarmEnabled then
+            hoverPos = nil
+            continue
+        end
+
+        local char = LocalPlayer.Character
+        if not char then continue end
+
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChild("Humanoid")
+        if not hrp or not hum then continue end
+
+        if autoFarmStartTime > 0 and tick() - autoFarmStartTime >= Config.AutoResetMinutes * 60 then
+            pcall(function()
+                local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+                for _ = 1, 3 do
+                    Remotes.Reset.fireServer()
+                    task.wait(1)
+                end
+            end)
+            hoverPos = nil
+            visited = false
+            engaged = false
+            visitedSkyIsland = false
+            currentIdx = 1
+            autoFarmStartTime = tick()
+            continue
+        end
+
+        if hum.Health <= 0 then
+            hoverPos = nil
+            visited = false
+            engaged = false
+            visitedSkyIsland = false
+            currentIdx = 1
+            task.wait(1)
+            continue
+        end
+
+        if currentIdx <= #bosses then
+            local info = bosses[currentIdx]
+            local targetBoss = cachedBosses[info.n]
+
+            if targetBoss then
+                local bHrp = targetBoss:FindFirstChild("HumanoidRootPart")
+                local bHum = targetBoss:FindFirstChildOfClass("Humanoid")
+
+                if bHrp and bHum and bHum.Health > 0 then
+                    if not visited then
+                        hoverPos = nil
+                        hrp.CFrame = info.pos
+                        hrp.Anchored = true
+                        task.wait(2)
+                        hrp.Anchored = false
+                        visited = true
+                    end
+                    engaged = true
+                    bHrp.CFrame = CFrame.new(info.pos.Position)
+                    bHrp.Velocity = Vector3.new(0, 0, 0)
+                    hoverPos = CFrame.lookAt(info.pos.Position + Vector3.new(0, 15, 0), info.pos.Position)
+                elseif bHum and bHum.Health <= 0 then
+                    task.wait(3)
+                    engaged = false
+                    visited = false
+                    hoverPos = nil
+                    currentIdx = currentIdx + 1
+                end
+            else
+                if engaged then
+                    task.wait(3)
+                    engaged = false
+                    visited = false
+                    hoverPos = nil
+                    currentIdx = currentIdx + 1
+                else
+                    if not visited then
+                        hoverPos = nil
+                        hrp.CFrame = info.pos
+                        hrp.Anchored = true
+                        task.wait(2)
+                        hrp.Anchored = false
+                        visited = true
+                    end
+                    hoverPos = CFrame.new(info.pos.Position + Vector3.new(0, 15, 0))
+                end
+            end
+        else
+            if not visitedSkyIsland then
+                hoverPos = nil
+                hrp.CFrame = skyIslandPos
+                hrp.Anchored = true
+                task.wait(2)
+                hrp.Anchored = false
+                visitedSkyIsland = true
+                hoverPos = skyIslandPos
+            end
+
+            if #itemQueue == 0 and currentTarget == nil then
+                task.wait(3)
+                if #itemQueue == 0 and currentTarget == nil then
+                    hoverPos = nil
+                    visitedSkyIsland = false
+                    currentIdx = 1
+                    autoFarmStartTime = tick()
+                    task.spawn(function()
+                        pcall(function()
+                            local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+                            Remotes.Reset.fireServer()
+                        end)
+                    end)
+                end
+            end
+        end
+    end
+end)
+
 local Window = Fluent:CreateWindow({
     Title = "StarCrowHub",
     SubTitle = "Dead Spells",
@@ -1377,6 +1668,7 @@ local Window = Fluent:CreateWindow({
 local Tabs = {
     Info = Window:AddTab({ Title = "Info", Icon = "info" }),
     Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+    AutoFarm = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
     ESP = Window:AddTab({ Title = "ESP", Icon = "eye" }),
     Player = Window:AddTab({ Title = "Player", Icon = "user" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map" }),
@@ -1386,6 +1678,8 @@ local Tabs = {
 }
 
 local FastAttackToggleObj, FastAttackSliderObj, NPCHitboxToggleObj, NPCHitboxSliderObj
+local KillAuraToggleObj, KillAuraSliderObj
+local BringBurgerToggleObj
 local performDash
 
 Tabs.Info:AddParagraph({
@@ -1822,7 +2116,7 @@ for _, loc in ipairs(bossLocations) do
     Tabs.Teleport:AddButton({ Title = loc[1], Callback = function() teleportPlayer(CFrame.new(loc[2])) end })
 end
 
-Tabs.Misc:AddToggle("BringBurgerToggle", {
+BringBurgerToggleObj = Tabs.Misc:AddToggle("BringBurgerToggle", {
     Title = "Bring Burger",
     Default = Config.BringBurger,
     Callback = function(Value)
@@ -2068,7 +2362,7 @@ dashFloatBtn.MouseButton1Click:Connect(function()
     performDash()
 end)
 
-Tabs.AirWeld:AddToggle("KillAuraToggle", {
+KillAuraToggleObj = Tabs.AirWeld:AddToggle("KillAuraToggle", {
     Title = "Kill Aura",
     Default = Config.KillAuraEnabled,
     Callback = function(Value)
@@ -2077,7 +2371,7 @@ Tabs.AirWeld:AddToggle("KillAuraToggle", {
     end
 })
 
-Tabs.AirWeld:AddSlider("KillAuraDistanceSlider", {
+KillAuraSliderObj = Tabs.AirWeld:AddSlider("KillAuraDistanceSlider", {
     Title = "Aura Distance",
     Default = Config.KillAuraDistance,
     Min = 10,
@@ -2151,6 +2445,45 @@ Tabs.AirWeld:AddToggle("AirWeldToggle", {
                 hookmetamethod(game, "__namecall", oldNamecall_aw)
                 oldNamecall_aw = nil
             end
+        end
+    end
+})
+
+Tabs.AutoFarm:AddToggle("AutoFarmToggle", {
+    Title = "Auto Farm",
+    Default = Config.AutoFarmEnabled,
+    Callback = function(Value)
+        Config.AutoFarmEnabled = Value
+        if Value then
+            Config.FastAttackEnabled = true
+            Config.FastAttackMultiplier = 200
+            Config.KillAuraEnabled = true
+            Config.KillAuraDistance = 500
+            Config.BringBurger = true
+            if FastAttackToggleObj then FastAttackToggleObj:SetValue(true) end
+            if FastAttackSliderObj then FastAttackSliderObj:SetValue(200) end
+            if KillAuraToggleObj then KillAuraToggleObj:SetValue(true) end
+            if KillAuraSliderObj then KillAuraSliderObj:SetValue(500) end
+            if BringBurgerToggleObj then BringBurgerToggleObj:SetValue(true) end
+            startAutoClick()
+            if uiVisible then task.wait(0.2) toggleUI() end
+        else
+            stopAutoClick()
+        end
+        SaveConfig()
+    end
+})
+
+Tabs.AutoFarm:AddInput("AutoResetInput", {
+    Title = "Reset",
+    Default = tostring(Config.AutoResetMinutes),
+    Numeric = true,
+    Finished = true,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num and num > 0 then
+            Config.AutoResetMinutes = num
+            SaveConfig()
         end
     end
 })

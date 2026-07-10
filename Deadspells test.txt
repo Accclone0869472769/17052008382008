@@ -87,6 +87,7 @@ local Config = {
     KillAuraDistance = 500,
     AutoFarmEnabled = false,
     AutoResetMinutes = 5,
+    AutoPickGoldBagEnabled = false,
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -2172,6 +2173,48 @@ Tabs.Misc:AddToggle("InstantPromptToggle", {
     end
 })
 
+local function getGoldBagPrompt(obj)
+    for _, v in ipairs(obj:GetDescendants()) do
+        if v:IsA("ProximityPrompt") then
+            return v
+        end
+    end
+    return nil
+end
+
+local function handleGoldBag(obj)
+    if obj.Name ~= "GoldBag" then return end
+    task.spawn(function()
+        local prompt = getGoldBagPrompt(obj)
+        if not prompt then
+            prompt = obj:WaitForChild("ProximityPrompt", 3)
+        end
+        if prompt then
+            task.wait(0.2)
+            if Config.AutoPickGoldBagEnabled then
+                prompt.MaxActivationDistance = 1000
+                fireproximityprompt(prompt, prompt.HoldDuration)
+            end
+        end
+    end)
+end
+
+workspace.DescendantAdded:Connect(handleGoldBag)
+
+Tabs.Misc:AddToggle("AutoPickGoldBagToggle", {
+    Title = "Auto Pick Up Money Bag",
+    Default = Config.AutoPickGoldBagEnabled,
+    Callback = function(Value)
+        Config.AutoPickGoldBagEnabled = Value
+        SaveConfig()
+        if Value then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                handleGoldBag(obj)
+            end
+        end
+    end
+})
+
 Tabs.Misc:AddButton({
     Title = "First Person Camera",
     Callback = function()
@@ -2472,4 +2515,4 @@ Tabs.AutoFarm:AddInput("AutoResetInput", {
     end
 })
 
-Window:SelectTab(1)
+Window:SelectTab(1) 

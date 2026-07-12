@@ -88,6 +88,8 @@ local Config = {
     AutoFarmEnabled = false,
     AutoResetMinutes = 5,
     AutoPickGoldBagEnabled = false,
+    AutoHealEnabled = false,
+    AutoHealThreshold = 50,
 }
 
 local SAVE_FOLDER = "StarCrowHub"
@@ -1788,6 +1790,34 @@ NPCHitboxSliderObj = Tabs.Main:AddSlider("NPCHitboxSlider", {
     end
 })
 
+Tabs.Main:AddSection("Auto Heal")
+
+Tabs.Main:AddParagraph({
+    Title = "Auto Heal Note",
+    Content = "Set the HP % threshold The  will only consume potions if your HP falls at or below this percentage."
+})
+
+Tabs.Main:AddToggle("AutoHealToggle", {
+    Title = "Auto Heal",
+    Default = Config.AutoHealEnabled,
+    Callback = function(Value)
+        Config.AutoHealEnabled = Value
+        SaveConfig()
+    end
+})
+
+Tabs.Main:AddSlider("AutoHealSlider", {
+    Title = "HP %",
+    Default = Config.AutoHealThreshold,
+    Min = 1,
+    Max = 99,
+    Rounding = 0,
+    Callback = function(Value)
+        Config.AutoHealThreshold = Value
+        SaveConfig()
+    end
+})
+
 Tabs.Main:AddSection("Items")
 
 Tabs.Main:AddParagraph({
@@ -2501,8 +2531,13 @@ Tabs.AutoFarm:AddToggle("AutoFarmToggle", {
     end
 })
 
+Tabs.AutoFarm:AddParagraph({
+    Title = "Auto Reset Note",
+    Content = "Set the interval in minutes The character will automatically reset every X minutes to prevent getting stuck."
+})
+
 Tabs.AutoFarm:AddInput("AutoResetInput", {
-    Title = "Reset",
+    Title = " Auto Reset ",
     Default = tostring(Config.AutoResetMinutes),
     Numeric = true,
     Finished = true,
@@ -2514,5 +2549,38 @@ Tabs.AutoFarm:AddInput("AutoResetInput", {
         end
     end
 })
+
+local isHealing = false
+local function checkAndHeal(humanoid, char)
+    if not Config.AutoHealEnabled or isHealing then return end
+    if not humanoid or humanoid.Health <= 0 then return end
+    
+    local hpPercent = (humanoid.Health / humanoid.MaxHealth) * 100
+    if hpPercent <= Config.AutoHealThreshold then
+        local potion = LocalPlayer.Backpack:FindFirstChild("HealingPotion") or char:FindFirstChild("HealingPotion") or LocalPlayer.Backpack:FindFirstChild("GreaterHealthPotion") or char:FindFirstChild("GreaterHealthPotion")
+        if potion then
+            isHealing = true
+            if potion.Parent ~= char then
+                humanoid:EquipTool(potion)
+                task.wait(0.1)
+            end
+            potion:Activate()
+            task.wait(1.5)
+            isHealing = false
+        end
+    end
+end
+
+local function setupAutoHealForCharacter(char)
+    local humanoid = char:WaitForChild("Humanoid")
+    humanoid.HealthChanged:Connect(function()
+        checkAndHeal(humanoid, char)
+    end)
+end
+
+if LocalPlayer.Character then
+    setupAutoHealForCharacter(LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(setupAutoHealForCharacter)
 
 Window:SelectTab(1) 

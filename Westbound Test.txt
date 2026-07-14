@@ -296,8 +296,8 @@ local function CreateFloatButton(name, text, defaultPos, configKey)
         end
     end)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input == activeInput or input.UserInputType == Enum.UserInputType.MouseMovement) then
+    btn.InputChanged:Connect(function(input)
+        if dragging and input == activeInput then
             local delta = input.Position - dragStart
             if delta.Magnitude > 6 then moved = true end
             btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
@@ -343,7 +343,6 @@ AuraBtn.MouseButton1Click:Connect(function()
                     end
                 end
                 
-                -- Rob players
                 for _, player in ipairs(Players:GetPlayers()) do
                     if player ~= LocalPlayer then
                         local pChar = player.Character
@@ -508,8 +507,8 @@ do
             end)
         end
     end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input == activeInput or input.UserInputType == Enum.UserInputType.MouseMovement) then
+    LogoBtn.InputChanged:Connect(function(input)
+        if dragging and input == activeInput then
             local delta = input.Position - dragStart
             if delta.Magnitude > 4 then
                 dragged = true
@@ -1884,7 +1883,6 @@ Tabs.Westbound:AddToggle("AuraRob", {
                                 end)
                             end
                         end
-                        -- Rob players
                         for _, player in ipairs(Players:GetPlayers()) do
                             if player ~= LocalPlayer then
                                 local pChar = player.Character
@@ -2316,4 +2314,4 @@ workspace.ChildAdded:Connect(function(v)
     end
 end)
 
-Window:SelectTab(1)
+Window:SelectTab(1) 

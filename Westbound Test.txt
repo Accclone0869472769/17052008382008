@@ -488,34 +488,36 @@ end
 
 local uiVisible = true
 do
-    local dragging, dragged, dragStart, startPos, activeInput = false, false, nil, nil, nil
+    local dragging = false
+    local dragged = false
+    local dragStart = nil
+    local startPos = nil
+
     LogoBtn.InputBegan:Connect(function(input)
-        if dragging then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragged = false
             dragStart = input.Position
             startPos = LogoFrame.Position
-            activeInput = input
-            local conn
-            conn = input.Changed:Connect(function()
+            
+            input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
-                    activeInput = nil
-                    if conn then conn:Disconnect() end
                 end
             end)
         end
     end)
-    LogoBtn.InputChanged:Connect(function(input)
-        if dragging and input == activeInput then
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
-            if delta.Magnitude > 4 then
+            if delta.Magnitude > 5 then
                 dragged = true
                 LogoFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end
     end)
+
     LogoBtn.MouseButton1Click:Connect(function()
         if dragged then dragged = false return end
         uiVisible = not uiVisible
@@ -925,11 +927,11 @@ if _G.VelocityConnection then
     _G.VelocityConnection:Disconnect()
 end
 
-_G.VelocityConnection = RunService.Heartbeat:Connect(function()
+_G.VelocityConnection = RunService.Heartbeat:Connect(function(dt)
     local char = LocalPlayer.Character
     if char then
         if S.Config.NoclipEnabled then
-            for _, part in ipairs(char:GetDescendants()) do
+            for _, part in ipairs(char:GetChildren()) do
                 if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
             end
         end
@@ -938,8 +940,8 @@ _G.VelocityConnection = RunService.Heartbeat:Connect(function()
             local hum = char:FindFirstChildOfClass("Humanoid")
             if hum and hrp and hum.Health > 0 and hum.MoveDirection.Magnitude > 0 then
                 local moveDir = hum.MoveDirection
-                local currentY = hrp.AssemblyLinearVelocity.Y 
-                hrp.AssemblyLinearVelocity = Vector3.new(moveDir.X * S.Config.WalkSpeed, currentY, moveDir.Z * S.Config.WalkSpeed)
+                hrp.CFrame = hrp.CFrame + (moveDir * (S.Config.WalkSpeed * dt))
+                -- Không set AssemblyLinearVelocity về 0 nữa để game giữ nguyên hoạt ảnh đi bộ
             end
         end
     end
@@ -1529,8 +1531,8 @@ Tabs.GunMod:AddButton({
                 stat.ReloadAnimationSpeed = 10
 
                 stat.prepTime   = 0.04
-                stat.equipTime  = 0.01
-                stat.EquipDelay = 0
+                stat.equipTime  = 0.2
+                stat.EquipDelay = 0.1
 
                 if stat.FireRate   ~= nil then stat.FireRate   = 0.3 end
                 if stat.fireRate   ~= nil then stat.fireRate   = 0.3 end
@@ -1558,8 +1560,8 @@ Tabs.GunMod:AddButton({
             pcall(function()
                 if setreadonly then pcall(setreadonly, stat, false) end
 
-                stat.EquipDelay = 0.05
-                stat.equipTime  = 0.1
+                stat.EquipDelay = 0.1
+                stat.equipTime  = 0.2
                 stat.ReloadSpeed = 1.2
                 stat.ReloadAnimationSpeed = 2.4
 

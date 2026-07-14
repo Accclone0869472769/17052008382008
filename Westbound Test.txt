@@ -47,9 +47,6 @@ local S = {
         HeadboxSize      = 15,
         NoJumpCooldownEnabled = false,
         JumpPower        = 55,
-        HorseHackEnabled = false,
-        HorseSprintSpeed = 100,
-        HorseTurnSens    = 0.5,
         DynamiteTargetEnabled = false,
         DynamiteTeamCheck = true,
         DynamiteFriendCheck = false,
@@ -904,23 +901,6 @@ RunService.RenderStepped:Connect(function()
         Lighting.GlobalShadows = false
         Lighting.ClockTime = 12
     end
-    if S.Config.HorseHackEnabled then
-        pcall(function()
-            local horse = LocalPlayer.StateConfig:FindFirstChild("Horse")
-            if horse and horse.Value and horse.Value ~= game.Players.LocalPlayer.Character then
-                local humanoid = horse.Value:FindFirstChild("Humanoid")
-                local hrp = horse.Value:FindFirstChild("HumanoidRootPart")
-                if humanoid and hrp then
-                    local moveDir = humanoid.MoveDirection
-                    if moveDir.Magnitude > 0 then
-                        humanoid.WalkSpeed = S.Config.HorseSprintSpeed
-                        local targetCFrame = CFrame.new(hrp.Position, hrp.Position + moveDir)
-                        hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, S.Config.HorseTurnSens)
-                    end
-                end
-            end
-        end)
-    end
 end)
 
 if _G.VelocityConnection then
@@ -1215,7 +1195,6 @@ local Tabs = {
     GunMod    = Window:AddTab({ Title = "Gun Mod",   Icon = "swords" }),
     ESP       = Window:AddTab({ Title = "ESP",       Icon = "eye" }),
     Player    = Window:AddTab({ Title = "Player",    Icon = "user" }),
-    Horse     = Window:AddTab({ Title = "Horse",     Icon = "wind" }),
     Westbound = Window:AddTab({ Title = "Misc",      Icon = "shield" }),
     Settings  = Window:AddTab({ Title = "Settings",  Icon = "settings" })
 }
@@ -1848,11 +1827,6 @@ Tabs.Player:AddToggle("LoopSpeed", { Title = "Enable Loop Speed", Default = S.Co
 Tabs.Player:AddSlider("WalkSpeed", { Title = "Walk Speed", Default = S.Config.WalkSpeed, Min = 16, Max = 250, Rounding = 0, Callback = function(v) S.Config.WalkSpeed = v SaveConfig() end })
 Tabs.Player:AddToggle("Noclip", { Title = "Noclip", Default = S.Config.NoclipEnabled, Callback = function(v) S.Config.NoclipEnabled = v SaveConfig() end })
 Tabs.Player:AddToggle("AntiFallDame", { Title = "Anti Fall Dame", Default = S.Config.AntiFallDame, Callback = function(v) S.Config.AntiFallDame = v SaveConfig() end })
-
-Tabs.Horse:AddParagraph({ Title = "Horse Config", Content = "" })
-Tabs.Horse:AddToggle("HorseHackToggle", { Title = "Horse Speed", Default = S.Config.HorseHackEnabled, Callback = function(v) S.Config.HorseHackEnabled = v SaveConfig() end })
-Tabs.Horse:AddSlider("HorseSprintSpeed", { Title = "Speed Horse", Default = S.Config.HorseSprintSpeed, Min = 40, Max = 100, Rounding = 0, Callback = function(v) S.Config.HorseSprintSpeed = v SaveConfig() end })
-Tabs.Horse:AddSlider("HorseTurnSens", { Title = "Turn Sensitivity", Default = S.Config.HorseTurnSens, Min = 0.01, Max = 1.00, Rounding = 2, Callback = function(v) S.Config.HorseTurnSens = v SaveConfig() end })
 
 Tabs.Westbound:AddParagraph({ Title = "Rob & Interactions", Content = "" })
 

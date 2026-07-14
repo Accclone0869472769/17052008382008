@@ -51,8 +51,9 @@ local S = {
         HorseSprintSpeed = 100,
         HorseTurnSens    = 0.5,
         DynamiteTargetEnabled = false,
-        DynamiteTeamCheck = true,
+        DynamiteTeamCheck = false,
         DynamiteFriendCheck = false,
+        InstantInteract  = false,
         UITheme = "Amethyst",
         AutoBankEnabled  = false,
         SpawnDelay       = 5
@@ -924,14 +925,6 @@ _G.VelocityConnection = RunService.Heartbeat:Connect(function(dt)
             isMounted = true
         end
 
-        if S.Config.LoopSpeedEnabled and not isMounted then
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum and hrp and hum.Health > 0 and hum.MoveDirection.Magnitude > 0 then
-                hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (S.Config.WalkSpeed * dt))
-            end
-        end
-        
         if S.Config.HorseHackEnabled and isMounted then
             local horseHum = horseState.Value:FindFirstChild("Humanoid")
             local horseHrp = horseState.Value:FindFirstChild("HumanoidRootPart")
@@ -973,6 +966,34 @@ OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
         return
     end
     return OldNamecall(self, ...)
+end)
+
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", function(self, key)
+    if not checkcaller() and type(self) == "userdata" and typeof(self) == "Instance" and key == "WalkSpeed" and self:IsA("Humanoid") then
+        return 16
+    end
+    return oldIndex(self, key)
+end)
+
+local oldNewIndex
+oldNewIndex = hookmetamethod(game, "__newindex", function(self, key, value)
+    if not checkcaller() and type(self) == "userdata" and typeof(self) == "Instance" and key == "WalkSpeed" and self:IsA("Humanoid") then
+        return
+    end
+    return oldNewIndex(self, key, value)
+end)
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if S.Config.LoopSpeedEnabled then
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.WalkSpeed ~= S.Config.WalkSpeed then
+                hum.WalkSpeed = S.Config.WalkSpeed
+            end
+        end
+    end
 end)
 
 task.spawn(function()
@@ -1907,7 +1928,6 @@ Tabs.Westbound:AddToggle("AuraRob", {
 Tabs.Westbound:AddParagraph({ Title = "Misc", Content = "" })
 
 local iiHookedTables = {}
-local iiEnabled = false
 
 local function applyInstantInteractHook()
     for _, val in pairs(getgc(true)) do
@@ -1922,7 +1942,7 @@ local function applyInstantInteractHook()
             end
             local orig = val.__OrigContextHold
             val.ContextHoldFunc = function(self, p2, p3, p4, p5, p6, p7, p8, p9)
-                if not iiEnabled then
+                if not S.Config.InstantInteract then
                     return orig(self, p2, p3, p4, p5, p6, p7, p8, p9)
                 end
                 return orig(self, p2, p3, p4, p5, (not p7) and 0.05 or p6, p7, p8, p9)
@@ -1935,13 +1955,14 @@ end
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(1)
     table.clear(iiHookedTables)
-    if iiEnabled then applyInstantInteractHook() end
+    if S.Config.InstantInteract then applyInstantInteractHook() end
 end)
 
 Tabs.Westbound:AddToggle("InstantInteract", {
-    Title = "Instant Interact", Default = false,
+    Title = "Instant Interact", Default = S.Config.InstantInteract,
     Callback = function(v)
-        iiEnabled = v
+        S.Config.InstantInteract = v
+        SaveConfig()
         if v then applyInstantInteractHook() end
     end
 })

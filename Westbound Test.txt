@@ -47,6 +47,9 @@ local S = {
         HeadboxSize      = 15,
         NoJumpCooldownEnabled = false,
         JumpPower        = 55,
+        HorseHackEnabled = false,
+        HorseSprintSpeed = 100,
+        HorseTurnSens    = 0.5,
         DynamiteTargetEnabled = false,
         DynamiteTeamCheck = true,
         DynamiteFriendCheck = false,
@@ -915,13 +918,30 @@ _G.VelocityConnection = RunService.Heartbeat:Connect(function(dt)
                 if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
             end
         end
-        if S.Config.LoopSpeedEnabled then
+        local isMounted = false
+        local horseState = LocalPlayer.StateConfig:FindFirstChild("Horse")
+        if horseState and horseState.Value and horseState.Value ~= char then
+            isMounted = true
+        end
+
+        if S.Config.LoopSpeedEnabled and not isMounted then
             local hrp = char:FindFirstChild("HumanoidRootPart")
             local hum = char:FindFirstChildOfClass("Humanoid")
             if hum and hrp and hum.Health > 0 and hum.MoveDirection.Magnitude > 0 then
-                local moveDir = hum.MoveDirection
-                hrp.CFrame = hrp.CFrame + (moveDir * (S.Config.WalkSpeed * dt))
-                -- Không set AssemblyLinearVelocity về 0 nữa để game giữ nguyên hoạt ảnh đi bộ
+                hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (S.Config.WalkSpeed * dt))
+            end
+        end
+        
+        if S.Config.HorseHackEnabled and isMounted then
+            local horseHum = horseState.Value:FindFirstChild("Humanoid")
+            local horseHrp = horseState.Value:FindFirstChild("HumanoidRootPart")
+            if horseHum and horseHrp then
+                local moveDir = horseHum.MoveDirection
+                if moveDir.Magnitude > 0 then
+                    horseHum.WalkSpeed = S.Config.HorseSprintSpeed
+                    local targetCFrame = CFrame.new(horseHrp.Position, horseHrp.Position + moveDir)
+                    horseHrp.CFrame = horseHrp.CFrame:Lerp(targetCFrame, S.Config.HorseTurnSens)
+                end
             end
         end
     end
@@ -1195,6 +1215,7 @@ local Tabs = {
     GunMod    = Window:AddTab({ Title = "Gun Mod",   Icon = "swords" }),
     ESP       = Window:AddTab({ Title = "ESP",       Icon = "eye" }),
     Player    = Window:AddTab({ Title = "Player",    Icon = "user" }),
+    Horse     = Window:AddTab({ Title = "Horse",     Icon = "wind" }),
     Westbound = Window:AddTab({ Title = "Misc",      Icon = "shield" }),
     Settings  = Window:AddTab({ Title = "Settings",  Icon = "settings" })
 }
@@ -1827,6 +1848,11 @@ Tabs.Player:AddToggle("LoopSpeed", { Title = "Enable Loop Speed", Default = S.Co
 Tabs.Player:AddSlider("WalkSpeed", { Title = "Walk Speed", Default = S.Config.WalkSpeed, Min = 16, Max = 250, Rounding = 0, Callback = function(v) S.Config.WalkSpeed = v SaveConfig() end })
 Tabs.Player:AddToggle("Noclip", { Title = "Noclip", Default = S.Config.NoclipEnabled, Callback = function(v) S.Config.NoclipEnabled = v SaveConfig() end })
 Tabs.Player:AddToggle("AntiFallDame", { Title = "Anti Fall Dame", Default = S.Config.AntiFallDame, Callback = function(v) S.Config.AntiFallDame = v SaveConfig() end })
+
+Tabs.Horse:AddParagraph({ Title = "Horse Config", Content = "" })
+Tabs.Horse:AddToggle("HorseHackToggle", { Title = "Horse Speed", Default = S.Config.HorseHackEnabled, Callback = function(v) S.Config.HorseHackEnabled = v SaveConfig() end })
+Tabs.Horse:AddSlider("HorseSprintSpeed", { Title = "Speed Horse", Default = S.Config.HorseSprintSpeed, Min = 40, Max = 100, Rounding = 0, Callback = function(v) S.Config.HorseSprintSpeed = v SaveConfig() end })
+Tabs.Horse:AddSlider("HorseTurnSens", { Title = "Turn Sensitivity", Default = S.Config.HorseTurnSens, Min = 0.01, Max = 1.00, Rounding = 2, Callback = function(v) S.Config.HorseTurnSens = v SaveConfig() end })
 
 Tabs.Westbound:AddParagraph({ Title = "Rob & Interactions", Content = "" })
 

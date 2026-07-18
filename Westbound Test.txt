@@ -970,7 +970,7 @@ end)
 
 local oldIndex
 oldIndex = hookmetamethod(game, "__index", function(self, key)
-    if not checkcaller() and type(self) == "userdata" and typeof(self) == "Instance" and key == "WalkSpeed" and self:IsA("Humanoid") then
+    if S.Config.LoopSpeedEnabled and not checkcaller() and type(self) == "userdata" and typeof(self) == "Instance" and key == "WalkSpeed" and self:IsA("Humanoid") then
         return 16
     end
     return oldIndex(self, key)
@@ -978,7 +978,7 @@ end)
 
 local oldNewIndex
 oldNewIndex = hookmetamethod(game, "__newindex", function(self, key, value)
-    if not checkcaller() and type(self) == "userdata" and typeof(self) == "Instance" and key == "WalkSpeed" and self:IsA("Humanoid") then
+    if S.Config.LoopSpeedEnabled and not checkcaller() and type(self) == "userdata" and typeof(self) == "Instance" and key == "WalkSpeed" and self:IsA("Humanoid") then
         return
     end
     return oldNewIndex(self, key, value)
@@ -1865,7 +1865,19 @@ Tabs.Player:AddToggle("FullBright", { Title = "Full Bright", Default = S.Config.
 Tabs.Player:AddParagraph({ Title = "Movement", Content = "" })
 Tabs.Player:AddToggle("NoJumpCooldown", { Title = "No Jump Cooldown", Default = S.Config.NoJumpCooldownEnabled, Callback = function(v) S.Config.NoJumpCooldownEnabled = v SaveConfig() end })
 Tabs.Player:AddSlider("CustomJumpPower", { Title = "Jump Power", Default = S.Config.JumpPower, Min = 50, Max = 200, Rounding = 0, Callback = function(v) S.Config.JumpPower = v SaveConfig() end })
-Tabs.Player:AddToggle("LoopSpeed", { Title = "Enable Loop Speed", Default = S.Config.LoopSpeedEnabled, Callback = function(v) S.Config.LoopSpeedEnabled = v SaveConfig() end })
+Tabs.Player:AddToggle("LoopSpeed", { Title = "Enable Loop Speed", Default = S.Config.LoopSpeedEnabled, Callback = function(v) 
+    S.Config.LoopSpeedEnabled = v 
+    if not v then
+        pcall(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.WalkSpeed = 16
+            end
+        end)
+    end
+    SaveConfig() 
+end })
 Tabs.Player:AddSlider("WalkSpeed", { Title = "Walk Speed", Default = S.Config.WalkSpeed, Min = 16, Max = 250, Rounding = 0, Callback = function(v) S.Config.WalkSpeed = v SaveConfig() end })
 Tabs.Player:AddToggle("Noclip", { Title = "Noclip", Default = S.Config.NoclipEnabled, Callback = function(v) S.Config.NoclipEnabled = v SaveConfig() end })
 Tabs.Player:AddToggle("AntiFallDame", { Title = "Anti Fall Dame", Default = S.Config.AntiFallDame, Callback = function(v) S.Config.AntiFallDame = v SaveConfig() end })

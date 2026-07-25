@@ -2533,6 +2533,7 @@ panel7 = makeScrollPanel()
 panel8 = makeScrollPanel()
 panel9 = makeScrollPanel()
 panel10 = makeScrollPanel()
+
 do
     local _lbl = createTransparentLabel("Hit Box", panel2)
     _lbl.TextColor3 = Color3.fromRGB(255,255,255)
@@ -2546,6 +2547,144 @@ S.btnRefs.autoToggle = autoToggle
 bodyToggle = createTransparentButton("Body Hit Box: OFF", Color3.fromRGB(38, 38, 38), panel2)
 setToggleState(bodyToggle, false)
 S.btnRefs.bodyToggle = bodyToggle
+
+S.npcHitboxToggleBtn = createTransparentButton("Npc Hit Box: OFF", Color3.fromRGB(38, 38, 38), panel2)
+setToggleState(S.npcHitboxToggleBtn, false)
+
+S.autoNPCHitboxEnabled = false
+local bossHitboxNPCs = {}
+local bossOrigSizes = {}
+
+local function isNPC(model)
+    if not model:IsA("Model") then return false end
+    if not model:FindFirstChildOfClass("Humanoid") then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+    return true
+end
+
+local function cleanupBossHitbox(npc)
+    local data = bossHitboxNPCs[npc]
+    if not data then return end
+    if data.connection then data.connection:Disconnect() end
+    local head = data.head
+    if head and head.Parent then
+        head.Size = bossOrigSizes[head] or Vector3.new(2, 1, 1)
+        head.Transparency = 0
+        head.CanCollide = true
+        head.Massless = false
+        head.Material = Enum.Material.Plastic
+        local meshBackup = head:FindFirstChild("__MeshBackup")
+        if meshBackup then
+            local realMesh = meshBackup:FindFirstChildOfClass("SpecialMesh") or meshBackup:FindFirstChildOfClass("BlockMesh")
+            if realMesh then realMesh:Clone().Parent = head end
+            meshBackup:Destroy()
+        end
+        local decalBackup = head:FindFirstChild("__DecalBackup")
+        if decalBackup then
+            local realDecal = decalBackup:FindFirstChildOfClass("Decal")
+            if realDecal then realDecal:Clone().Parent = head end
+            decalBackup:Destroy()
+        end
+    end
+    removeOutlineChams(npc)
+    bossOrigSizes[head] = nil
+    bossHitboxNPCs[npc] = nil
+end
+
+local function applyBossHitbox(npc, size)
+    if bossHitboxNPCs[npc] then return end
+    if not npc or not npc.Parent then return end
+    if not isNPC(npc) then return end
+
+    local hum = npc:FindFirstChildOfClass("Humanoid")
+    local head = npc:FindFirstChild("Head") or npc:FindFirstChild("HumanoidRootPart")
+    if not hum or not head then return end
+    if hum.Health <= 0 then return end
+
+    bossOrigSizes[head] = head.Size
+
+    local _bhThrottle = 0
+    local connection = RunService.Heartbeat:Connect(function(dt)
+        if not S.autoNPCHitboxEnabled or not npc.Parent or hum.Health <= 0 then
+            cleanupBossHitbox(npc)
+            return
+        end
+        _bhThrottle = _bhThrottle + dt
+        if _bhThrottle < 0.1 then return end
+        _bhThrottle = 0
+
+        local meshBackup = head:FindFirstChild("__MeshBackup")
+        if not meshBackup then
+            local existingMesh = head:FindFirstChildOfClass("SpecialMesh") or head:FindFirstChildOfClass("BlockMesh")
+            if existingMesh then
+                local folder = Instance.new("Folder")
+                folder.Name = "__MeshBackup"
+                folder.Parent = head
+                existingMesh:Clone().Parent = folder
+                existingMesh:Destroy()
+            end
+        else
+            local strayMesh = head:FindFirstChildOfClass("SpecialMesh") or head:FindFirstChildOfClass("BlockMesh")
+            if strayMesh then strayMesh:Destroy() end
+        end
+
+        local decalBackup = head:FindFirstChild("__DecalBackup")
+        if not decalBackup then
+            local existingDecal = head:FindFirstChildOfClass("Decal")
+            if existingDecal then
+                local folder = Instance.new("Folder")
+                folder.Name = "__DecalBackup"
+                folder.Parent = head
+                existingDecal:Clone().Parent = folder
+                existingDecal:Destroy()
+            end
+        else
+            local strayDecal = head:FindFirstChildOfClass("Decal")
+            if strayDecal then strayDecal:Destroy() end
+        end
+
+        local wanted = Vector3.new(size, size, size)
+        local needsRefresh = head.Size ~= wanted or head.Transparency ~= 0.5 or head.Material ~= Enum.Material.ForceField
+        if needsRefresh then
+            head.Size = wanted
+            head.Transparency = 0.5
+            head.CanCollide = false
+            head.Massless = true
+            head.Material = Enum.Material.ForceField
+            head.Color = Color3.fromRGB(255, 50, 50)
+        end
+        if not npc:FindFirstChild("StarCrowOutline") then
+            addOutlineChams(npc)
+        end
+    end)
+
+    bossHitboxNPCs[npc] = { head = head, connection = connection }
+end
+
+S.npcHitboxToggleBtn.MouseButton1Click:Connect(function()
+    S.autoNPCHitboxEnabled = not S.autoNPCHitboxEnabled
+    S.npcHitboxToggleBtn.Text = S.autoNPCHitboxEnabled and "Npc Hit Box: ON" or "Npc Hit Box: OFF"
+    setToggleState(S.npcHitboxToggleBtn, S.autoNPCHitboxEnabled)
+    
+    if not S.autoNPCHitboxEnabled then
+        for npc in pairs(bossHitboxNPCs) do
+            cleanupBossHitbox(npc)
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        if S.autoNPCHitboxEnabled then
+            local size = tonumber(S.sizeInput.Text) or 15
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if isNPC(v) then
+                    applyBossHitbox(v, size)
+                end
+            end
+        end
+    end
+end)
 removeAllBtn = createTransparentButton("Remove All Hitboxes", Color3.fromRGB(38, 38, 38), panel2)
 removeAllBtn.BackgroundColor3 = Color3.fromRGB(38,38,38)
 removeAllBtn.BackgroundTransparency = 0.35
